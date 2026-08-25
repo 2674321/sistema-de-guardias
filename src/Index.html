@@ -1631,10 +1631,16 @@ window.onload = () => {
     setTimeout(function(){ splash.style.display = "none"; }, 500);
   };
 
-  _initModo();
-  _initNavegacion();
-  _detectarCorreo();
-  cargarCalendario();
+  try {
+    _initModo();
+    _initNavegacion();
+    _detectarCorreo();
+    cargarCalendario();
+  } catch(eArranque){
+    console.error("[Guardias] arranque:", eArranque);
+    var lbl0 = document.getElementById("splash-label");
+    if(lbl0) lbl0.textContent = "Fallo interno al arrancar: " + (eArranque && eArranque.message ? eArranque.message : eArranque);
+  }
 
   // Auto-refresh inteligente: solo con pestaña visible, sin envíos en curso,
   // sin inputs activos y tras ≥25 s sin interacción del usuario.
@@ -1926,39 +1932,48 @@ function _resolverCalendario(reqId, data){
   window._lastCalDiag = data.diagnostico || {};
   window._ultimoCalendarioOk = { mes: Number(data.mes), año: Number(data.año) };
   try { console.info("[Guardias] calendario OK", JSON.stringify(window._lastCalDiag)); } catch(e){}
-  quitarBannerDegradado();
 
-  document.getElementById("cal-grid").style.opacity = "1";
-  try {
-    estado.ocupacion = (typeof structuredClone === "function")
-      ? structuredClone(data.ocupacion)
-      : JSON.parse(JSON.stringify(data.ocupacion));
-  } catch(e){
-    estado.ocupacion = data.ocupacion;
-  }
-  estado.mes = Number(data.mes);
-  estado.año = Number(data.año);
-
-  // Avisos del servidor (ej: config incompleta)
-  var avisosBox = document.getElementById("avisos-calendario");
-  if(avisosBox) avisosBox.remove();
-  if(Array.isArray(data.avisos) && data.avisos.length){
-    avisosBox = document.createElement("div");
-    avisosBox.id = "avisos-calendario";
-    avisosBox.className = "banner-degradado";
-    avisosBox.innerHTML = "⚠️ " + data.avisos.map(escHtml).join("<br>⚠️ ");
-    var gRef = document.getElementById("cal-grid");
-    if(gRef) gRef.parentNode.insertBefore(avisosBox, gRef);
-  }
-
-  _aplicarConfig({
-    ok: true,
-    cantidadGuardias: (data.configuracion || {}).cantidadGuardias || 4,
-    mostrarAsistencia: !((data.configuracion || {}).mostrarAsistencia === false)
-  });
-
-  renderCalendario();
+  // El contrato ya es válido: el splash sale AQUÍ, antes de renderizar.
+  // Cualquier fallo posterior queda visible en pantalla, nunca como carga infinita.
   ocultarSplashYa();
+
+  try {
+    quitarBannerDegradado();
+    document.getElementById("cal-grid").style.opacity = "1";
+    try {
+      estado.ocupacion = (typeof structuredClone === "function")
+        ? structuredClone(data.ocupacion)
+        : JSON.parse(JSON.stringify(data.ocupacion));
+    } catch(errClon){
+      estado.ocupacion = data.ocupacion;
+    }
+    estado.mes = Number(data.mes);
+    estado.año = Number(data.año);
+
+    // Avisos del servidor (ej: config incompleta)
+    var avisosBox = document.getElementById("avisos-calendario");
+    if(avisosBox) avisosBox.remove();
+    if(Array.isArray(data.avisos) && data.avisos.length){
+      avisosBox = document.createElement("div");
+      avisosBox.id = "avisos-calendario";
+      avisosBox.className = "banner-degradado";
+      avisosBox.innerHTML = "⚠️ " + data.avisos.map(escHtml).join("<br>⚠️ ");
+      var gRef = document.getElementById("cal-grid");
+      if(gRef) gRef.parentNode.insertBefore(avisosBox, gRef);
+    }
+
+    _aplicarConfig({
+      ok: true,
+      cantidadGuardias: (data.configuracion || {}).cantidadGuardias || 4,
+      mostrarAsistencia: !((data.configuracion || {}).mostrarAsistencia === false)
+    });
+
+    renderCalendario();
+  } catch(eRender){
+    console.error("[Guardias] render:", eRender);
+    mostrarErrorCarga("Error al pintar el calendario: " +
+      (eRender && eRender.message ? eRender.message : eRender));
+  }
 }
 
 function _finalizarCalendario(reqId, codigo, mensaje){
@@ -3538,6 +3553,17 @@ function escHtml(t){
 //══════════════════════════════════════
 // SELF-TEST FASE 2 (consola del navegador: __fase2SelfTest())
 //══════════════════════════════════════
+
+// Última línea de defensa: si a los 35 s NO hubo ninguna respuesta,
+// informar "sin conexión". La petición NO se cancela: si llega tarde,
+// los handlers siguen vivos y pintarán el calendario normalmente.
+setTimeout(function(){
+  if(_calReq.estado === "loading" || _calReq.estado === "slow"){
+    console.error("[Guardias] sin respuesta del servidor tras 35s");
+    _finalizarCalendario(_calReq.id, "SIN_RESPUESTA",
+      "El servidor no respondió en 35 s. Si eres el administrador, abre el editor una vez y ejecuta cualquier función aceptando los permisos nuevos.");
+  }
+}, 35000);
 
 window.__fase2SelfTest = function(){
   var r = {};
