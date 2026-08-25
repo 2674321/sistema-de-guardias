@@ -7,19 +7,7 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function onOpen() {
-  var ui = SpreadsheetApp.getUi();
-  ui.createMenu("Guardias CBC")
-    .addItem("Formatear hoja", "formatearHojaGuardias")
-    .addSeparator()
-    .addItem("Diagnóstico migración niveles", "diagnosticoMigracionNiveles")
-    .addItem("Ejecutar migración niveles", "ejecutarMigracionDesdeMenu")
-    .addSeparator()
-    .addItem("Repoblar estadísticas detalladas", "actualizarEstadisticas")
-    .addItem("Preparar etiquetas Config", "inicializarNotasConfig")
-    .addItem("Ejecutar tests FASE 1", "ejecutarTestsFase1")
-    .addToUi();
-}
+// Menú de administración: ver Admin.gs (onOpen → menuAdministrativo)
 
 //══════════════════════════════════════════
 // REGISTRAR GUARDIA
