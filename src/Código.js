@@ -1,4 +1,3 @@
-
 const SHEET_ID = "1pvDXSzGwySOPK9hDIHgGjbb4XMY7wQDk3RTC5QSPsWs";
 const SHEET_NAME = "Guardias";
 var _configCache = null;
