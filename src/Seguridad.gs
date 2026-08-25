@@ -43,15 +43,31 @@ function solicitarCodigoEliminacion(email) {
     cache.put("delcode_" + _hashEmail(email), codigo, CONFIG.codigoEliminacionTtlSeg);
     cache.put(keyReq, "1", 60);
 
-    MailApp.sendEmail({
-      to: email,
-      subject: "Código para eliminar guardias — 1ra Compañía CBC",
-      name: "1ra Compañía CBC — Sistema de Guardias",
-      body: "Tu código para eliminar tus guardias del mes es:\n\n" +
-            codigo + "\n\n" +
-            "Válido por 10 minutos. Si no solicitaste este código, ignora este mensaje.\n\n" +
-            "Sistema de Guardias — 1ra Compañía de Bomberos del CBC"
+    var html = _emailShell({
+      titulo: "Código de seguridad",
+      accent: "#1a56b0",
+      cuerpo: 'Hola <strong>' + (consulta.nombre || "") + '</strong>, recibiste este mensaje porque solicitaste eliminar tus guardias del mes.',
+      contenido: '<div style="text-align:center;margin:22px 0;">' +
+          '<div style="font-size:11px;letter-spacing:2px;color:#9a948c;text-transform:uppercase;">Tu código es</div>' +
+          '<div style="font-size:34px;font-weight:800;letter-spacing:12px;color:#0e0e0e;margin:12px 0;">' + codigo + '</div>' +
+          '<div style="font-family:Arial,sans-serif;font-size:11px;color:#8a857d;">Válido por 10 minutos · Un solo uso</div>' +
+        '</div>' +
+        '<div style="font-size:11px;color:#8a857d;text-align:center;line-height:1.6;">Si no solicitaste este código, ignora este mensaje y tus datos no cambiarán.</div>',
+      pieNota: ""
     });
+
+    try {
+      MailApp.sendEmail({
+        to: email,
+        subject: codigo + " — código para eliminar guardias · Guardias 1ra Compañía Coquimbo",
+        name: "Guardias 1ra Compañía Coquimbo",
+        body: "Tu código es: " + codigo + "\n\nVálido por 10 minutos.",
+        htmlBody: html
+      });
+    } catch (errMail) {
+      Logger.log("envío código: " + errMail);
+      return { ok: false, error: "No pudimos enviarte el correo con el código. Intenta en unos minutos." };
+    }
 
     return { ok: true, mensaje: "Te enviamos un código a tu correo. Válido por 10 minutos." };
   } catch (e) {

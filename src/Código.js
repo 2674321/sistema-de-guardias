@@ -26,6 +26,7 @@ function registrarGuardia(datos) {
 
     var nombre = datos.nombre;
     var email = datos.email;
+    var silencioso = !!(datos && datos.silencioso); // multi-cargo: 1 correo consolidado al final
     var cargo = datos.cargo;
     var nivel = normalizarNivel(datos.condicion);
     if (nivel === null) {
@@ -195,11 +196,13 @@ function registrarGuardia(datos) {
     }
 
     // ENVIAR EMAIL (best-effort) — solo si es email real
-    try {
-      if (email.indexOf("@guardias.local") === -1) {
-        enviarConfirmacion(nombre, email, cargo, fechas);
-      }
-    } catch (e) { Logger.log("Email confirmación: " + e); }
+    if (!silencioso) {
+      try {
+        if (email.indexOf("@guardias.local") === -1) {
+          enviarConfirmacion(nombre, email, cargo, fechas);
+        }
+      } catch (e) { Logger.log("Email confirmación: " + e); }
+    }
 
     generarEstadisticasBasicas();
 
@@ -1015,229 +1018,158 @@ function healthCheck() {
 }
 
 //══════════════════════════════════════════
-// CORREO DE CONFIRMACIÓN
+// CORREOS — plantilla moderna unificada (cal-1 / v1.0.0)
+// Registro (consolidado multi-cargo) · Baja · Código de seguridad
 //══════════════════════════════════════════
 
-var LOGO_URL = "https://drive.google.com/thumbnail?id=1KGkEIbJWCCy8qYYWf-bjmTE7PC5UznAI&sz=w200";
+var EMAIL_LOGO = LOGO_URL;
 
-function formatearCargo(cargo){
-  var roles = [];
-  if (cargo.indexOf("voluntario") !== -1) roles.push("Voluntario");
-  if (cargo.indexOf("maquinista") !== -1) roles.push("Maquinista");
-  return roles.join(" + ");
+function _fechaLarga(fechaStr){
+  var fp = fechaPartesDe(fechaStr);
+  if(!fp) return String(fechaStr);
+  var DC = ["DOM","LUN","MAR","MIÉ","JUE","VIE","SÁB"];
+  var MC = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  var d = new Date(fp.y, fp.m - 1, fp.d);
+  return DC[d.getDay()] + " " + fp.d + " " + MC[fp.m - 1] + " " + fp.y;
 }
 
-function enviarConfirmacion(nombre, email, cargo, fechas) {
-  var labelCargo = formatearCargo(cargo);
-  var esMaq = cargo.indexOf("maquinista") !== -1;
-  var accentColor = esMaq ? "#1a3a9b" : "#9b1a1a";
-  var bgColor = esMaq ? "#e8edf5" : "#f5e8e8";
+function _cargoChip(cargo){
+  cargo = String(cargo || "");
+  var esM = cargo.indexOf("maquinista") !== -1;
+  var esV = cargo.indexOf("voluntario") !== -1;
+  var label = esM && esV ? "Voluntario + Maquinista" : esM ? "Maquinista" : "Voluntario";
+  var color = esM ? "#1a3a9b" : "#9b1a1a";
+  var bg = esM ? "#e8edf5" : "#f7e8e8";
+  return '<span style="display:inline-block;padding:6px 14px;border-radius:999px;background:' + bg +
+         ';color:' + color + ';font-weight:700;font-size:11px;letter-spacing:1px;text-transform:uppercase;">' + label + '</span>';
+}
 
-  var fechasHtml = fechas.map(function(f, i) {
-    var fecha = new Date(f + "T12:00:00");
-    var fechaFormateada = Utilities.formatDate(fecha, Session.getScriptTimeZone(), "EEEE d 'de' MMMM 'de' yyyy");
-    fechaFormateada = fechaFormateada.charAt(0).toUpperCase() + fechaFormateada.slice(1);
-    return '<tr>' +
-      '<td style="padding:12px 0;border-bottom:1px solid #eeebe6;font-family:Georgia,serif;font-size:13px;color:#6b6b6b;letter-spacing:0.5px;">GUARDIA ' + String(i + 1).padStart(2, "0") + '</td>' +
-      '<td style="padding:12px 0;border-bottom:1px solid #eeebe6;font-family:Georgia,serif;font-size:14px;color:#0e0e0e;text-align:right;font-weight:bold;">' + fechaFormateada + '</td>' +
+function _filasFechas(fechas){
+  var filas = "";
+  (fechas || []).forEach(function(f, i){
+    filas += '<tr>' +
+      '<td style="padding:10px 0;border-bottom:1px solid #eeebe6;font-family:Arial,sans-serif;font-size:10px;color:#9a948c;letter-spacing:1px;">GUARDIA ' + String(i + 1).padStart(2, "0") + '</td>' +
+      '<td style="padding:10px 0;border-bottom:1px solid #eeebe6;text-align:right;font-family:Arial,sans-serif;font-size:13px;color:#111;font-weight:bold;">' + _fechaLarga(f) + '</td>' +
     '</tr>';
-  }).join("");
-
-  var htmlBody =
-    '<!DOCTYPE html>' +
-    '<html lang="es"><head><meta charset="UTF-8"></head>' +
-    '<body style="margin:0;padding:0;background:#f7f5f2;font-family:Georgia,\'Times New Roman\',serif;">' +
-    '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f5f2;padding:40px 16px;">' +
-    '<tr><td align="center">' +
-    '<table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">' +
-
-    // ═══ HEADER CON LOGO ═══
-    '<tr><td style="background:#0e0e0e;padding:0;border-radius:8px 8px 0 0;">' +
-      '<table width="100%" cellpadding="0" cellspacing="0">' +
-        '<tr>' +
-          '<td style="padding:24px 28px;width:56px;vertical-align:middle;">' +
-            '<img src="' + LOGO_URL + '" alt="" width="48" height="48" style="display:block;width:48px;height:48px;border-radius:50%;border:2px solid ' + accentColor + ';object-fit:cover;">' +
-          '</td>' +
-          '<td style="padding:24px 0 24px 4px;vertical-align:middle;">' +
-            '<p style="margin:0 0 2px;font-family:\'Courier New\',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:' + accentColor + ';">1ra Compañía CBC</p>' +
-            '<p style="margin:0;font-family:Georgia,serif;font-size:22px;color:#ffffff;letter-spacing:-0.3px;">Registro de Guardias</p>' +
-          '</td>' +
-          '<td style="padding:24px 28px;text-align:right;vertical-align:middle;">' +
-            '<p style="margin:0;font-family:\'Courier New\',monospace;font-size:10px;color:rgba(255,255,255,0.25);letter-spacing:1px;line-height:1.8;">CONFIRMACIÓN<br>DE INSCRIPCIÓN</p>' +
-          '</td>' +
-        '</tr>' +
-        '<tr><td colspan="3" style="height:3px;background:' + accentColor + ';"></td></tr>' +
-      '</table>' +
-    '</td></tr>' +
-
-    // ═══ CUERPO ═══
-    '<tr><td style="background:#ffffff;border:1px solid #dedad4;border-top:none;border-radius:0 0 8px 8px;">' +
-      '<table width="100%" cellpadding="0" cellspacing="0">' +
-
-        // SALUDO
-        '<tr><td style="padding:32px 32px 0;">' +
-          '<p style="margin:0 0 8px;font-family:\'Courier New\',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#b0b0b0;">Para</p>' +
-          '<p style="margin:0;font-family:Georgia,serif;font-size:22px;color:#0e0e0e;font-weight:bold;">' + nombre + '</p>' +
-        '</td></tr>' +
-
-        // MENSAJE
-        '<tr><td style="padding:18px 32px 0;">' +
-          '<p style="margin:0;font-family:Georgia,serif;font-size:14px;color:#6b6b6b;line-height:1.7;">Tus guardias del mes fueron registradas correctamente en el sistema de la <strong>1ra Compañía de Bomberos del CBC</strong>.</p>' +
-        '</td></tr>' +
-
-        // CARGO
-        '<tr><td style="padding:26px 32px 0;">' +
-          '<table width="100%" cellpadding="0" cellspacing="0"><tr>' +
-            '<td style="font-family:\'Courier New\',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#b0b0b0;padding-right:14px;white-space:nowrap;">Cargo</td>' +
-            '<td style="border-top:1px solid #eeebe6;"></td>' +
-          '</tr></table>' +
-        '</td></tr>' +
-        '<tr><td style="padding:14px 32px 0;">' +
-          '<span style="display:inline-block;font-family:\'Courier New\',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:' + accentColor + ';background:' + bgColor + ';padding:7px 16px;border-left:3px solid ' + accentColor + ';border-radius:3px;">' + labelCargo.toUpperCase() + '</span>' +
-        '</td></tr>' +
-
-        // FECHAS
-        '<tr><td style="padding:26px 32px 0;">' +
-          '<table width="100%" cellpadding="0" cellspacing="0"><tr>' +
-            '<td style="font-family:\'Courier New\',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#b0b0b0;padding-right:14px;white-space:nowrap;">Fechas asignadas</td>' +
-            '<td style="border-top:1px solid #eeebe6;"></td>' +
-          '</tr></table>' +
-        '</td></tr>' +
-        '<tr><td style="padding:6px 32px 0;">' +
-          '<table width="100%" cellpadding="0" cellspacing="0">' + fechasHtml + '</table>' +
-        '</td></tr>' +
-
-        // FOOTER DEL MENSAJE
-        '<tr><td style="padding:28px 32px 32px;">' +
-          '<p style="margin:0;font-family:Georgia,serif;font-size:12px;color:#b0b0b0;line-height:1.7;border-top:1px solid #eeebe6;padding-top:20px;">Si detectás algún error en los datos, comunicate con el Ayudante u Oficial a Cargo. Este mensaje es generado automáticamente, por favor no respondas a este correo.</p>' +
-        '</td></tr>' +
-      '</table>' +
-    '</td></tr>' +
-
-    // ═══ PIE ═══
-    '<tr><td style="padding:24px 0 0;text-align:center;">' +
-      '<p style="margin:0 0 6px;font-family:\'Courier New\',monospace;font-size:9px;color:#b0b0b0;letter-spacing:2px;text-transform:uppercase;">Sistema de Guardias &mdash; 1ra Compañía de Bomberos del CBC</p>' +
-      '<p style="margin:0;font-family:\'Courier New\',monospace;font-size:9px;color:#ccc;letter-spacing:1px;"><a href="mailto:ayudantec1@bomberosdecoquimbo.cl" style="color:#9b1a1a;text-decoration:none;">ayudantec1@bomberosdecoquimbo.cl</a></p>' +
-    '</td></tr>' +
-    '</table></td></tr></table></body></html>';
-
-  var textBody =
-    "1RA COMPANIA CBC — CONFIRMACION DE GUARDIAS\n" +
-    "============================================\n\n" +
-    "Para: " + nombre + "\n" +
-    "Cargo: " + labelCargo + "\n\n" +
-    "FECHAS ASIGNADAS\n" +
-    "----------------\n" +
-    fechas.map(function(f, i) { return "Guardia " + String(i + 1).padStart(2, "0") + ": " + f; }).join("\n") + "\n\n" +
-    "Si detectas algun error, comunicate con el Ayudante u Oficial a Cargo.\n\n" +
-    "Sistema de Guardias — 1ra Compania de Bomberos del CBC\n" +
-    "ayudantec1@bomberosdecoquimbo.cl";
-
-  MailApp.sendEmail({
-    to: email,
-    subject: "Guardias registradas — 1ra Compañía CBC",
-    name: "1ra Compañía CBC — Sistema de Guardias",
-    body: textBody,
-    htmlBody: htmlBody
   });
+  return '<table width="100%" cellpadding="0" cellspacing="0">' + filas + '</table>';
 }
 
-//══════════════════════════════════════════
-// CONFIRMACIÓN DE ELIMINACIÓN
-//══════════════════════════════════════════
-
-function enviarConfirmacionEliminacion(nombre, email, cargo, fechasEliminadas) {
-  var labelCargo = formatearCargo(cargo);
-
-  var fechasHtml = fechasEliminadas.map(function(f, i) {
-    return '<tr>' +
-      '<td style="padding:10px 0;border-bottom:1px solid #eeebe6;font-family:Georgia,serif;font-size:13px;color:#6b6b6b;letter-spacing:0.5px;">GUARDIA ' + String(i + 1).padStart(2, "0") + '</td>' +
-      '<td style="padding:10px 0;border-bottom:1px solid #eeebe6;font-family:Georgia,serif;font-size:14px;color:#9b5a1a;text-align:right;font-weight:bold;">' + f + '</td>' +
-    '</tr>';
-  }).join("");
-
-  var htmlBody =
-    '<!DOCTYPE html>' +
-    '<html lang="es"><head><meta charset="UTF-8"></head>' +
-    '<body style="margin:0;padding:0;background:#f7f5f2;font-family:Georgia,\'Times New Roman\',serif;">' +
-    '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f5f2;padding:40px 16px;">' +
-    '<tr><td align="center">' +
-    '<table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">' +
-
-    // HEADER
-    '<tr><td style="background:#0e0e0e;padding:0;border-radius:8px 8px 0 0;">' +
-      '<table width="100%" cellpadding="0" cellspacing="0">' +
-        '<tr>' +
-          '<td style="padding:24px 28px;width:56px;vertical-align:middle;">' +
-            '<img src="' + LOGO_URL + '" alt="" width="48" height="48" style="display:block;width:48px;height:48px;border-radius:50%;border:2px solid #9b5a1a;object-fit:cover;">' +
-          '</td>' +
-          '<td style="padding:24px 0 24px 4px;vertical-align:middle;">' +
-            '<p style="margin:0 0 2px;font-family:\'Courier New\',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#9b5a1a;">1ra Compañía CBC</p>' +
-            '<p style="margin:0;font-family:Georgia,serif;font-size:22px;color:#ffffff;letter-spacing:-0.3px;">Baja de Guardias</p>' +
-          '</td>' +
-          '<td style="padding:24px 28px;text-align:right;vertical-align:middle;">' +
-            '<p style="margin:0;font-family:\'Courier New\',monospace;font-size:10px;color:rgba(255,255,255,0.25);letter-spacing:1px;line-height:1.8;">GUARDIAS<br>ELIMINADAS</p>' +
-          '</td>' +
-        '</tr>' +
-        '<tr><td colspan="3" style="height:3px;background:#9b5a1a;"></td></tr>' +
-      '</table>' +
-    '</td></tr>' +
-
-    // CUERPO
-    '<tr><td style="background:#ffffff;border:1px solid #dedad4;border-top:none;border-radius:0 0 8px 8px;">' +
-      '<table width="100%" cellpadding="0" cellspacing="0">' +
-        '<tr><td style="padding:32px 32px 0;">' +
-          '<p style="margin:0 0 8px;font-family:\'Courier New\',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#b0b0b0;">Para</p>' +
-          '<p style="margin:0;font-family:Georgia,serif;font-size:22px;color:#0e0e0e;font-weight:bold;">' + nombre + '</p>' +
-        '</td></tr>' +
-        '<tr><td style="padding:18px 32px 0;">' +
-          '<p style="margin:0;font-family:Georgia,serif;font-size:14px;color:#6b6b6b;line-height:1.7;">Tus guardias del mes fueron <strong style="color:#9b5a1a;">eliminadas</strong> del sistema. Los cupos quedaron disponibles para otros bomberos.</p>' +
-        '</td></tr>' +
-        '<tr><td style="padding:14px 32px 0;">' +
-          '<span style="display:inline-block;font-family:\'Courier New\',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9b5a1a;background:#f5ede8;padding:7px 16px;border-left:3px solid #9b5a1a;border-radius:3px;">' + labelCargo.toUpperCase() + '</span>' +
-        '</td></tr>' +
-        '<tr><td style="padding:26px 32px 0;">' +
-          '<table width="100%" cellpadding="0" cellspacing="0"><tr>' +
-            '<td style="font-family:\'Courier New\',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#b0b0b0;padding-right:14px;white-space:nowrap;">Guardias eliminadas</td>' +
-            '<td style="border-top:1px solid #eeebe6;"></td>' +
-          '</tr></table>' +
-        '</td></tr>' +
-        '<tr><td style="padding:6px 32px 0;">' +
-          '<table width="100%" cellpadding="0" cellspacing="0">' + fechasHtml + '</table>' +
-        '</td></tr>' +
-        '<tr><td style="padding:28px 32px 32px;">' +
-          '<p style="margin:0;font-family:Georgia,serif;font-size:12px;color:#b0b0b0;line-height:1.7;border-top:1px solid #eeebe6;padding-top:20px;">Si no realizaste esta operación, comunicate con el Ayudante u Oficial a Cargo. Para volver a inscribirte ingresa nuevamente al sistema.</p>' +
-        '</td></tr>' +
-      '</table>' +
-    '</td></tr>' +
-
-    '<tr><td style="padding:24px 0 0;text-align:center;">' +
-      '<p style="margin:0 0 6px;font-family:\'Courier New\',monospace;font-size:9px;color:#b0b0b0;letter-spacing:2px;text-transform:uppercase;">Sistema de Guardias &mdash; 1ra Compañía de Bomberos del CBC</p>' +
-      '<p style="margin:0;font-family:\'Courier New\',monospace;font-size:9px;color:#ccc;letter-spacing:1px;"><a href="mailto:ayudantec1@bomberosdecoquimbo.cl" style="color:#9b1a1a;text-decoration:none;">ayudantec1@bomberosdecoquimbo.cl</a></p>' +
-    '</td></tr>' +
-    '</table></td></tr></table></body></html>';
-
-  var textBody =
-    "1RA COMPANIA CBC — BAJA DE GUARDIAS\n" +
-    "====================================\n\n" +
-    "Para: " + nombre + "\n" +
-    "Cargo: " + labelCargo + "\n\n" +
-    "GUARDIAS ELIMINADAS\n" +
-    "-------------------\n" +
-    fechasEliminadas.map(function(f, i) { return "Guardia " + String(i + 1).padStart(2, "0") + ": " + f; }).join("\n") + "\n\n" +
-    "Si no realizaste esta operacion, comunicate con el Ayudante u Oficial a Cargo.\n\n" +
-    "Sistema de Guardias — 1ra Compania de Bomberos del CBC\n" +
-    "ayudantec1@bomberosdecoquimbo.cl";
-
-  MailApp.sendEmail({
-    to: email,
-    subject: "Guardias eliminadas — 1ra Compañía CBC",
-    name: "1ra Compañía CBC — Sistema de Guardias",
-    body: textBody,
-    htmlBody: htmlBody
-  });
+function _emailShell(o){
+  return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head>' +
+  '<body style="margin:0;padding:0;background:#f2efe9;font-family:\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;">' +
+  '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f2efe9;padding:36px 12px;"><tr><td align="center">' +
+  '<table width="560" style="max-width:560px;width:100%;background:#ffffff;border-radius:14px;border:1px solid #e7e1d8;overflow:hidden;">' +
+  '<tr><td style="background:#0e0e0e;padding:22px 26px;">' +
+    '<table width="100%" cellpadding="0" cellspacing="0"><tr>' +
+    '<td style="width:46px;"><img src="' + EMAIL_LOGO + '" width="42" height="42" style="border-radius:50%;border:2px solid ' + o.accent + ';display:block;" alt=""></td>' +
+    '<td style="padding-left:12px;">' +
+      '<div style="color:' + o.accent + ';font-size:10px;letter-spacing:2px;text-transform:uppercase;">1ra Compañía · Coquimbo</div>' +
+      '<div style="color:#ffffff;font-size:20px;font-weight:bold;margin-top:2px;">' + o.titulo + '</div>' +
+    '</td>' +
+    '<td align="right" style="color:rgba(255,255,255,.35);font-size:9px;letter-spacing:2px;line-height:1.7;">SISTEMA<br>DE GUARDIAS</td>' +
+    '</tr></table>' +
+    '<div style="height:3px;background:' + o.accent + ';margin-top:16px;border-radius:2px;"></div>' +
+  '</td></tr>' +
+  '<tr><td style="padding:24px 30px 6px;color:#141414;font-size:15px;line-height:1.65;">' + o.cuerpo + '</td></tr>' +
+  '<tr><td style="padding:4px 30px 26px;">' + (o.contenido || "") + '</td></tr>' +
+  '<tr><td style="padding:16px 30px 24px;border-top:1px solid #efeadf;color:#a09a90;font-size:11px;line-height:1.7;">' +
+    (o.pieNota ? o.pieNota + "<br>" : "") +
+    'Contacto: <a href="mailto:ayudantec1@bomberosdecoquimbo.cl" style="color:#9b1a1a;text-decoration:none;">ayudantec1@bomberosdecoquimbo.cl</a>' +
+    ' · Mensaje automático, por favor no responder.' +
+  '</td></tr>' +
+  '</table>' +
+  '<div style="text-align:center;color:#b7b0a6;font-size:10px;letter-spacing:1.5px;padding-top:14px;">GUARDIAS · 1RA COMPAÑÍA COQUIMBO</div>' +
+  '</td></tr></table></body></html>';
 }
 
+// Resumen CONSOLIDADO: un solo correo aunque la inscripción tenga varios cargos
+function enviarCorreoRegistro(p){
+  try {
+    p = p || {};
+    var grupos = p.grupos || [];
+    var total = grupos.reduce(function(a, g){ return a + (g.fechas || []).length; }, 0);
+    var chips = grupos.map(function(g){ return _cargoChip(g.cargo); }).join("&nbsp;&nbsp;");
+    var secciones = grupos.map(function(g){
+      return '<div style="margin:16px 0 4px;">' + _cargoChip(g.cargo) + '</div>' + _filasFechas(g.fechas);
+    }).join("");
+
+    var nivelChip = "";
+    if (p.condicion === "operativo" || p.condicion === "profesional"){
+      var nv = p.condicion === "operativo" ? "OPERATIVO" : "PROFESIONAL";
+      var col = p.condicion === "operativo" ? "#1a6b3a" : "#6b2fa0";
+      nivelChip = '<div style="margin-top:16px;"><span style="display:inline-block;padding:6px 14px;border-radius:999px;border:1.5px solid ' + col +
+        ';color:' + col + ';font-size:11px;letter-spacing:1px;font-weight:700;">NIVEL: ' + nv + '</span></div>';
+    }
+
+    var html = _emailShell({
+      titulo: "Guardias registradas",
+      accent: "#9b1a1a",
+      cuerpo: 'Hola <strong>' + p.nombre + '</strong><br>Tus <strong>' + total + '</strong> guardia(s) quedaron registradas correctamente.',
+      contenido: '<div style="margin-bottom:12px;">' + chips + '</div>' +
+                 '<div style="font-size:10px;letter-spacing:1px;color:#9a948c;margin:8px 0 2px;">FECHAS</div>' + secciones +
+                 nivelChip,
+      pieNota: "Si detectás algún error, comunicate con el Ayudante u Oficial a Cargo."
+    });
+
+    var texto = "Tus guardias fueron registradas. " +
+      grupos.map(function(g){ return g.cargo + ": " + g.fechas.join(", "); }).join(" | ");
+
+    MailApp.sendEmail({
+      to: p.email,
+      subject: "Guardias registradas — Guardias 1ra Compañía Coquimbo",
+      name: "Guardias 1ra Compañía Coquimbo",
+      body: texto,
+      htmlBody: html
+    });
+    _logServicio("enviarCorreoRegistro", "", 0, "info", "total=" + total);
+    return { ok: true };
+  } catch (e) {
+    Logger.log("enviarCorreoRegistro: " + e);
+    return { ok: false, error: e.message };
+  }
+}
+
+// Compatibilidad con llamadas antiguas de un solo cargo
+function enviarConfirmacion(nombre, email, cargo, fechas){
+  return enviarCorreoRegistro({ nombre: nombre, email: email, grupos: [{ cargo: cargo, fechas: fechas }] });
+}
+
+// ── BAJA DE GUARDIAS ──
+function enviarConfirmacionEliminacion(nombre, email, cargo, fechasEliminadas){
+  try {
+    var filas = (fechasEliminadas || []).map(function(f, i){
+      return '<tr>' +
+        '<td style="padding:10px 0;border-bottom:1px solid #eeebe6;font-family:Arial,sans-serif;font-size:10px;color:#9a948c;letter-spacing:1px;">GUARDIA ' + String(i + 1).padStart(2, "0") + '</td>' +
+        '<td style="padding:10px 0;border-bottom:1px solid #eeebe6;text-align:right;font-family:Arial,sans-serif;font-size:13px;color:#111;font-weight:bold;">' + f + '</td>' +
+      '</tr>';
+    }).join("");
+
+    var html = _emailShell({
+      titulo: "Baja de guardias",
+      accent: "#b45309",
+      cuerpo: 'Hola <strong>' + nombre + '</strong><br>Tus guardias fueron <strong style="color:#b45309;">eliminadas</strong>. Los cupos quedaron disponibles para otros bomberos.',
+      contenido: '<div style="font-size:10px;letter-spacing:1px;color:#9a948c;margin:8px 0 2px;">ELIMINADAS</div>' +
+                 '<table width="100%" cellpadding="0" cellspacing="0">' + filas + '</table>' +
+                 '<div style="margin-top:18px;">' + _cargoChip(cargo) + '</div>',
+      pieNota: "Si no realizaste esta operación, comunicate de inmediato con el Ayudante u Oficial a Cargo."
+    });
+
+    var texto = "Se eliminaron tus guardias: " + (fechasEliminadas || []).join(", ");
+
+    MailApp.sendEmail({
+      to: email,
+      subject: "Baja de guardias — Guardias 1ra Compañía Coquimbo",
+      name: "Guardias 1ra Compañía Coquimbo",
+      body: texto,
+      htmlBody: html
+    });
+    return { ok: true };
+  } catch (e) {
+    Logger.log("enviarConfirmacionEliminacion: " + e);
+    return { ok: false };
+  }
+}
 //══════════════════════════════════════════
 // RECORDATORIO AUTOMÁTICO (ejecutar con trigger diario)
 //══════════════════════════════════════════

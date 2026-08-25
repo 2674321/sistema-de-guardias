@@ -2953,6 +2953,11 @@ function enviar(){
         window._timeoutExito = setTimeout(function(){
           document.getElementById("exito").style.display = "none";
         }, 4000);
+        // UN solo correo resumen con todos los cargos seleccionados
+        google.script.run
+          .withSuccessHandler(function(){})
+          .withFailureHandler(function(e){ console.warn("[Guardias] correo resumen:", e); })
+          .enviarCorreoRegistro({ nombre: nombre, email: email, condicion: condicion, grupos: gruposArr });
         limpiarFormulario();
         cargarCalendario();
       }
@@ -2962,6 +2967,7 @@ function enviar(){
     var datos = {
       nombre: nombre,
       email: email,
+      silencioso: true, // el resumen se envía una sola vez al finalizar
       cargo: g.cargo,
       condicion: condicion,
       fecha1: g.fechas[0] || "",
