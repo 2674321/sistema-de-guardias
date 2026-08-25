@@ -1264,13 +1264,14 @@
 
       <div class="dias-row">
         <span class="field-label">Cantidad de días</span>
-        <select id="num-dias" class="dias-select" onchange="seleccionarNumDias(parseInt(this.value))">
+        <select id="num-dias" class="dias-select" onchange="seleccionarNumDias(parseInt(this.value))" aria-label="Cuántas guardias quieres seleccionar">
           <option value="1">1</option>
           <option value="2">2</option>
           <option value="3">3</option>
           <option value="4" selected>4</option>
         </select>
       </div>
+      <span class="field-hint manual" id="dias-hint">Elige cuántas guardias quieres hacer — tú decides cuántas</span>
 
       <div class="date-row" id="date-row-1">
         <div class="date-cell">
@@ -1588,6 +1589,8 @@ window.onload = () => {
         var valor = Math.min(cfg.cantidadGuardias, 4);
         sel.value = String(valor);
         seleccionarNumDias(valor);
+        var dh = document.getElementById("dias-hint");
+        if(dh) dh.textContent = "Elige cuántas guardias quieres hacer (1 a " + valor + ") — tú decides";
       }
 
       // Panel Asistencia: B9=1 visible · B9=0 desaparece por completo (contenido y navegación)

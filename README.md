@@ -41,7 +41,7 @@ El **normalizador único** (`normalizarNivel` en Reglas.gs) acepta históricos: 
 | B7 | Fecha límite de inscripción | sin límite |
 | B8 | Semanas habilitadas, ej: `0,2` | `[0,2]` |
 | B9 | Mostrar Panel de Asistencia: `0`=ocultar | visible |
-| B10 | **Cantidad de guardias por inscripción: `2`, `3` o `4`** | 4 |
+| B10 | **Cantidad MÁXIMA de guardias por inscripción: `2`, `3` o `4`** (el voluntario elige libremente cuántas hacer, desde 1) | 4 |
 
 ## Seguridad
 

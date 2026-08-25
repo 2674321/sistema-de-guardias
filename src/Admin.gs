@@ -153,63 +153,75 @@ function instalarSistema() {
     return { ok: false, error: "El sistema está ocupado. Espera unos segundos." };
   }
 
-  var lineas = [];
+  var exito = [], fallos = [], fmtDetalle = [];
+
+  function paso(nombre, fn) {
+    try {
+      var extra = fn();
+      exito.push("✓ " + nombre + (extra ? " — " + extra : ""));
+    } catch (e) {
+      Logger.log("instalarSistema/" + nombre + ": " + (e && e.stack ? e.stack : e));
+      fallos.push("⚠️ " + nombre + ": " + (e && e.message ? e.message : e));
+    }
+  }
+
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
 
-    // 1. Menú
-    try {
+    paso("Menú 🚒 GUARDIAS CBC asegurado", function() {
       _autoInstalarTriggerMenu();
-      lineas.push("✓ Menú 🚒 GUARDIAS CBC asegurado");
-    } catch (e) {
-      lineas.push("• Menú: pendiente de autorización (ejecuta instalarTriggerMenuAdmin una vez)");
-    }
+    });
 
-    // 2. Estructura base
-    var creados = [];
-    function asegurar(nombre, cabeceras) {
-      var sh = ss.getSheetByName(nombre);
-      if (!sh) { sh = ss.insertSheet(nombre); creados.push(nombre); }
-      if (cabeceras && sh.getLastRow() === 0) sh.getRange(1, 1, 1, cabeceras.length).setValues([cabeceras]);
-    }
-    asegurar("Guardias", ["Timestamp", "Nombre", "Email", "Cargo", "Guardia 01", "Guardia 02", "Guardia 03", "Guardia 04", "Nivel"]);
-    asegurar("Config");
-    asegurar("Asistencia", ["Email", "Nombre", "Cargo", "G1_Estado", "G1_ReempNombre", "G1_ReempEmail", "G2_Estado", "G2_ReempNombre", "G2_ReempEmail", "G3_Estado", "G3_ReempNombre", "G3_ReempEmail", "G4_Estado", "G4_ReempNombre", "G4_ReempEmail", "UltimaActualizacion"]);
-    HOJAS_ESTADISTICAS.forEach(function(n) { asegurar(n, n === "Estadisticas" ? ["Métrica", "Valor"] : null); });
-    lineas.push(creados.length ? "✓ Hojas creadas: " + creados.join(", ") : "✓ Estructura de hojas verificada");
+    paso("Estructura de hojas", function() {
+      var creados = [];
+      function asegurar(nombre, cabeceras) {
+        var sh = ss.getSheetByName(nombre);
+        if (!sh) { sh = ss.insertSheet(nombre); creados.push(nombre); }
+        if (cabeceras && sh.getLastRow() === 0) sh.getRange(1, 1, 1, cabeceras.length).setValues([cabeceras]);
+      }
+      asegurar("Guardias", ["Timestamp", "Nombre", "Email", "Cargo", "Guardia 01", "Guardia 02", "Guardia 03", "Guardia 04", "Nivel"]);
+      asegurar("Config");
+      asegurar("Asistencia", ["Email", "Nombre", "Cargo", "G1_Estado", "G1_ReempNombre", "G1_ReempEmail", "G2_Estado", "G2_ReempNombre", "G2_ReempEmail", "G3_Estado", "G3_ReempNombre", "G3_ReempEmail", "G4_Estado", "G4_ReempNombre", "G4_ReempEmail", "UltimaActualizacion"]);
+      HOJAS_ESTADISTICAS.forEach(function(n) { asegurar(n, n === "Estadisticas" ? ["Métrica", "Valor"] : null); });
+      return creados.length ? "creadas " + creados.join(", ") : null;
+    });
 
-    // 3. Config por secciones (migra valores legados B* → C*)
-    prepararConfiguracionSilencioso(ss);
-    lineas.push("✓ Config: secciones, valores y validaciones al día");
+    paso("Config por secciones + validaciones", function() {
+      prepararConfiguracionSilencioso(ss);
+    });
 
-    // 4. Estadísticas regeneradas (antes del formato, para estilizar lo nuevo)
-    generarEstadisticasBasicas();
-    actualizarEstadisticas();
-    lineas.push("✓ Estadísticas regeneradas desde Guardias");
+    paso("Estadísticas regeneradas", function() {
+      generarEstadisticasBasicas();
+      actualizarEstadisticas();
+    });
 
-    // 5. Formato completo de todas las hojas por tipo
-    var fmt = aplicarFormatoCompletoCore({ silencioso: true });
-    fmt.forEach(function(l) { lineas.push(l); });
+    paso("Formato completo de todas las hojas", function() {
+      fmtDetalle = aplicarFormatoCompletoCore({ silencioso: true });
+    });
 
     invalidarCacheConfig();
 
-    lineas.push("");
-    lineas.push("Sistema listo. Esta acción es idempotente:");
-    lineas.push("puedes repetirla cuando quieras sin duplicar nada.");
   } catch (e) {
-    Logger.log("instalarSistema: " + e);
-    lineas.push("");
-    lineas.push("⚠️ Se detuvo con error: " + e.message);
+    fallos.push("⚠️ Error general: " + (e && e.message ? e.message : e));
+    Logger.log("instalarSistema/general: " + (e && e.stack ? e.stack : e));
   } finally {
     try { lock.releaseLock(); } catch (e) {}
   }
 
-  var texto = lineas.join("\n");
+  var texto = "🚒 INSTALAR / ACTUALIZAR SISTEMA\n\n" +
+    exito.concat(fmtDetalle).join("\n") +
+    "\n\nCantidad de guardias = MÁXIMO configurable (2|3|4).\n" +
+    "Cuántas hacer lo decide cada voluntario libremente.";
+
+  if (fallos.length) {
+    texto += "\n\n── ERRORES (" + fallos.length + ") ──\n" + fallos.join("\n");
+  }
+
   Logger.log(texto);
   try {
-    SpreadsheetApp.getUi().alert("🚒 Instalar / Actualizar sistema", texto, SpreadsheetApp.getUi().ButtonSet.OK);
-  } catch (e) { /* contexto sin UI (editor) */ }
-  return { ok: true, resumen: lineas };
+    SpreadsheetApp.getUi().alert(fallos.length ? "🚒 Sistema actualizado — con observaciones" : "🚒 Sistema instalado y actualizado", texto, SpreadsheetApp.getUi().ButtonSet.OK);
+  } catch (e) { /* contexto sin UI */ }
+  return { ok: fallos.length === 0, resumen: exito.concat(fmtDetalle), fallos: fallos };
 }
 
 // Alias con el otro nombre que se usa en la práctica
@@ -281,7 +293,7 @@ function prepararConfiguracion() {
   sh.getRange("A3:B8").setValues([
     ["CALENDARIO", "Primer lunes de guardia del mes"],
     ["CALENDARIO", "Semanas habilitadas (ej: 0,2)"],
-    ["GUARDIAS",   "Cantidad de guardias por inscripción"],
+    ["GUARDIAS",   "Cantidad máxima de guardias por inscripción"],
     ["GUARDIAS",   "Fecha límite de inscripción"],
     ["REGLAS",     "Días de antelación para eliminar"],
     ["ASISTENCIA", "Mostrar panel de asistencia (1/0)"]
@@ -289,7 +301,7 @@ function prepararConfiguracion() {
   sh.getRange("D3:D8").setValues([
     ["Inicio de la semana 0 del calendario mensual."],
     ["Índices de semanas desde el primer lunes. Vacío = 0,2."],
-    ["2, 3 o 4. Vacío = 4. No afecta registros históricos."],
+    ["Máximo permitido: 2, 3 o 4. Vacío = 4. Cuántas hacer lo decide libremente cada voluntario (desde 1)."],
     ["Fecha tope para anotarse. Vacío = sin límite."],
     ["Días mínimos antes de la primera guardia para poder darse de baja. 0 = sin restricción."],
     ["1 = visible en la app · 0 = completamente oculto."]
@@ -443,6 +455,7 @@ function aplicarFormatoCompletoCore(opts) {
 
       // Bordes y alineaciones finales
       _bordes(g, g.getLastRow(), 9);
+      g.setFrozenColumns(2);
       g.getRange("D2:D").setHorizontalAlignment("center");
 
       // Timestamp atenuado ya aplicado; nombre destacado
@@ -519,6 +532,13 @@ function aplicarFormatoCompletoCore(opts) {
         t.setFrozenRows(1);
         t.setHiddenGridlines(true);
         (t.getBandings ? t.getBandings() : []).forEach(function(b) { b.remove(); });
+      }
+      if (!dry && nombre === "LogEliminaciones" && t.getLastRow() > 0) {
+        t.getRange("A2:A").setNumberFormat("dd/mm/yyyy hh:mm").setFontSize(9);
+        t.setColumnWidths(1, Math.max(t.getLastColumn(), 1), 140);
+      }
+      if (!dry && tipo === "BACKUP" && t.getLastRow() > 1) {
+        t.getRange(2, 1, t.getLastRow() - 1, Math.max(t.getLastColumn(), 1)).setFontFamily("Roboto Mono").setFontSize(9);
       }
       try {
         var protecciones = t.getProtections(SpreadsheetApp.ProtectionType.SHEET);
@@ -816,7 +836,7 @@ function prepararConfiguracionSilencioso(ss) {
   sh.getRange("A3:B8").setValues([
     ["CALENDARIO", "Primer lunes de guardia del mes"],
     ["CALENDARIO", "Semanas habilitadas (ej: 0,2)"],
-    ["GUARDIAS",   "Cantidad de guardias por inscripción"],
+    ["GUARDIAS",   "Cantidad máxima de guardias por inscripción"],
     ["GUARDIAS",   "Fecha límite de inscripción"],
     ["REGLAS",     "Días de antelación para eliminar"],
     ["ASISTENCIA", "Mostrar panel de asistencia (1/0)"]
@@ -824,7 +844,7 @@ function prepararConfiguracionSilencioso(ss) {
   sh.getRange("D3:D8").setValues([
     ["Inicio de la semana 0 del calendario mensual."],
     ["Índices de semanas desde el primer lunes. Vacío = 0,2."],
-    ["2, 3 o 4. Vacío = 4. No afecta registros históricos."],
+    ["Máximo permitido: 2, 3 o 4. Vacío = 4. Cuántas hacer lo decide libremente cada voluntario (desde 1)."],
     ["Fecha tope para anotarse. Vacío = sin límite."],
     ["Días mínimos antes de la primera guardia para poder darse de baja. 0 = sin restricción."],
     ["1 = visible en la app · 0 = completamente oculto."]
