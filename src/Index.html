@@ -1608,34 +1608,11 @@ window.onload = () => {
   _initModo();
   _initNavegacion();
 
-  cargarCalendario();
-  _detectarCorreo();
-
-  // Configuración central: cantidad máxima de guardias y visibilidad del panel Asistencia
+  // Arranque SECUENCIAL: las llamadas simultáneas a google.script.run
+  // pueden interferir entre sí (respuestas null). Una a la vez.
   google.script.run
-    .withSuccessHandler(function(cfg){
-      if(!cfg || !cfg.ok) return; // estabilidad: se mantienen los defaults visuales
-      window._cfg = cfg;
-
-      // Limitar selector de días a la cantidad configurada
-      var sel = document.getElementById("num-dias");
-      if(sel){
-        for(var o = sel.options.length - 1; o >= 0; o--){
-          if(parseInt(sel.options[o].value, 10) > cfg.cantidadGuardias) sel.remove(o);
-        }
-        var valor = Math.min(cfg.cantidadGuardias, 4);
-        sel.value = String(valor);
-        seleccionarNumDias(valor);
-      }
-
-      // Panel Asistencia: B9=1 visible · B9=0 desaparece por completo (contenido y navegación)
-      var pa = document.getElementById("panel-asistencia");
-      if(!cfg.mostrarAsistencia){
-        if(pa) pa.remove();
-        var chip = document.querySelector("[data-nav-asistencia]");
-        if(chip) chip.remove();
-      }
-    })
+    .withSuccessHandler(_aplicarConfig)
+    .withFailureHandler(function(){ _detectarCorreo(); cargarCalendario(0); })
     .getConfig();
 
   // Auto-refresh inteligente: solo con pestaña visible, sin envíos en curso,
@@ -1654,6 +1631,33 @@ window.onload = () => {
   }, 45000);
 
 };
+
+function _aplicarConfig(cfg){
+  if(cfg && cfg.ok) window._cfg = cfg;
+
+  var maxDias = (cfg && cfg.ok) ? cfg.cantidadGuardias : 4;
+  var sel = document.getElementById("num-dias");
+  if(sel){
+    for(var o = sel.options.length - 1; o >= 0; o--){
+      if(parseInt(sel.options[o].value, 10) > maxDias) sel.remove(o);
+    }
+    var valor = Math.min(maxDias, 4);
+    sel.value = String(valor);
+    seleccionarNumDias(valor);
+  }
+
+  // Panel Asistencia: 1 visible · 0 desaparece por completo (contenido y navegación)
+  var mostrar = cfg && cfg.ok ? !!cfg.mostrarAsistencia : true;
+  var pa = document.getElementById("panel-asistencia");
+  if(!mostrar){
+    if(pa) pa.remove();
+    var chip = document.querySelector("[data-nav-asistencia]");
+    if(chip) chip.remove();
+  }
+
+  _detectarCorreo();
+  cargarCalendario(0);
+}
 
 //══════════════════════════════════════
 // DETECCIÓN DE DISPOSITIVO Y NAVEGACIÓN
@@ -1748,8 +1752,9 @@ function _detectarCorreo(){
 // CARGAR DATOS
 //══════════════════════════════════════
 
-function cargarCalendario(){
+function cargarCalendario(intentos){
 
+  intentos = intentos || 0;
   const grid =
     document.getElementById("cal-grid");
 
@@ -1793,6 +1798,11 @@ function cargarCalendario(){
         return;
       }
       if(!data || !data.ocupacion) {
+        // Respuesta vacía/nula: reintentar automáticamente (hasta 3 intentos).
+        if(intentos < 2){
+          setTimeout(function(){ cargarCalendario(intentos + 1); }, 900);
+          return;
+        }
         var tipo = typeof data;
         var vista = "";
         try {
@@ -1807,7 +1817,7 @@ function cargarCalendario(){
           ocultarSplashYa();
           return;
         }
-        throw new Error("Respuesta inesperada [" + tipo + "]: " + vista);
+        throw new Error("Respuesta inesperada [" + tipo + "]: " + vista + " tras " + (intentos + 1) + " intentos");
       }
       try {
         estado.ocupacion = structuredClone(data.ocupacion);
