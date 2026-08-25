@@ -1755,6 +1755,7 @@ function _detectarCorreo(){
 function cargarCalendario(intentos){
 
   intentos = intentos || 0;
+  window._calIntentos = intentos;
   const grid =
     document.getElementById("cal-grid");
 
@@ -1857,20 +1858,29 @@ function mostrarErrorCarga(msg){
   }
 }
 
-// Watchdog: si tras 12 s el splash sigue ahí, algo falló silenciosamente:
-// se quita el splash y se muestra el estado de error (nunca loading infinito).
-setTimeout(function(){
+// Watchdog: nunca loading infinito. Si hay reintentos en curso, espera;
+// si el servidor no responde tras la espera máxima, informa con guía.
+var _watchdog = function(){
   var sp = document.getElementById("splash");
   var visible = sp && sp.style.display !== "none" && sp.style.opacity !== "0";
-  if(visible){
-    console.warn("[Guardias] watchdog: quitando splash tras espera máxima");
-    ocultarSplashYa();
-    var grid = document.getElementById("cal-grid");
-    if(grid && !grid.querySelector(".day, .dia-card")){
-      mostrarErrorCarga("El servidor tardó demasiado en responder.");
-    }
+  if(!visible) return;
+
+  var pendientes = (window._calIntentos || 0) < 2; // aún hay reintentos programados
+  if(pendientes){ setTimeout(_watchdog, 6000); return; }
+
+  console.warn("[Guardias] watchdog: el servidor no respondió");
+  ocultarSplashYa();
+  var grid = document.getElementById("cal-grid");
+  if(grid && !grid.querySelector(".day, .dia-card")){
+    mostrarErrorCarga(
+      "El servidor no respondió. Causa más probable: hay PERMISOS nuevos pendientes de aceptar." +
+      '<br><br><b>Si eres el administrador:</b> abre esta misma dirección con tu cuenta de Google ' +
+      '(patriciovarelacontreras@gmail.com); si Google muestra una pantalla de permisos, acéptala.' +
+      '<br><br><a href="javascript:location.reload(true)" style="color:var(--red);font-family:var(--mono);letter-spacing:1px;">↻ REINTENTAR</a>'
+    );
   }
-}, 12000);
+};
+setTimeout(_watchdog, 15000);
 
 function cargarCalendarioError(){
   document.getElementById("cal-grid").style.opacity = "1";
