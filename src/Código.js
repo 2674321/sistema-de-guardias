@@ -3,7 +3,7 @@
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("Index")
-    .setTitle("Guardias CBC")
+    .setTitle("Guardias 1ra Compañía Coquimbo")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
