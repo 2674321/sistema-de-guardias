@@ -7,7 +7,11 @@ Sistema de registro y gestión de guardias de voluntarios de la 1Cia C.B.C.
 ```
 data/
   registro_guardias.csv   # Respuestas del formulario (Google Sheets)
-src/                      # Código Apps Script
+src/
+  appsscript.json         # Configuración del proyecto (zona horaria, web app)
+  codigo.gs               # Lógica principal: doGet, registrarGuardia, formatearHoja
+  index.html              # Interfaz web del sistema
+  Estadisticas.gs         # Cálculo de estadísticas diarias/mensuales
 ```
 
 ## Datos
