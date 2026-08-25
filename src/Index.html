@@ -1239,6 +1239,18 @@
             <p>Guardias eliminadas</p>
             <small>Puedes inscribirte de nuevo cuando quieras.</small>
           </div>
+          <!-- Paso de seguridad: código enviado al correo del bombero -->
+          <div id="del-paso2" style="display:none;margin-top:14px;padding:12px;background:var(--paper-dark);border-radius:4px;border-left:3px solid var(--blue);">
+            <div style="font-family:var(--sans);font-size:11px;color:var(--ink-soft);line-height:1.6;margin-bottom:10px;">
+              Por seguridad, para eliminar te enviaremos un código al correo indicado.
+              Confirma que eres tú ingresándolo aquí.
+            </div>
+            <div class="del-inner">
+              <input type="text" class="del-input" id="del-codigo" inputmode="numeric" maxlength="6" placeholder="Código de 6 dígitos">
+              <button class="del-btn-buscar" id="del-btn-codigo" onclick="pedirCodigoEliminacion()">Recibir código</button>
+            </div>
+            <div id="del-codigo-msg" style="display:none;font-family:var(--sans);font-size:11px;color:var(--ink-soft);margin-top:8px;"></div>
+          </div>
           <div style="margin-top:16px;">
             <button class="del-btn-confirmar" id="del-btn-eliminar" onclick="ejecutarEliminacion()">Eliminar mis guardias</button>
             <span class="del-spinner" id="del-spinner" style="display:none;">Eliminando...</span>
@@ -1357,6 +1369,29 @@ window.onload = () => {
 
   cargarCalendario();
 
+  // Configuración central: cantidad máxima de guardias y visibilidad del panel Asistencia
+  google.script.run
+    .withSuccessHandler(function(cfg){
+      if(!cfg || !cfg.ok) return;
+      window._cfg = cfg;
+
+      // Limitar selector de días a la cantidad configurada
+      var sel = document.getElementById("num-dias");
+      if(sel){
+        for(var o = sel.options.length - 1; o >= 0; o--){
+          if(parseInt(sel.options[o].value, 10) > cfg.cantidadGuardias) sel.remove(o);
+        }
+        var valor = Math.min(cfg.cantidadGuardias, 4);
+        sel.value = String(valor);
+        seleccionarNumDias(valor);
+      }
+
+      // Panel Asistencia visible u oculto (Config!B9)
+      var pa = document.getElementById("panel-asistencia");
+      if(pa && !cfg.mostrarAsistencia) pa.style.display = "none";
+    })
+    .getConfig();
+
   // Auto-refresh cada 30s para display TV
   setInterval(function(){
     if(!document.hidden) cargarCalendario();
@@ -1420,8 +1455,6 @@ function cargarCalendario(){
       Number(data.año);
 
     renderCalendario();
-
-    document.getElementById("panel-asistencia").style.display = "block";
 
     if(window._ocultarSplash){
       window._ocultarSplash();
@@ -2271,6 +2304,12 @@ function renderResultadoGuardias(resp){
   }
 
   zone.style.display = "block";
+  var paso2 = document.getElementById("del-paso2");
+  if(paso2) paso2.style.display = "block";
+  var codigoMsg = document.getElementById("del-codigo-msg");
+  if(codigoMsg){ codigoMsg.style.display = "none"; codigoMsg.textContent = ""; }
+  var codigoInput = document.getElementById("del-codigo");
+  if(codigoInput) codigoInput.value = "";
 
   resp.guardias.sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
 
@@ -2287,8 +2326,41 @@ function renderResultadoGuardias(resp){
   });
 }
 
+function pedirCodigoEliminacion(){
+  var email = document.getElementById("del-email").value.trim();
+  var btn = document.getElementById("del-btn-codigo");
+  var msg = document.getElementById("del-codigo-msg");
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    msg.textContent = "Primero busca tus guardias con un correo válido.";
+    msg.style.display = "block";
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = "Enviando...";
+  google.script.run
+    .withSuccessHandler(function(resp){
+      btn.disabled = false;
+      btn.textContent = "Recibir código";
+      msg.style.display = "block";
+      if(resp.ok){
+        msg.textContent = resp.mensaje || "Código enviado. Revisa tu correo (revisa spam).";
+        document.getElementById("del-codigo").focus();
+      } else {
+        msg.textContent = resp.error || "No se pudo enviar el código.";
+      }
+    })
+    .withFailureHandler(function(err){
+      btn.disabled = false;
+      btn.textContent = "Recibir código";
+      msg.style.display = "block";
+      msg.textContent = "Error de conexión: " + (err.message || err);
+    })
+    .solicitarCodigoEliminacion(email);
+}
+
 function ejecutarEliminacion(){
   var email = document.getElementById("del-email").value.trim();
+  var codigo = document.getElementById("del-codigo").value.trim();
   var btn = document.getElementById("del-btn-eliminar");
   var spinner = document.getElementById("del-spinner");
   var info = document.getElementById("del-info");
@@ -2296,6 +2368,12 @@ function ejecutarEliminacion(){
   var exito = document.getElementById("del-exito");
   var error = document.getElementById("del-error");
   var errTxt = document.getElementById("del-error-txt");
+
+  if(!/^\d{6}$/.test(codigo)){
+    error.style.display = "block";
+    errTxt.textContent = "Primero recibe el código en tu correo y escríbelo aquí (6 dígitos).";
+    return;
+  }
 
   btn.disabled = true;
   spinner.style.display = "inline";
@@ -2316,6 +2394,8 @@ function ejecutarEliminacion(){
 
       document.getElementById("del-guardias-list").innerHTML = "";
       document.getElementById("del-email").value = "";
+      document.getElementById("del-codigo").value = "";
+      document.getElementById("del-paso2").style.display = "none";
       document.getElementById("del-err-buscar").style.display = "none";
       info.style.display = "none";
       bloqueado.style.display = "none";
@@ -2335,7 +2415,7 @@ function ejecutarEliminacion(){
       error.style.display = "block";
       errTxt.textContent = "Error de conexión: " + (err.message || err);
     })
-    .eliminarGuardiasPorEmail(email);
+    .eliminarGuardiasPorEmail(email, codigo);
 }
 
 
