@@ -1233,7 +1233,7 @@
 
 <div id="splash" style="position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#0e0e0e,#1a1a1a);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .5s ease;">
   <div style="width:40px;height:40px;border:3px solid rgba(255,255,255,0.15);border-top-color:#9b1a1a;border-radius:50%;animation:spin .6s linear infinite;"></div>
-  <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.4);">Cargando</div>
+  <div id="splash-label" style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.4);">Cargando</div>
 </div>
 
 <header class="masthead">
@@ -1607,13 +1607,8 @@ window.onload = () => {
 
   _initModo();
   _initNavegacion();
-
-  // Arranque SECUENCIAL: las llamadas simultáneas a google.script.run
-  // pueden interferir entre sí (respuestas null). Una a la vez.
-  google.script.run
-    .withSuccessHandler(_aplicarConfig)
-    .withFailureHandler(function(){ _detectarCorreo(); cargarCalendario(0); })
-    .getConfig();
+  _detectarCorreo();
+  cargarCalendario();
 
   // Auto-refresh inteligente: solo con pestaña visible, sin envíos en curso,
   // sin inputs activos y tras ≥25 s sin interacción del usuario.
@@ -1633,9 +1628,10 @@ window.onload = () => {
 };
 
 function _aplicarConfig(cfg){
-  if(cfg && cfg.ok) window._cfg = cfg;
+  if(!cfg || !cfg.ok) return;
+  window._cfg = cfg;
 
-  var maxDias = (cfg && cfg.ok) ? cfg.cantidadGuardias : 4;
+  var maxDias = cfg.cantidadGuardias || 4;
   var sel = document.getElementById("num-dias");
   if(sel){
     for(var o = sel.options.length - 1; o >= 0; o--){
@@ -1646,21 +1642,15 @@ function _aplicarConfig(cfg){
     seleccionarNumDias(valor);
   }
 
-  // Panel Asistencia: 1 visible · 0 desaparece por completo (contenido y navegación)
-  var mostrar = cfg && cfg.ok ? !!cfg.mostrarAsistencia : true;
+  // Panel Asistencia: 1 visible · 0 desaparece por completo
+  var mostrar = !!cfg.mostrarAsistencia;
   var pa = document.getElementById("panel-asistencia");
   if(!mostrar){
     if(pa) pa.remove();
     var chip = document.querySelector("[data-nav-asistencia]");
     if(chip) chip.remove();
   }
-
-  _detectarCorreo();
-  cargarCalendario(0);
 }
-
-//══════════════════════════════════════
-// DETECCIÓN DE DISPOSITIVO Y NAVEGACIÓN
 //══════════════════════════════════════
 
 function _detectarModo(){
@@ -1752,135 +1742,126 @@ function _detectarCorreo(){
 // CARGAR DATOS
 //══════════════════════════════════════
 
-function cargarCalendario(intentos){
+//══════════════════════════════════════
+// CALENDARIO — máquina de estados de petición
+// loading → slow → ok | error   ·   requestId evita respuestas obsoletas
+//══════════════════════════════════════
 
-  intentos = intentos || 0;
-  window._calIntentos = intentos;
-  const grid =
-    document.getElementById("cal-grid");
+var _calReq = { id: 0, estado: "idle", lentoTimer: null };
 
-  grid.innerHTML = `
+function cargarCalendario(){
+  var reqId = ++_calReq.id;
+  _calReq.estado = "loading";
+  _pintarCarga();
 
-    <div class="dname">Lu</div>
-    <div class="dname">Ma</div>
-    <div class="dname">Mi</div>
-    <div class="dname">Ju</div>
-    <div class="dname">Vi</div>
-    <div class="dname">Sa</div>
-    <div class="dname">Do</div>
-
-    <div class="cal-loading">
-      <div class="spinner-dot"></div>
-      <span class="spinner-label">Cargando calendario</span>
-      <div class="spinner-skeleton" id="cal-skeleton"></div>
-    </div>
-
-  `;
-  document.getElementById("cal-grid").style.opacity = "0.6";
-
-  // populate skeleton with placeholder cells
-  var sk = document.getElementById("cal-skeleton");
-  if(sk){
-    sk.innerHTML = "";
-    for(var si=0; si<35; si++){
-      var skdiv = document.createElement("div");
-      skdiv.style.animationDelay = ((si % 7) * 0.1) + "s";
-      sk.appendChild(skdiv);
-    }
-  }
+  clearTimeout(_calReq.lentoTimer);
+  _calReq.lentoTimer = setTimeout(function(){
+    if(_calReq.id !== reqId || _calReq.estado !== "loading") return;
+    _calReq.estado = "slow";
+    _avisoServidorLento();
+  }, 8000);
 
   google.script.run
-
-  .withSuccessHandler(data => {
-    document.getElementById("cal-grid").style.opacity = "1";
-    try {
-      if(data && data.ok === false){
-        mostrarErrorCarga(data.error || "Error desconocido del servidor");
-        return;
-      }
-      if(!data || !data.ocupacion) {
-        // Respuesta vacía/nula: reintentar automáticamente (hasta 3 intentos).
-        if(intentos < 2){
-          setTimeout(function(){ cargarCalendario(intentos + 1); }, 900);
-          return;
-        }
-        var tipo = typeof data;
-        var vista = "";
-        try {
-          vista = (tipo === "string") ? String(data).slice(0, 200) : JSON.stringify(data);
-          if(vista === undefined) vista = "(vacío)";
-        } catch(err){ vista = "(no serializable)"; }
-        console.error("[Guardias] respuesta inesperada:", tipo, vista);
-
-        // Caso conocido: sesión de Google vencida → llega HTML de login como "éxito"
-        if(tipo === "string" && /<html|accounts\.google|Sign in/i.test(String(data))){
-          mostrarErrorCarga("Tu sesión de Google venció. Recarga la página (F5), inicia sesión si te lo pide y vuelve a entrar.");
-          ocultarSplashYa();
-          return;
-        }
-        throw new Error("Respuesta inesperada [" + tipo + "]: " + vista + " tras " + (intentos + 1) + " intentos");
-      }
-      try {
-        estado.ocupacion = structuredClone(data.ocupacion);
-      } catch(err) {
-        estado.ocupacion = JSON.parse(JSON.stringify(data.ocupacion));
-      }
-      estado.mes = Number(data.mes);
-      estado.año = Number(data.año);
-      renderCalendario();
-      ocultarSplashYa();
-    } catch(e) {
-      console.error("[Guardias] carga de calendario:", e);
-      mostrarErrorCarga("No se pudo preparar la disponibilidad: " + (e && e.message ? e.message : e));
-      ocultarSplashYa();
-    }
-  })
-  .withFailureHandler(cargarCalendarioError)
-  .obtenerOcupacion(estado.mes, estado.año);
-
+    .withSuccessHandler(function(data){ _resolverCalendario(reqId, data); })
+    .withFailureHandler(function(err){
+      _finalizarCalendario(reqId, "SIN_RESPUESTA", (err && err.message) ? err.message : String(err));
+    })
+    .obtenerCalendario(estado.mes, estado.año);
 }
 
-function ocultarSplashYa(){
-  if(window._ocultarSplash){
-    var f = window._ocultarSplash;
-    window._ocultarSplash = null;
-    f();
-  }
+function _pintarCarga(){
+  var grid = document.getElementById("cal-grid");
+  grid.className = "cal-grid";
+  grid.style.opacity = "0.6";
+  grid.innerHTML =
+    '<div class="dname">Lu</div><div class="dname">Ma</div><div class="dname">Mi</div>' +
+    '<div class="dname">Ju</div><div class="dname">Vi</div><div class="dname">Sa</div><div class="dname">Do</div>' +
+    '<div class="cal-loading"><div class="spinner-dot"></div><span class="spinner-label">Cargando calendario</span></div>';
+  ocultarAvisoLento();
 }
 
-function mostrarErrorCarga(msg){
+function _avisoServidorLento(){
+  var lbl = document.getElementById("splash-label");
+  if(lbl) lbl.textContent = "El servidor está tardando más de lo habitual… seguimos esperando";
   var grid = document.getElementById("cal-grid");
   if(grid){
-    grid.className = "cal-grid";
-    grid.innerHTML = '<div class="vacio-suave" role="alert">' +
-      'La aplicación no terminó de arrancar.<br>' + escHtml(msg || "") +
-      '<br><br><a href="javascript:location.reload(true)" style="color:var(--red);font-family:var(--mono);letter-spacing:1px;">↻ RECARGAR</a></div>';
+    var aviso = document.getElementById("cal-slow");
+    if(!aviso){
+      aviso = document.createElement("div");
+      aviso.id = "cal-slow";
+      aviso.setAttribute("role", "status");
+      aviso.style.cssText = "grid-column:1/-1;text-align:center;padding:10px;margin-top:8px;font-family:var(--mono);font-size:10px;letter-spacing:1px;color:#9a7a00;background:#fdf3d7;border-radius:6px;";
+      grid.appendChild(aviso);
+    }
+    aviso.textContent = "⏳ El servidor está tardando más de lo habitual… continuamos esperando";
   }
 }
 
-// Watchdog: nunca loading infinito. Si hay reintentos en curso, espera;
-// si el servidor no responde tras la espera máxima, informa con guía.
-var _watchdog = function(){
-  var sp = document.getElementById("splash");
-  var visible = sp && sp.style.display !== "none" && sp.style.opacity !== "0";
-  if(!visible) return;
+function ocultarAvisoLento(){
+  var aviso = document.getElementById("cal-slow");
+  if(aviso) aviso.remove();
+}
 
-  var pendientes = (window._calIntentos || 0) < 2; // aún hay reintentos programados
-  if(pendientes){ setTimeout(_watchdog, 6000); return; }
+function _resolverCalendario(reqId, data){
+  clearTimeout(_calReq.lentoTimer);
+  if(reqId !== _calReq.id) return; // respuesta obsoleta: se ignora
 
-  console.warn("[Guardias] watchdog: el servidor no respondió");
-  ocultarSplashYa();
-  var grid = document.getElementById("cal-grid");
-  if(grid && !grid.querySelector(".day, .dia-card")){
-    mostrarErrorCarga(
-      "El servidor no respondió. Causa más probable: hay PERMISOS nuevos pendientes de aceptar." +
-      '<br><br><b>Si eres el administrador:</b> abre esta misma dirección con tu cuenta de Google ' +
-      '(patriciovarelacontreras@gmail.com); si Google muestra una pantalla de permisos, acéptala.' +
-      '<br><br><a href="javascript:location.reload(true)" style="color:var(--red);font-family:var(--mono);letter-spacing:1px;">↻ REINTENTAR</a>'
-    );
+  // Quirk conocido de google.script.run: payload null esporádico → 1 reintento
+  if((data === null || data === undefined)){
+    _calReq.reintentosNull = (_calReq.reintentosNull || 0) + 1;
+    if(_calReq.reintentosNull <= 2){
+      console.warn("[Guardias] respuesta null, reintentando", _calReq.reintentosNull);
+      setTimeout(cargarCalendario, 700);
+      return;
+    }
+  } else {
+    _calReq.reintentosNull = 0;
   }
-};
-setTimeout(_watchdog, 15000);
+
+  // Puerta del contrato: solo se renderiza con cal-1 válido
+  if(!esContratoCalendarioValido(data)){
+    _finalizarCalendario(reqId, "CONTRATO_INVALIDO", "La respuesta del servidor no cumple el formato esperado");
+    return;
+  }
+  if(data.ok === false){
+    _finalizarCalendario(reqId, data.errorCode, data.message);
+    return;
+  }
+
+  _calReq.estado = "ok";
+  window._lastCalDiag = data.diagnostico || {};
+  try { console.info("[Guardias] calendario OK", JSON.stringify(window._lastCalDiag)); } catch(e){}
+
+  document.getElementById("cal-grid").style.opacity = "1";
+  try {
+    estado.ocupacion = (typeof structuredClone === "function")
+      ? structuredClone(data.ocupacion)
+      : JSON.parse(JSON.stringify(data.ocupacion));
+  } catch(e){
+    estado.ocupacion = data.ocupacion;
+  }
+  estado.mes = Number(data.mes);
+  estado.año = Number(data.año);
+
+  _aplicarConfig({
+    ok: true,
+    cantidadGuardias: (data.configuracion || {}).cantidadGuardias || 4,
+    mostrarAsistencia: !((data.configuracion || {}).mostrarAsistencia === false)
+  });
+
+  renderCalendario();
+  ocultarSplashYa();
+}
+
+function _finalizarCalendario(reqId, codigo, mensaje){
+  clearTimeout(_calReq.lentoTimer);
+  if(reqId !== _calReq.id) return;
+  _calReq.estado = "error";
+  console.error("[Guardias]", codigo, "-", mensaje);
+  document.getElementById("cal-grid").style.opacity = "1";
+  mostrarErrorCarga("[" + codigo + "] " + mensaje);
+  ocultarSplashYa();
+}
 
 function cargarCalendarioError(){
   document.getElementById("cal-grid").style.opacity = "1";
@@ -3440,6 +3421,7 @@ window.__fase2SelfTest = function(){
   r.asistenciaCoherente = window._cfg ? (!!pa === !!window._cfg.mostrarAsistencia) : null;
   r.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   r.chipnav = !!document.getElementById("chipnav");
+  r.ultimoDiag = window._lastCalDiag || null;
   console.table(r);
   return r;
 };

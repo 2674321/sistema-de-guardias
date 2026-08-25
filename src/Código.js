@@ -224,6 +224,7 @@ function registrarGuardia(datos) {
       }
     } catch (e) { Logger.log("Actualización Asistencia tras registro: " + e); }
 
+    _bumpCalVersion();
     return { ok: true };
   } catch (e) {
     Logger.log("registrarGuardia: " + e);
@@ -446,6 +447,7 @@ function eliminarGuardiasPorEmail(email, codigo) {
       logSh.appendRow([new Date(), email, nombreUsuario || "(sin nombre)", cargoUsuario || "", fechasEliminadas.join(", ") || "(sin datos)"]);
     } catch (e) { Logger.log("LogEliminaciones: " + e); }
 
+    _bumpCalVersion();
     return { ok: true, eliminadas: eliminadas, filasEliminadas: filasEliminar.length };
   } catch (err) {
     Logger.log("eliminarGuardiasPorEmail: " + err);
@@ -656,6 +658,7 @@ function guardarAsistencias(email, registros) {
     // Write updated row once
     sh.getRange(filaIdx + 1, 1, 1, 16).setValues([datos[filaIdx]]);
 
+    _bumpCalVersion();
     return { ok: !huboError, resultados: resultados };
   } catch (e) {
     Logger.log("guardarAsistencias: " + e);
@@ -740,118 +743,221 @@ function obtenerGuardiasConAsistencia(email) {
   }
 }
 
-function obtenerOcupacion(mes, año) {
+//══════════════════════════════════════════
+// CALENDARIO — CONTRATO ÚNICO "cal-1"
+// Una llamada → configuración + disponibilidad + requisitos + métricas.
+// Siempre devuelve objeto serializable: NUNCA null/undefined/ambiguo.
+//   ok=true  → {ok,version,generadoEn,mes,año,ocupacion,configuracion,diagnostico}
+//   ok=false → {ok:false,errorCode,message,diagnostico}
+//══════════════════════════════════════════
+
+var VERSION_CONTRATO_CALENDARIO = "cal-1";
+
+function _calVersionActual() {
+  try { return Number(PropertiesService.getScriptProperties().getProperty("CAL_VER") || 1); }
+  catch (e) { return 0; }
+}
+
+function _bumpCalVersion() {
   try {
-    return _obtenerOcupacionInterna(mes, año);
-  } catch (e) {
-    // Nunca devolver un objeto vacío silencioso: el motivo visible.
-    Logger.log("obtenerOcupacion: " + e);
-    return { ok: false, error: "Error al leer la disponibilidad: " + e.message };
+    PropertiesService.getScriptProperties().setProperty("CAL_VER", String(_calVersionActual() + 1));
+    try { CacheService.getScriptCache().remove("CAL_ULTIMA"); } catch (e2) {}
+  } catch (e) { Logger.log("bumpCalVersion: " + e); }
+}
+
+function invalidarCacheCalendario() { _bumpCalVersion(); }
+
+// Endpoint canónico para el frontend
+function obtenerCalendario(mes, año) {
+  var t0 = Date.now();
+  var diag = { build: VERSION_CONTRATO_CALENDARIO, cache: "MISS" };
+
+  // ── Caché corta (120 s), solo respuestas ok; se invalida por versión ──
+  try {
+    var cruda = CacheService.getScriptCache().get("CAL_" + _calVersionActual());
+    if (cruda) {
+      var hit = JSON.parse(cruda);
+      if (hit && hit.ok === true && hit.ocupacion &&
+          (mes == null || Number(hit.mes) === Number(mes))) {
+        diag.cache = "HIT";
+        diag.totalMs = Date.now() - t0;
+        hit.diagnostico = diag;
+        return hit;
+      }
+    }
+  } catch (e) { Logger.log("[CAL] caché lectura: " + e); }
+
+  try {
+    // ── Configuración ──
+    var tConfig = Date.now();
+    var config = obtenerConfigGeneral();
+    if (!config || isNaN(new Date(config.inicio).getTime())) {
+      throw { errorCode: "CONFIG_INVALIDA", message: "La hoja Config no tiene fecha de inicio válida." };
+    }
+    if (mes == null) mes = config.mes;
+    if (año == null) año = config.año;
+    diag.configMs = Date.now() - tConfig;
+
+    // ── Lectura (una sola vez por petición) ──
+    var tLect = Date.now();
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) throw { errorCode: "HOJA_FALTANTE", message: "No existe la hoja Guardias." };
+    var dataAll = sheet.getDataRange().getValues();
+    var asisSh = ss.getSheetByName("Asistencia");
+    var asisData = asisSh ? asisSh.getDataRange().getValues() : [];
+    diag.lecturaMs = Date.now() - tLect;
+    diag.filasLeidas = Math.max(dataAll.length - 1, 0);
+
+    // ── Procesamiento en memoria (índice por fecha, una pasada) ──
+    var tProc = Date.now();
+    var snap = _construirSnapshotCalendario(dataAll, asisData, config, mes, año);
+    diag.procesamientoMs = Date.now() - tProc;
+
+    var payload = {
+      ok: true,
+      version: VERSION_CONTRATO_CALENDARIO,
+      generadoEn: new Date().toISOString(),
+      mes: snap.mes,
+      año: snap.año,
+      ocupacion: snap.ocupacion,
+      configuracion: {
+        cantidadGuardias: config.cantidadGuardias,
+        mostrarAsistencia: !!config.mostrarAsistencia,
+        semanas: config.semanas,
+        diasEliminacion: config.diasEliminacion,
+        fechaLimite: config.fechaLimite
+          ? Utilities.formatDate(new Date(config.fechaLimite), Session.getScriptTimeZone(), "yyyy-MM-dd")
+          : "",
+        requisitosDespacho: { maquinistas: REGLAS.cupoMaquinistaPorDia, operativos: REGLAS.cupoOperativoPorDia }
+      },
+      diagnostico: diag
+    };
+
+    // ── Serialización (medida + garantía: si esto falla, va al catch) ──
+    var tSer = Date.now();
+    var json = JSON.stringify(payload);
+    diag.serializacionMs = Date.now() - tSer;
+    diag.totalMs = Date.now() - t0;
+    payload.diagnostico = diag;
+
+    try { CacheService.getScriptCache().put("CAL_" + _calVersionActual(), json, 120); } catch (e) {}
+
+    return payload;
+
+  } catch (err) {
+    var esObj = err && typeof err === "object";
+    Logger.log("obtenerCalendario ERROR: " + (esObj ? JSON.stringify(err) : err));
+    return {
+      ok: false,
+      errorCode: esObj ? (err.errorCode || "INTERNO") : "INTERNO",
+      message: esObj ? (err.message || "Error desconocido") : String(err),
+      diagnostico: { build: VERSION_CONTRATO_CALENDARIO, totalMs: Date.now() - t0 }
+    };
   }
 }
 
-function _obtenerOcupacionInterna(mes, año) {
-  var config = obtenerConfigGeneral();
-  if (mes == null) mes = config.mes;
-  if (año == null) año = config.año;
-  var ss = SpreadsheetApp.openById(SHEET_ID);
-  var sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) throw new Error("No existe la hoja Guardias.");
-  var _t0 = Date.now(); // [DIAG]
-  var data = sheet.getDataRange().getValues();
-  if (typeof _DIAG !== "undefined" && _DIAG) Logger.log("[DIAG] ocupacion: lectura " + (Date.now() - _t0) + "ms (" + data.length + " filas)");
-  var ocupacion = {};
+// Semana habilitada pura (usa config explícita, no el caché global)
+function _semanaHabilitadaDe(fechaKey, config) {
+  var fp = fechaPartesDe(fechaKey);
+  if (!fp) return false;
+  if ((fp.m - 1) !== config.mes || fp.y !== config.año) return false;
+  var inicio = config.inicio instanceof Date ? config.inicio : new Date(String(config.inicio).trim() + "T12:00:00");
+  var f = new Date(fp.y, fp.m - 1, fp.d, 12);
+  var diff = Math.floor((f - inicio) / 86400000);
+  if (diff < 0) return false;
+  return config.semanas.indexOf(Math.floor(diff / 7)) !== -1;
+}
 
+// Índice por fecha construido EN UNA PASADA sobre Guardias,
+// luego un solo pase de Asistencia cruzando por índice email→guardia.
+function _construirSnapshotCalendario(dataAll, asisData, config, mes, año) {
+  var ocupacion = {};
   var totalDias = new Date(año, mes + 1, 0).getDate();
   for (var d = 1; d <= totalDias; d++) {
-    var fecha = año + "-" + String(mes + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
-    ocupacion[fecha] = {
-      voluntarios: 0,
-      maquinistas: 0,
-      operativos: 0,
-      habilitado: esSemanaHabilitada(fecha),
-      guardias: []
+    var fk = año + "-" + pad2(mes + 1) + "-" + pad2(d);
+    ocupacion[fk] = {
+      voluntarios: 0, maquinistas: 0, operativos: 0, iniciales: 0,
+      habilitado: false, cumplido: false, guardias: []
     };
   }
 
-  for (var i = 1; i < data.length; i++) {
-    if (!data[i][2]) continue;
-    var cargo = String(data[i][3]).trim().toLowerCase();
-    var email = String(data[i][2]).trim().toLowerCase();
-    var nivel = normalizarNivel(data[i][8]);
-    var operativo = consumeCupoOperativo(nivel);
-    for (var j = 4; j <= 7; j++) {
-      if (!data[i][j]) continue;
-      var val = data[i][j];
-      var fecha = val instanceof Date
-        ? Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd")
-        : String(val).trim();
-      if (!ocupacion[fecha]) continue;
-      ocupacion[fecha].guardias.push({
-        nombre: data[i][1] || "",
+  var indiceFechas = {}; // email -> [fechaStr ×4]
+
+  for (var i = 1; i < dataAll.length; i++) {
+    var fila = dataAll[i];
+    if (!fila[2]) continue;
+    var email = String(fila[2]).trim().toLowerCase();
+    var cargo = String(fila[3] || "").trim().toLowerCase();
+    var nivel = normalizarNivel(fila[8]); // ÚNICA vía de clasificación
+    var esMaq = cargo.indexOf("maquinista") !== -1;
+    var esVol = cargo.indexOf("voluntario") !== -1;
+    var consumeOp = consumeCupoOperativo(nivel);
+
+    if (!indiceFechas[email]) indiceFechas[email] = ["", "", "", ""];
+
+    for (var cIdx = 0; cIdx < 4; cIdx++) {
+      var raw = fila[4 + cIdx];
+      if (!raw) continue;
+      var fp = fechaPartesDe(raw);
+      if (!fp) continue;
+      var key = fp.y + "-" + pad2(fp.m) + "-" + pad2(fp.d);
+      indiceFechas[email][cIdx] = key;
+
+      var dia = ocupacion[key];
+      if (!dia) continue; // registro de otro mes: queda indexado para asistencia
+
+      dia.guardias.push({
+        nombre: String(fila[1] || ""),
         email: email,
         cargo: cargo,
         nivel: nivel,
         condicion: nivelLetra(nivel),
-        operativo: operativo
+        operativo: consumeOp,
+        estado: "",
+        reemplazoNombre: ""
       });
-      if (cargo.includes("maquinista")) {
-        ocupacion[fecha].maquinistas++;
-      }
-      if (cargo.includes("voluntario")) {
-        ocupacion[fecha].voluntarios++;
-      }
-      // Mismo criterio que el motor de reglas: O/P consumen cupo operativo
-      if (operativo) ocupacion[fecha].operativos++;
+      if (esMaq) dia.maquinistas++;
+      if (esVol) dia.voluntarios++;
+      if (consumeOp) dia.operativos++;
+      if (nivel === "INICIAL") dia.iniciales++;
     }
   }
 
-  // Cargar asistencia
-  try {
-    var asisSh = ss.getSheetByName("Asistencia");
-    if (asisSh) {
-      var asisData = asisSh.getDataRange().getValues();
-      for (var i = 1; i < asisData.length; i++) {
-        var emailAsis = String(asisData[i][0] || "").trim().toLowerCase();
-        if (!emailAsis) continue;
+  Object.keys(ocupacion).forEach(function(k) {
+    var dia = ocupacion[k];
+    dia.habilitado = _semanaHabilitadaDe(k, config);
+    dia.cumplido = dia.maquinistas >= REGLAS.cupoMaquinistaPorDia &&
+                   dia.operativos >= REGLAS.cupoOperativoPorDia;
+  });
 
-        // Build fecha → guardia index map for this volunteer in current month
-        var fechaPorIndice = {};
-        for (var di = 1; di < data.length; di++) {
-          if (String(data[di][2] || "").trim().toLowerCase() !== emailAsis) continue;
-          for (var c = 4; c <= 7; c++) {
-            if (!data[di][c]) continue;
-            var f = data[di][c] instanceof Date
-              ? Utilities.formatDate(data[di][c], Session.getScriptTimeZone(), "yyyy-MM-dd")
-              : String(data[di][c] || "").trim();
-            var fObj = new Date(f);
-            if (fObj.getMonth() === mes && fObj.getFullYear() === año) {
-              fechaPorIndice[c - 4] = f;
-            }
-          }
-          break;
-        }
-
-        // Apply estados
-        for (var gi = 0; gi < 4; gi++) {
-          var estado = asisData[i][3 + gi * 3] || "";
-          if (!estado) continue;
-          var reemp = asisData[i][4 + gi * 3] || "";
-          var fechaStr = fechaPorIndice[gi];
-          if (!fechaStr || !ocupacion[fechaStr]) continue;
-          for (var g = 0; g < ocupacion[fechaStr].guardias.length; g++) {
-            if (ocupacion[fechaStr].guardias[g].email === emailAsis) {
-              ocupacion[fechaStr].guardias[g].estado = estado;
-              ocupacion[fechaStr].guardias[g].reemplazoNombre = reemp;
-            }
-          }
+  // Asistencia: un pase plano, cruce O(1) por índice
+  for (var ai = 1; ai < (asisData || []).length; ai++) {
+    var aEmail = String(asisData[ai][0] || "").trim().toLowerCase();
+    if (!aEmail || !indiceFechas[aEmail]) continue;
+    var fechasEmail = indiceFechas[aEmail];
+    for (var gi = 0; gi < 4; gi++) {
+      var estado = String(asisData[ai][3 + gi * 3] || "").trim();
+      var reemp = String(asisData[ai][4 + gi * 3] || "").trim();
+      if (!estado && !reemp) continue;
+      var k2 = fechasEmail[gi];
+      if (!k2 || !ocupacion[k2]) continue;
+      var lista = ocupacion[k2].guardias;
+      for (var gE = 0; gE < lista.length; gE++) {
+        if (lista[gE].email === aEmail) {
+          lista[gE].estado = estado;
+          lista[gE].reemplazoNombre = reemp;
         }
       }
     }
-  } catch (e) { Logger.log("obtenerOcupacion/asistencia: " + e); }
+  }
 
-  if (typeof _DIAG !== "undefined" && _DIAG) Logger.log("[DIAG] ocupacion: total " + (Date.now() - _t0) + "ms"); // [DIAG]
-  return { ok: true, ocupacion: ocupacion, mes: mes, año: año };
+  return { ocupacion: ocupacion, mes: mes, año: año };
+}
+
+// Compatibilidad: los campos históricos siguen presentes dentro del contrato.
+function obtenerOcupacion(mes, año) {
+  return obtenerCalendario(mes, año);
 }
 
 //══════════════════════════════════════════

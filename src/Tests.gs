@@ -257,6 +257,42 @@ function pruebasPuras() {
     h.eq(pad2(7), "07"); h.eq(pad2(12), "12");
   });
 
+  // ── CONTRATO CALENDARIO cal-1 ──
+  h.t("Contrato válido (ok:true) aceptado", function() {
+    var r = {
+      ok: true, version: "cal-1", generadoEn: "2026-08-25T00:00:00Z",
+      mes: 8, año: 2026,
+      ocupacion: { "2026-08-05": { voluntarios: 0 } },
+      configuracion: { cantidadGuardias: 4 },
+      diagnostico: { totalMs: 10 }
+    };
+    h.eq(esContratoCalendarioValido(r), true);
+  });
+  h.t("Contrato válido (ok:false con errorCode) aceptado", function() {
+    var r = { ok: false, version: "cal-1", errorCode: "CONFIG_INVALIDA",
+              message: "fecha inválida", diagnostico: {} };
+    h.eq(esContratoCalendarioValido(r), true);
+  });
+  h.t("null/undefined/objeto vacío → contrato INVÁLIDO", function() {
+    h.eq(esContratoCalendarioValido(null), false);
+    h.eq(esContratoCalendarioValido(undefined), false);
+    h.eq(esContratoCalendarioValido({}), false);
+  });
+  h.t("ok:true sin ocupacion → INVÁLIDO", function() {
+    var r = { ok: true, version: "cal-1", generadoEn: "x", mes: 1, año: 2026,
+              configuracion: {}, diagnostico: {} };
+    h.eq(esContratoCalendarioValido(r), false);
+  });
+  h.t("ok:false sin errorCode → INVÁLIDO", function() {
+    var r = { ok: false, version: "cal-1", message: "x", diagnostico: {} };
+    h.eq(esContratoCalendarioValido(r), false);
+  });
+  h.t("versión de contrato distinta → INVÁLIDO", function() {
+    var r = { ok: true, version: "cal-0", generadoEn: "x", mes: 1, año: 2026,
+              ocupacion: {}, configuracion: {}, diagnostico: {} };
+    h.eq(esContratoCalendarioValido(r), false);
+  });
+
   return h.resultados;
 }
 

@@ -140,6 +140,8 @@ function obtenerConfigGeneral() {
 
 function invalidarCacheConfig() {
   _configCache = null;
+  // Un cambio de configuración afecta el snapshot del calendario:
+  if (typeof invalidarCacheCalendario === "function") invalidarCacheCalendario();
 }
 
 // Endpoint público para el frontend

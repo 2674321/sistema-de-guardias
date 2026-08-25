@@ -82,6 +82,34 @@ function fechaPartesDe(valor) {
 
 function pad2(n) { return String(n).padStart(2, "0"); }
 
+//══════════════════════════════════════════
+// VALIDADOR DEL CONTRATO "cal-1"
+// Garantiza que la respuesta del calendario sea predecible:
+//   ok:true  → version, mes, año, ocupacion, configuracion, diagnostico
+//   ok:false → errorCode, message, diagnostico
+// Cualquier otra forma (null, undefined, campos faltantes) es inválida.
+//══════════════════════════════════════════
+
+function esContratoCalendarioValido(obj) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+  if (obj.version !== "cal-1") return false;
+  if (!obj.diagnostico || typeof obj.diagnostico !== "object") return false;
+
+  if (obj.ok === true) {
+    if (typeof obj.mes !== "number" || typeof obj.año !== "number") return false;
+    if (!obj.ocupacion || typeof obj.ocupacion !== "object" || Array.isArray(obj.ocupacion)) return false;
+    if (!obj.configuracion || typeof obj.configuracion !== "object") return false;
+    if (typeof obj.generadoEn !== "string" || !obj.generadoEn) return false;
+    return true;
+  }
+  if (obj.ok === false) {
+    if (typeof obj.errorCode !== "string" || !obj.errorCode) return false;
+    if (typeof obj.message !== "string") return false;
+    return true;
+  }
+  return false;
+}
+
 // Resuelve "Mostrar panel de asistencia" (Config!C8 nuevo / B9 legado).
 // 1, "1", true → true · 0, "0", false → false · vacío/inválido → default FALSE (oculto)
 function resolverMostrarAsistencia(valor, valorLegado) {
