@@ -191,6 +191,48 @@ function pruebasPuras() {
     if (!todasMismoMes(["2026-08-01","2026-08-31"])) throw new Error("mismo mes válido");
   });
 
+  // ── VALIDADOR DE EMAIL ──
+  h.t("esEmailValido acepta formatos válidos", function() {
+    h.eq(esEmailValido("a@b.cl"), true);
+    h.eq(esEmailValido(" nombre.apellido@mail.com "), true);
+    h.eq(esEmailValido("v+p@gmail.com"), true);
+  });
+  h.t("esEmailValido rechaza inválidos", function() {
+    h.eq(esEmailValido(""), false);
+    h.eq(esEmailValido(null), false);
+    h.eq(esEmailValido("sin-arroba"), false);
+    h.eq(esEmailValido("a@b"), false);
+    h.eq(esEmailValido("a b@c.cl"), false);
+  });
+
+  // ── RESOLUTOR B9 / ASISTENCIA ──
+  h.t("resolverMostrarAsistencia: 1 visible", function() {
+    h.eq(resolverMostrarAsistencia(1, ""), true);
+    h.eq(resolverMostrarAsistencia("1", null), true);
+  });
+  h.t("resolverMostrarAsistencia: 0 oculto", function() {
+    h.eq(resolverMostrarAsistencia(0, ""), false);
+    h.eq(resolverMostrarAsistencia("0 ", null), false);
+  });
+  h.t("resolverMostrarAsistencia: vacío usa legado y luego default visible", function() {
+    h.eq(resolverMostrarAsistencia("", 0), false);
+    h.eq(resolverMostrarAsistencia("", 1), true);
+    h.eq(resolverMostrarAsistencia("", ""), true);
+    h.eq(resolverMostrarAsistencia(null, null), true);
+  });
+
+  // ── RESOLUTOR CANTIDAD DE GUARDIAS ──
+  h.t("resolverCantidadGuardias: solo 2/3/4 válidos", function() {
+    h.eq(resolverCantidadGuardias("3", "", 4), 3);
+    h.eq(resolverCantidadGuardias(2, "", 4), 2);
+    h.eq(resolverCantidadGuardias(4, null, 4), 4);
+  });
+  h.t("resolverCantidadGuardias: rechaza fuera de rango y usa legado/default", function() {
+    h.eq(resolverCantidadGuardias("7", "", 4), 4);
+    h.eq(resolverCantidadGuardias("1", 3, 4), 3);
+    h.eq(resolverCantidadGuardias("", "", 4), 4);
+  });
+
   return h.resultados;
 }
 
