@@ -1419,6 +1419,41 @@
       color: var(--ink-soft); text-transform: uppercase;
     }
     .dc-line b{ color: var(--ink); }
+
+    /*══════════════════════════════════════════
+       AJUSTE DE ANCHO DEL CALENDARIO
+       · Celdas compactadas (densidad previa)
+       · Scroll horizontal como red de seguridad
+    ═══════════════════════════════════════════*/
+    .cal-scroll{ overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+    .cal-scroll::-webkit-scrollbar{ height: 8px; }
+    .cal-scroll::-webkit-scrollbar-thumb{ background:#cfcac2; border-radius: 8px; }
+    .cal-scroll::-webkit-scrollbar-track{ background: transparent; }
+
+    #cal-grid:not(.cal-lista){ min-width: 660px; }
+    body[data-modo="MOBILE"] #cal-grid:not(.cal-lista),
+    body[data-modo="MOBILE"] #cal-grid.cal-lista{ min-width: 0; }
+    body[data-modo="MOBILE"] .cal-scroll{ overflow: visible; padding-bottom: 0; }
+
+    /* Compactación: densidad similar a la versión anterior */
+    .day{
+      min-width: 0; min-height: 84px;
+      padding: 7px 7px 8px; gap: 5px;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .day-n{ font-size: 14px; }
+    .pill{
+      font-size: 7.5px; padding: 3px 7px; letter-spacing: .3px;
+      max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .day-cuentas{ font-size: 7px; letter-spacing: .3px; }
+    .day-cuentas b{ font-size: 8px; }
+
+    /* En pantallas medianas-desktop el scroll aparece solo si hace falta */
+    @media (min-width: 1000px){
+      #cal-grid:not(.cal-lista){ min-width: 0; }
+    }
   </style>
 </head>
 <body style="min-height:100vh;">
@@ -1580,11 +1615,13 @@
         <span class="op-banner-text">Requisitos despacho: 1 maquinista · 2 bomberos operativos / profesionales</span>
       </div>
 
+      <div class="cal-scroll" id="cal-scroll">
       <div class="cal-grid" id="cal-grid">
         <div class="dname">Lu</div><div class="dname">Ma</div><div class="dname">Mi</div>
         <div class="dname">Ju</div><div class="dname">Vi</div><div class="dname">Sa</div>
         <div class="dname">Do</div>
         <div class="cal-loading">Cargando...</div>
+      </div>
       </div>
 
       <div class="legend" id="legend">
@@ -2380,7 +2417,7 @@ function renderCalendario(){
     celda.innerHTML =
       '<div class="day-top">' +
         '<span class="day-n">' + dia + '</span>' +
-        '<span class="pill p-' + estDia.nivel + '">' + estDia.texto + '</span>' +
+        '<span class="pill p-' + estDia.nivel + '">' + estDia.corto + '</span>' +
       '</div>' +
       '<div class="day-cuentas">' +
         '<span>OP <b>' + opsDia + '/' + REGLAS_UI.cupoOp + '</b></span>' +
@@ -3730,13 +3767,15 @@ function guardarCambiosAsistencia(){
 //══════════════════════════════════════
 
 function estadoDe(data){
-  if(!data || !data.habilitado) return { nivel: "off", texto: "Cerrado" };
+  if(!data || !data.habilitado) return { nivel: "off", texto: "Cerrado", corto: "Cerrado" };
   var maq = data.maquinistas || 0;
   var ops = data.operativos || 0;
-  if(maq >= REGLAS_UI.cupoMaq && ops >= REGLAS_UI.cupoOp) return { nivel: "full", texto: "Completa" };
+  if(maq >= REGLAS_UI.cupoMaq && ops >= REGLAS_UI.cupoOp)
+    return { nivel: "full", texto: "Completa", corto: "COMPLETA" };
   var total = (data.voluntarios || 0) + maq;
-  if(total > 0) return { nivel: "warn", texto: "Disponibilidad limitada" };
-  return { nivel: "ok", texto: "Disponible" };
+  if(total > 0)
+    return { nivel: "warn", texto: "Disponibilidad limitada", corto: "LIMITADA" };
+  return { nivel: "ok", texto: "Disponible", corto: "DISPONIBLE" };
 }
 
 //══════════════════════════════════════
