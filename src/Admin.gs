@@ -95,14 +95,26 @@ function onOpen() {
 
 // Este proyecto es un script independiente: el menú no aparece solo en la hoja.
 // Esto instala un disparador onOpen editable sobre la hoja de cálculo.
+// Ejecutar UNA VEZ desde el editor de Apps Script (botón ▶) y autorizar.
 function instalarTriggerMenuAdmin() {
+  var ui = SpreadsheetApp.getUi();
   var ss = SpreadsheetApp.openById(SHEET_ID);
+  var yaEsta = false;
   ScriptApp.getProjectTriggers().forEach(function(t) {
-    if (t.getHandlerFunction() === "menuAdministrativo") ScriptApp.deleteTrigger(t);
+    if (t.getHandlerFunction() === "menuAdministrativo") {
+      yaEsta = true;
+      ScriptApp.deleteTrigger(t);
+    }
   });
   ScriptApp.newTrigger("menuAdministrativo").forSpreadsheet(ss).onOpen().create();
-  SpreadsheetApp.getUi().alert("Menú instalado",
-    "El menú 🚒 GUARDIAS CBC aparecerá al recargar la hoja de cálculo.", SpreadsheetApp.getUi().ButtonSet.OK);
+  try {
+    PropertiesService.getScriptProperties().setProperty("MENU_TRIGGER_OK", new Date().toISOString());
+    PropertiesService.getScriptProperties().deleteProperty("MENU_TRIGGER_INTENTOS");
+  } catch (e) {}
+  ui.alert("Menú instalado",
+    (yaEsta ? "Disparador renovado.\n\n" : "") +
+    "Cierra y vuelve a abrir la hoja de cálculo:\nverás el menú 🚒 GUARDIAS CBC.",
+    ui.ButtonSet.OK);
 }
 
 //────────────────────────────────────────────

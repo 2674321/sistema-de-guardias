@@ -142,6 +142,7 @@ function invalidarCacheConfig() {
 function getConfig() {
   try {
     var c = obtenerConfigGeneral();
+    _autoInstalarTriggerMenu(); // best-effort, silencioso e idempotente
     return {
       ok: true,
       cantidadGuardias: c.cantidadGuardias,
@@ -152,6 +153,46 @@ function getConfig() {
     };
   } catch (e) {
     return { ok: false, error: e.message };
+  }
+}
+
+//══════════════════════════════════════════
+// AUTO-INSTALACIÓN DEL MENÚ EN LA HOJA
+// El proyecto es un script independiente: su onOpen simple nunca se
+// dispara al abrir la hoja. Se necesita un disparador instalable.
+// Este helper lo crea automáticamente la primera vez que la web app
+// corre con permisos suficientes; si falta el alcance script.scriptapp,
+// falla en silencio y queda listo para instalarse a mano desde el editor
+// (función instalarTriggerMenuAdmin).
+//══════════════════════════════════════════
+
+function _autoInstalarTriggerMenu() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    if (props.getProperty("MENU_TRIGGER_OK")) return;
+
+    // Límite de intentos para no insistir eternamente sin permiso
+    var intentos = Number(props.getProperty("MENU_TRIGGER_INTENTOS") || 0);
+    if (intentos >= 5) return;
+
+    var yaEsta = ScriptApp.getProjectTriggers().some(function(t) {
+      return t.getHandlerFunction() === "menuAdministrativo";
+    });
+
+    if (!yaEsta) {
+      var ss = SpreadsheetApp.openById(SHEET_ID);
+      ScriptApp.newTrigger("menuAdministrativo").forSpreadsheet(ss).onOpen().create();
+    }
+
+    props.setProperty("MENU_TRIGGER_OK", new Date().toISOString());
+    props.deleteProperty("MENU_TRIGGER_INTENTOS");
+    Logger.log("Menú GUARDIAS CBC: disparador onOpen asegurado.");
+  } catch (e) {
+    try {
+      var p2 = PropertiesService.getScriptProperties();
+      p2.setProperty("MENU_TRIGGER_INTENTOS", String(Number(p2.getProperty("MENU_TRIGGER_INTENTOS") || 0) + 1));
+    } catch (e2) {}
+    Logger.log("Auto-instalación del menú pendiente de autorización: " + e.message);
   }
 }
 
