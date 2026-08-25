@@ -2,6 +2,15 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) · SemVer.
 
+## [No publicado]
+
+### Fixed
+- Inscripciones con cargos mixtos (Voluntario + Maquinista) enviaban un correo por cada grupo: ahora llega **un solo resumen consolidado**.
+- El correo de código de seguridad fallaba en silencio: ahora los errores de envío se informan y el diseño es distintivo (asunto incluye el código).
+
+### Changed
+- Plantillas de correo rediseñadas por completo (registro, baja y código) con la identidad de la app.
+
 ## [1.0.0] — 2026-08-25
 
 Primera versión estable completa: reescritura del sistema histórico sobre Apps Script + Sheets con contrato de calendario versionado, niveles de bombero y seguridad de baja por correo.
