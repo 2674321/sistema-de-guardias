@@ -40,6 +40,7 @@ var PALETA = {
 function construirMenuAdmin() {
   return [
     { titulo: "🏠 Sistema", items: [
+      ["🚀 Instalar / actualizar sistema", "instalarSistema"],
       ["Abrir aplicación web", "abrirSistema"],
       ["Ver URL de la app", "verUrlApp"]
     ]},
@@ -131,6 +132,88 @@ function instalarTriggerMenuAdmin() {
 //────────────────────────────────────────────
 // 🏠 SISTEMA
 //────────────────────────────────────────────
+
+//══════════════════════════════════════════
+// 🚀 INSTALAR / ACTUALIZAR SISTEMA
+// Función maestra: hace TODO lo visual y estructural en un solo paso.
+// Idempotente: se puede ejecutar las veces que haga falta.
+//
+//   1. Menú 🚒 GUARDIAS CBC asegurado en la hoja
+//   2. Estructura: crea hojas/cabeceras faltantes (sin borrar datos)
+//   3. Config: layout por secciones + migración de valores + validaciones
+//   4. Estadísticas: regeneradas desde Guardias
+//   5. Formato completo de TODAS las hojas según su tipo
+//      (encabezados, filtros, zebra, niveles 🔵🟢🟣, estados C/P/R/NC,
+//       anchos, congelados, hojas técnicas ocultas y protegidas)
+//══════════════════════════════════════════
+
+function instalarSistema() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    return { ok: false, error: "El sistema está ocupado. Espera unos segundos." };
+  }
+
+  var lineas = [];
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+
+    // 1. Menú
+    try {
+      _autoInstalarTriggerMenu();
+      lineas.push("✓ Menú 🚒 GUARDIAS CBC asegurado");
+    } catch (e) {
+      lineas.push("• Menú: pendiente de autorización (ejecuta instalarTriggerMenuAdmin una vez)");
+    }
+
+    // 2. Estructura base
+    var creados = [];
+    function asegurar(nombre, cabeceras) {
+      var sh = ss.getSheetByName(nombre);
+      if (!sh) { sh = ss.insertSheet(nombre); creados.push(nombre); }
+      if (cabeceras && sh.getLastRow() === 0) sh.getRange(1, 1, 1, cabeceras.length).setValues([cabeceras]);
+    }
+    asegurar("Guardias", ["Timestamp", "Nombre", "Email", "Cargo", "Guardia 01", "Guardia 02", "Guardia 03", "Guardia 04", "Nivel"]);
+    asegurar("Config");
+    asegurar("Asistencia", ["Email", "Nombre", "Cargo", "G1_Estado", "G1_ReempNombre", "G1_ReempEmail", "G2_Estado", "G2_ReempNombre", "G2_ReempEmail", "G3_Estado", "G3_ReempNombre", "G3_ReempEmail", "G4_Estado", "G4_ReempNombre", "G4_ReempEmail", "UltimaActualizacion"]);
+    HOJAS_ESTADISTICAS.forEach(function(n) { asegurar(n, n === "Estadisticas" ? ["Métrica", "Valor"] : null); });
+    lineas.push(creados.length ? "✓ Hojas creadas: " + creados.join(", ") : "✓ Estructura de hojas verificada");
+
+    // 3. Config por secciones (migra valores legados B* → C*)
+    prepararConfiguracionSilencioso(ss);
+    lineas.push("✓ Config: secciones, valores y validaciones al día");
+
+    // 4. Estadísticas regeneradas (antes del formato, para estilizar lo nuevo)
+    generarEstadisticasBasicas();
+    actualizarEstadisticas();
+    lineas.push("✓ Estadísticas regeneradas desde Guardias");
+
+    // 5. Formato completo de todas las hojas por tipo
+    var fmt = aplicarFormatoCompletoCore({ silencioso: true });
+    fmt.forEach(function(l) { lineas.push(l); });
+
+    invalidarCacheConfig();
+
+    lineas.push("");
+    lineas.push("Sistema listo. Esta acción es idempotente:");
+    lineas.push("puedes repetirla cuando quieras sin duplicar nada.");
+  } catch (e) {
+    Logger.log("instalarSistema: " + e);
+    lineas.push("");
+    lineas.push("⚠️ Se detuvo con error: " + e.message);
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
+  }
+
+  var texto = lineas.join("\n");
+  Logger.log(texto);
+  try {
+    SpreadsheetApp.getUi().alert("🚒 Instalar / Actualizar sistema", texto, SpreadsheetApp.getUi().ButtonSet.OK);
+  } catch (e) { /* contexto sin UI (editor) */ }
+  return { ok: true, resumen: lineas };
+}
+
+// Alias con el otro nombre que se usa en la práctica
+function actualizarSistema() { return instalarSistema(); }
 
 function abrirSistema() {
   var html = HtmlService.createHtmlOutput(
