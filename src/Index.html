@@ -1007,6 +1007,187 @@
       footer{ padding: 0 12px 28px; }
       .masthead-right a { font-size: 9px; }
     }
+
+    /*══════════════════════════════════════════
+       FASE 2 — SISTEMA VISUAL, NAVEGACIÓN Y MOTION
+    ═══════════════════════════════════════════*/
+
+    :root {
+      --ok:        #1a6b3a;
+      --ok-bg:     #e2f3e8;
+      --warn:      #9a6b00;
+      --warn-bg:   #fdf3d7;
+      --bad:       #b91c1c;
+      --bad-bg:    #fde0e0;
+      --lvl-ini:   #1a56b0;
+      --lvl-op:    #1a6b3a;
+      --lvl-pro:   #6b2fa0;
+      --motion-rapida: 140ms;
+      --motion-base:   240ms;
+      --motion-suave:  cubic-bezier(.22,.61,.36,1);
+      --nav-h: 52px;
+    }
+
+    /* ── Navegación chips (desktop / tablet apuntador fino) ── */
+    .chipnav{
+      position: sticky; top: 0; z-index: 900;
+      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+      padding: 10px 16px;
+      background: rgba(247,245,242,.94);
+      backdrop-filter: blur(6px);
+      border-bottom: 1px solid var(--rule);
+    }
+    .chipnav a{
+      font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px;
+      text-transform: uppercase; text-decoration: none; color: var(--ink-soft);
+      padding: 9px 14px; border-radius: 999px; border: 1px solid transparent;
+      transition: color var(--motion-rapida), background var(--motion-rapida), border-color var(--motion-rapida);
+    }
+    .chipnav a:hover{ color: var(--ink); border-color: var(--rule); }
+    .chipnav a.activo{ background: var(--ink); color: #fff; border-color: var(--ink); }
+
+    /* ── Bottom navigation (móvil / tablet táctil) ── */
+    .bottomnav{ display: none; }
+
+    body[data-modo="MOBILE"] .bottomnav,
+    body[data-modo="TABLET"][data-apuntador="coarse"] .bottomnav{
+      display: flex;
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000;
+      height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      background: rgba(14,14,14,.97);
+      backdrop-filter: blur(4px);
+      border-top: 1px solid #262626;
+    }
+    body[data-modo="MOBILE"] .chipnav,
+    body[data-modo="TABLET"][data-apuntador="coarse"] .chipnav{ display: none; }
+
+    .bottomnav button{
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; min-height: var(--nav-h);
+      background: none; border: none; color: rgba(255,255,255,.55);
+      font-size: 17px; line-height: 1;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+      transition: color var(--motion-rapida);
+    }
+    .bottomnav button span{
+      font-family: var(--mono); font-size: 8.5px; letter-spacing: .5px;
+    }
+    .bottomnav button.activo, .bottomnav button:active{ color: #fff; }
+
+    body[data-modo="MOBILE"] .page-body,
+    body[data-modo="TABLET"][data-apuntador="coarse"] .page-body{
+      padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 28px);
+    }
+
+    /* ── Pills de estado del día ── */
+    .pill{
+      display: inline-flex; align-items: center; gap: 5px;
+      font-family: var(--mono); font-size: 8.5px; letter-spacing: 1px; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+    }
+    .pill::before{ content: "●"; font-size: 7px; }
+    .p-ok  { background: var(--ok-bg);   color: var(--ok); }
+    .p-warn{ background: var(--warn-bg); color: var(--warn); }
+    .p-full{ background: var(--bad-bg);  color: var(--bad); }
+    .dot{ width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .d-ok { background: var(--ok); } .d-warn{ background: #d9a400; } .d-full{ background: var(--bad); }
+
+    /* ── Animaciones de día / selección ── */
+    @keyframes fadeUp{ from{ opacity: 0; transform: translateY(14px);} to{ opacity: 1; transform: none;} }
+    @keyframes popIn { from{ transform: scale(.4); opacity: 0;} to{ transform: scale(1); opacity: 1;} }
+    @keyframes pulso { 0%,100%{ opacity: 1;} 50%{ opacity: .35;} }
+
+    .day{ transition: transform var(--motion-base) var(--motion-suave), box-shadow var(--motion-base) var(--motion-suave), border-color var(--motion-base); }
+    .day.sel{
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(14,14,14,.18);
+      border-color: var(--ink);
+    }
+    .day.sel::after{
+      content: "✓"; position: absolute; top: 5px; right: 6px;
+      width: 17px; height: 17px; border-radius: 50%;
+      background: var(--ink); color: #fff; font-size: 11px; line-height: 17px;
+      text-align: center; animation: popIn var(--motion-base) var(--motion-suave);
+    }
+
+    .panel{ animation: fadeUp var(--motion-base) var(--motion-suave) both; }
+
+    .btn-spin{
+      display: inline-block; width: 12px; height: 12px; margin-right: 8px;
+      border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+      border-radius: 50%; vertical-align: middle;
+      animation: girar .7s linear infinite;
+    }
+    @keyframes girar{ to{ transform: rotate(360deg);} }
+
+    .submit-btn.ok-state{ background: var(--ok) !important; }
+    .submit-btn.err-state{ background: var(--bad) !important; }
+
+    /* ── Calendario móvil: lista/timeline ── */
+    #cal-grid.cal-lista{
+      display: block; opacity: 1 !important;
+    }
+    .dia-card{
+      background: var(--card); border: 1px solid var(--rule); border-left: 4px solid var(--ok);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+      animation: fadeUp var(--motion-base) var(--motion-suave) both;
+      transition: border-color var(--motion-base), transform var(--motion-base) var(--motion-suave);
+    }
+    .dia-card.sel{ border-left-color: var(--ink); transform: translateY(-1px); box-shadow: 0 5px 16px rgba(14,14,14,.12); }
+    .dia-card.llena{ border-left-color: var(--bad); opacity: .82; }
+    .dc-head{ display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .dc-dia{ font-family: var(--display); font-size: 13.5px; color: var(--ink); text-transform: capitalize; }
+    .dc-body{ display: flex; gap: 14px; flex-wrap: wrap; font-family: var(--sans); font-size: 12px; color: var(--ink-soft); margin-bottom: 10px; }
+    .dc-btn{
+      width: 100%; min-height: 42px; border-radius: 8px; border: 1px solid var(--ink);
+      background: transparent; color: var(--ink); font-family: var(--mono);
+      font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer;
+      transition: background var(--motion-rapida), color var(--motion-rapida);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .dia-card.sel .dc-btn{ background: var(--ink); color: #fff; }
+
+    .vacio-suave{
+      grid-column: 1/-1; text-align: center; padding: 34px 16px;
+      font-family: var(--sans); font-size: 13px; color: var(--ink-soft); line-height: 1.7;
+    }
+
+    /* ── Hint de correo detectado ── */
+    .field-hint{
+      display: block; margin-top: 5px;
+      font-family: var(--mono); font-size: 9px; letter-spacing: 1px; color: var(--ink-faint);
+    }
+    .field-hint.detectado{ color: var(--ok); }
+    .field-hint.manual{ color: var(--ink-faint); }
+
+    /* ── Accesibilidad ── */
+    :is(a,button,input,select,[tabindex]):focus-visible{
+      outline: 2.5px solid var(--azul, #1a3a9b); outline-offset: 2px; border-radius: 4px;
+    }
+
+    /* ── Movimiento reducido ── */
+    @media (prefers-reduced-motion: reduce){
+      *, *::before, *::after{
+        animation-duration: .001s !important; animation-iteration-count: 1 !important;
+        transition-duration: .001s !important; scroll-behavior: auto !important;
+      }
+    }
+
+    /* ── Orientación horizontal en móvil: compactar navegación ── */
+    @media (max-width: 767px) and (orientation: landscape){
+      body[data-modo="MOBILE"] .bottomnav{ height: 44px; }
+      .bottomnav button span{ display: none; }
+      body[data-modo="MOBILE"] .page-body{ padding-bottom: calc(44px + env(safe-area-inset-bottom, 0px)); }
+    }
+
+    /* ── Teléfonos angostos ── */
+    @media (max-width: 480px){
+      .pill{ font-size: 8px; padding: 2px 7px; }
+      .panel-body{ padding: 14px; }
+      .submit-btn, .del-btn-confirmar{ min-height: 50px; font-size: 12.5px; }
+      input[type="date"], .del-input{ min-height: 48px; font-size: 15px; }
+    }
   </style>
 </head>
 <body style="min-height:100vh;">
@@ -1032,10 +1213,25 @@
   </div>
 </header>
 
+<nav class="chipnav" id="chipnav" aria-label="Secciones">
+  <a href="#panel-inscripcion" data-secc="panel-inscripcion">01 · Inscripción</a>
+  <a href="#panel-disponibilidad" data-secc="panel-disponibilidad">02 · Disponibilidad</a>
+  <a href="#panel-baja" data-secc="panel-baja">03 · Mi baja</a>
+  <a href="#panel-asistencia" data-secc="panel-asistencia" data-nav-asistencia>04 · Asistencia</a>
+</nav>
+
+<nav class="bottomnav" id="bottomnav" aria-label="Navegación principal">
+  <button type="button" data-go="top" aria-label="Ir al inicio">🏠<span>Inicio</span></button>
+  <button type="button" data-go="#panel-inscripcion" aria-label="Inscripción">➕<span>Inscribirse</span></button>
+  <button type="button" data-go="#panel-disponibilidad" aria-label="Disponibilidad de guardias">📅<span>Guardias</span></button>
+  <button type="button" data-go="#panel-baja" aria-label="Dar de baja mis guardias">👤<span>Mi baja</span></button>
+  <button type="button" data-go="#panel-asistencia" data-bn-asistencia aria-label="Asistencia">🩺<span>Asistencia</span></button>
+</nav>
+
 <div class="page-body">
 
   <!-- PANEL 01: FORMULARIO -->
-  <div class="panel">
+  <div class="panel" id="panel-inscripcion">
     <div class="panel-head">
       <span class="panel-head-num">01</span>
       <span class="panel-head-title">Inscripción</span>
@@ -1053,6 +1249,7 @@
         <label class="field-label" for="email">Correo electrónico</label>
         <input type="email" id="email" placeholder="correo@ejemplo.com" autocomplete="email" oninput="validarCampo(this, /^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Correo inválido')">
         <span class="field-err" id="err-email"></span>
+        <span class="field-hint" id="email-hint" aria-live="polite"></span>
       </div>
 
       <div class="field field-op">
@@ -1126,7 +1323,7 @@
   </div>
 
   <!-- PANEL 02: CALENDARIO -->
-  <div class="panel" style="background:#edeae4;">
+  <div class="panel" style="background:#edeae4;" id="panel-disponibilidad">
     <div class="panel-head">
       <span class="panel-head-num">02</span>
       <span class="panel-head-title">Disponibilidad</span>
@@ -1185,7 +1382,7 @@
   </div>
 
   <!-- PANEL 03: ELIMINACIÓN -->
-  <div class="panel panel-del panel-full">
+  <div class="panel panel-del panel-full" id="panel-baja">
     <div class="panel-head">
       <span class="panel-head-num">03</span>
       <span class="panel-head-title">Dar de baja mis guardias</span>
@@ -1353,6 +1550,9 @@ const DIAS = [
   "Lu","Ma","Mi","Ju","Vi","Sa","Do"
 ];
 
+// Requisitos de despacho reflejados en la UI (misma regla que Reglas.gs)
+const REGLAS_UI = { cupoOp: 2, cupoMaq: 1 };
+
 
 //══════════════════════════════════════
 // INICIO
@@ -1367,12 +1567,16 @@ window.onload = () => {
     setTimeout(function(){ splash.style.display = "none"; }, 500);
   };
 
+  _initModo();
+  _initNavegacion();
+
   cargarCalendario();
+  _detectarCorreo();
 
   // Configuración central: cantidad máxima de guardias y visibilidad del panel Asistencia
   google.script.run
     .withSuccessHandler(function(cfg){
-      if(!cfg || !cfg.ok) return;
+      if(!cfg || !cfg.ok) return; // estabilidad: se mantienen los defaults visuales
       window._cfg = cfg;
 
       // Limitar selector de días a la cantidad configurada
@@ -1386,18 +1590,143 @@ window.onload = () => {
         seleccionarNumDias(valor);
       }
 
-      // Panel Asistencia visible u oculto (Config!B9)
+      // Panel Asistencia: B9=1 visible · B9=0 desaparece por completo (contenido y navegación)
       var pa = document.getElementById("panel-asistencia");
-      if(pa && !cfg.mostrarAsistencia) pa.style.display = "none";
+      if(!cfg.mostrarAsistencia){
+        if(pa) pa.remove();
+        var chip = document.querySelector("[data-nav-asistencia]");
+        if(chip) chip.remove();
+      }
     })
     .getConfig();
 
-  // Auto-refresh cada 30s para display TV
-  setInterval(function(){
-    if(!document.hidden) cargarCalendario();
-  }, 30000);
+  // Auto-refresh inteligente: solo con pestaña visible, sin envíos en curso,
+  // sin inputs activos y tras ≥25 s sin interacción del usuario.
+  window._lastAct = Date.now();
+  ["pointerdown","keydown","focusin","touchstart"].forEach(function(ev){
+    document.addEventListener(ev, function(){ window._lastAct = Date.now(); }, { passive: true });
+  });
+  clearInterval(window._refreshTimer);
+  window._refreshTimer = setInterval(function(){
+    var activo = document.activeElement;
+    var escribiendo = activo && /INPUT|SELECT|TEXTAREA/.test(activo.tagName);
+    if(document.hidden || window._enviando || escribiendo) return;
+    if(Date.now() - window._lastAct < 25000) return;
+    cargarCalendario();
+  }, 45000);
 
 };
+
+//══════════════════════════════════════
+// DETECCIÓN DE DISPOSITIVO Y NAVEGACIÓN
+//══════════════════════════════════════
+
+function _detectarModo(){
+  var w = window.innerWidth;
+  var coarse = window.matchMedia("(pointer: coarse)").matches;
+  var sinHover = window.matchMedia("(hover: none)").matches;
+  var tactil = coarse || sinHover;
+  var uaMovil = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+  var modo;
+  if(tactil && (w < 820 || (uaMovil && w < 1024))) modo = "MOBILE";
+  else if(tactil && w < 1180) modo = "TABLET";
+  else if(uaMovil && w < 700) modo = "MOBILE";   // User-Agent solo como apoyo
+  else modo = "DESKTOP";
+
+  var orientacion = window.innerWidth >= window.innerHeight ? "landscape" : "portrait";
+  var apuntador = tactil ? "coarse" : "fine";
+
+  document.body.setAttribute("data-modo", modo);
+  document.body.setAttribute("data-orient", orientacion);
+  document.body.setAttribute("data-apuntador", apuntador);
+  window._MODO = modo;
+  window._ORIENT = orientacion;
+  return { modo: modo, orientacion: orientacion };
+}
+
+function _initModo(){
+  _detectarModo();
+  var t;
+  window.addEventListener("resize", function(){
+    clearTimeout(t);
+    t = setTimeout(function(){
+      var antes = window._MODO + "|" + window._ORIENT;
+      var ahora = _detectarModo();
+      if(antes !== ahora.modo + "|" + ahora.orientacion) renderCalendario();
+    }, 180);
+  });
+}
+
+function irA(destino){
+  if(destino === "top"){ window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+  var el = document.getElementById(String(destino).replace("#",""));
+  if(el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function _initNavegacion(){
+  document.querySelectorAll(".bottomnav [data-go]").forEach(function(b){
+    b.addEventListener("click", function(){ irA(b.getAttribute("data-go")); });
+  });
+
+  // Scrollspy para la navegación de escritorio
+  var chips = document.querySelectorAll(".chipnav a[data-secc]");
+  if("IntersectionObserver" in window && chips.length){
+    var obs = new IntersectionObserver(function(entradas){
+      entradas.forEach(function(en){
+        if(!en.isIntersecting) return;
+        chips.forEach(function(c){
+          c.classList.toggle("activo", c.getAttribute("data-secc") === en.target.id);
+        });
+      });
+    }, { rootMargin: "-30% 0px -60% 0px" });
+    chips.forEach(function(c){
+      var el = document.getElementById(c.getAttribute("data-secc"));
+      if(el) obs.observe(el);
+    });
+  }
+}
+
+//══════════════════════════════════════
+// CORREO — detección automática (siempre editable)
+//══════════════════════════════════════
+
+function _detectarCorreo(){
+  var hint = document.getElementById("email-hint");
+  var input = document.getElementById("email");
+
+  if(!input._hintBound){
+    input._hintBound = true;
+    input.addEventListener("input", function(){
+      if(hint.classList.contains("detectado")){
+        hint.className = "field-hint manual";
+        hint.textContent = "✎ Correo editable — puedes usar otro si lo necesitas";
+      }
+    });
+  }
+
+  google.script.run
+    .withSuccessHandler(function(resp){
+      if(resp && resp.ok && resp.correo){
+        if(!input.value.trim()){
+          input.value = resp.correo;
+          validarCampo(input, /^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Correo inválido");
+        }
+        hint.className = "field-hint detectado";
+        hint.textContent = input.value === resp.correo
+          ? "✓ Correo detectado automáticamente"
+          : "✓ Tu cuenta es " + resp.correo + " — usando el correo ingresado";
+      } else {
+        hint.className = "field-hint manual";
+        hint.textContent = "Ingresa tu correo manualmente";
+      }
+    })
+    .withFailureHandler(function(){
+      hint.className = "field-hint manual";
+      hint.textContent = "Ingresa tu correo manualmente";
+    })
+    .detectarCorreoUsuario();
+}
 
 //══════════════════════════════════════
 // CARGAR DATOS
@@ -1469,8 +1798,11 @@ function cargarCalendario(){
 
 function cargarCalendarioError(){
   document.getElementById("cal-grid").style.opacity = "1";
+  if(window._ocultarSplash){ window._ocultarSplash(); window._ocultarSplash = null; }
   var loading = document.querySelector("#cal-grid .cal-loading");
-  if(loading) loading.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px 0;font-family:var(--mono);font-size:10px;color:var(--red);letter-spacing:2px;">Error al cargar. <a href="javascript:cargarCalendario()" style="color:var(--red);">Reintentar</a></div>';
+  var msg = '<div class="vacio-suave" role="status">No pudimos cargar la disponibilidad en este momento.<br>Verifica tu conexión e inténtalo de nuevo.<br><br><a href="javascript:cargarCalendario()" style="color:var(--red);font-family:var(--mono);letter-spacing:1px;">↻ REINTENTAR</a></div>';
+  if(loading) loading.innerHTML = msg;
+  else document.getElementById("cal-grid").innerHTML = msg;
 }
 
 
@@ -1490,6 +1822,7 @@ function renderCalendario(){
     `${MESES[estado.mes]} ${estado.año}`;
 
   grid.innerHTML = "";
+  grid.className = "cal-grid";
 
   //══════════════════════════════════
   // NOMBRES DÍAS
@@ -1582,6 +1915,9 @@ function renderCalendario(){
   }
   estado._todosLlenos = todosLlenos;
 
+  // En teléfono: calendario como lista/timeline (sin celdas mínimas ni zoom)
+  if(window._MODO === "MOBILE"){ renderCalendarioLista(grid); return; }
+
   for(let dia=1; dia<=diasMes; dia++){
 
     const fecha =
@@ -1612,9 +1948,10 @@ function renderCalendario(){
     const cupos =
       obtenerTextoCupos(data);
 
+    const estDia = estadoDe(data);
     celda.innerHTML = `
       <div class="day-n">${dia}</div>
-      <div class="day-cap">${cupos}</div>
+      <div class="day-cap"><span class="dot d-${estDia.nivel}" aria-hidden="true"></span>${cupos}</div>
     `;
 
     if(data.habilitado){
@@ -2065,6 +2402,8 @@ function enviar(){
   const btn = document.getElementById("btnEnviar");
   if(btn.disabled) return;
   btn.disabled = true;
+  window._enviando = true;
+  _btnEstado(btn, null, '<span class="btn-spin"></span>GUARDANDO…');
 
   var nombre = document.getElementById("nombre").value.trim();
   var email = document.getElementById("email").value.trim();
@@ -2096,9 +2435,14 @@ function enviar(){
     if(idxGrupo >= gruposArr.length){
       document.getElementById("spinner").style.display = "none";
       btn.disabled = false;
+      window._enviando = false;
       if(erroresTotal.length > 0){
+        _btnEstado(btn, "err-state", "✗ REVISA LOS ERRORES");
+        setTimeout(function(){ _btnEstado(btn, null, "Registrar guardias"); }, 3200);
         mostrarError(erroresTotal.join("<br>"));
       } else {
+        _btnEstado(btn, "ok-state", "✓ GUARDIA REGISTRADA");
+        setTimeout(function(){ _btnEstado(btn, null, "Registrar guardias"); }, 2600);
         document.getElementById("exito").style.display = "block";
         clearTimeout(window._timeoutExito);
         window._timeoutExito = setTimeout(function(){
@@ -2148,8 +2492,12 @@ function enviar(){
 function limpiarFormulario(){
 
   estado.seleccionadas = [];
-  estado.numDias = 4;
-  document.getElementById("num-dias").value = "4";
+  var selND = document.getElementById("num-dias");
+  var maxOpt = (selND && selND.options.length)
+    ? parseInt(selND.options[selND.options.length - 1].value, 10)
+    : 4;
+  estado.numDias = maxOpt;
+  if(selND) selND.value = String(maxOpt);
 
   ["nombre","email"].forEach(function(id){
     var el = document.getElementById(id);
@@ -2164,7 +2512,7 @@ function limpiarFormulario(){
 
   for(var i=1;i<=4;i++){
     var cell = document.getElementById("date-cell-" + i);
-    if(cell) cell.style.display = "";
+    if(cell) cell.style.display = i <= maxOpt ? "" : "none";
     var inp = document.getElementById("fecha" + i);
     if(inp) inp.dataset.cargo = "";
     var vBtn = document.getElementById("ctog" + i + "-v");
@@ -2172,6 +2520,9 @@ function limpiarFormulario(){
     if(vBtn) vBtn.className = "ctog-btn";
     if(mBtn) mBtn.className = "ctog-btn";
   }
+
+  // Restaurar hint de correo tras el envío
+  _detectarCorreo();
 
   actualizarInputs();
 
@@ -2376,7 +2727,9 @@ function ejecutarEliminacion(){
   }
 
   btn.disabled = true;
-  spinner.style.display = "inline";
+  window._enviando = true;
+  _btnEstado(btn, null, '<span class="btn-spin"></span>ELIMINANDO…');
+  spinner.style.display = "none";
   error.style.display = "none";
   exito.style.display = "none";
 
@@ -2384,13 +2737,19 @@ function ejecutarEliminacion(){
     .withSuccessHandler(function(resp){
       spinner.style.display = "none";
       btn.disabled = false;
+      window._enviando = false;
 
       if(!resp.ok){
+        _btnEstado(btn, "err-state", "✗ NO SE PUDO ELIMINAR");
+        setTimeout(function(){ _btnEstado(btn, null, "Eliminar mis guardias"); }, 3200);
         exito.style.display = "none";
         error.style.display = "block";
         errTxt.textContent = resp.error || "Error desconocido.";
         return;
       }
+
+      _btnEstado(btn, "ok-state", "✓ GUARDIAS ELIMINADAS");
+      setTimeout(function(){ _btnEstado(btn, null, "Eliminar mis guardias"); }, 3000);
 
       document.getElementById("del-guardias-list").innerHTML = "";
       document.getElementById("del-email").value = "";
@@ -2412,6 +2771,9 @@ function ejecutarEliminacion(){
     .withFailureHandler(function(err){
       spinner.style.display = "none";
       btn.disabled = false;
+      window._enviando = false;
+      _btnEstado(btn, "err-state", "✗ ERROR DE CONEXIÓN");
+      setTimeout(function(){ _btnEstado(btn, null, "Eliminar mis guardias"); }, 3200);
       error.style.display = "block";
       errTxt.textContent = "Error de conexión: " + (err.message || err);
     })
@@ -2837,15 +3199,20 @@ function guardarCambiosAsistencia(){
   }
 
   btn.disabled = true;
-  spinner.style.display = "inline";
+  window._enviando = true;
+  _btnEstado(btn, null, '<span class="btn-spin"></span>GUARDANDO…');
+  spinner.style.display = "none";
   errEl.style.display = "none";
 
   google.script.run
     .withSuccessHandler(function(resp){
       spinner.style.display = "none";
       btn.disabled = false;
+      window._enviando = false;
 
       if(!resp.ok){
+        _btnEstado(btn, "err-state", "✗ REVISAR");
+        setTimeout(function(){ _btnEstado(btn, null, "Guardar cambios"); }, 3200);
         var errorAgrupados = {};
         if(resp.resultados){
           resp.resultados.forEach(function(r){
@@ -2884,6 +3251,8 @@ function guardarCambiosAsistencia(){
 
       window._asisPendientes = {};
       saveArea.style.display = "none";
+      _btnEstado(btn, "ok-state", "✓ GUARDADO");
+      setTimeout(function(){ _btnEstado(btn, null, "Guardar cambios"); }, 2400);
       mostrarToast("✅ Asistencia guardada");
       cargarCalendario();
       cargarAsistencia();
@@ -2891,15 +3260,123 @@ function guardarCambiosAsistencia(){
     .withFailureHandler(function(err){
       spinner.style.display = "none";
       btn.disabled = false;
+      window._enviando = false;
+      _btnEstado(btn, "err-state", "✗ ERROR DE CONEXIÓN");
+      setTimeout(function(){ _btnEstado(btn, null, "Guardar cambios"); }, 3200);
       errEl.textContent = "Error de conexión: " + (err.message || err);
       errEl.style.display = "inline";
     })
     .guardarAsistencias(window._asisEmail, cambios);
 }
 
+//══════════════════════════════════════
+// ESTADO VISUAL DEL DÍA
+//══════════════════════════════════════
+
+function estadoDe(data){
+  if(!data || !data.habilitado) return { nivel: "off", texto: "Cerrado" };
+  var maq = data.maquinistas || 0;
+  var ops = data.operativos || 0;
+  if(maq >= REGLAS_UI.cupoMaq && ops >= REGLAS_UI.cupoOp) return { nivel: "full", texto: "Completa" };
+  var total = (data.voluntarios || 0) + maq;
+  if(total > 0) return { nivel: "warn", texto: "Disponibilidad limitada" };
+  return { nivel: "ok", texto: "Disponible" };
+}
+
+//══════════════════════════════════════
+// CALENDARIO MÓVIL — lista/timeline de días
+//══════════════════════════════════════
+
+function renderCalendarioLista(grid){
+  grid.className = "cal-lista";
+  grid.setAttribute("role", "list");
+  grid.innerHTML = "";
+
+  var diasMes = new Date(estado.año, estado.mes + 1, 0).getDate();
+  var habilitados = 0;
+
+  for(var dia = 1; dia <= diasMes; dia++){
+    var fecha = crearFechaString(estado.año, estado.mes, dia);
+    var data = estado.ocupacion[fecha];
+    if(!data || !data.habilitado) continue;
+    habilitados++;
+
+    var est = estadoDe(data);
+    var sel = estado.seleccionadas.indexOf(fecha) !== -1;
+
+    var card = document.createElement("div");
+    card.className = "dia-card" + (sel ? " sel" : "") + (est.nivel === "full" ? " llena" : "");
+    card.setAttribute("role", "listitem");
+
+    var head = document.createElement("div");
+    head.className = "dc-head";
+    head.innerHTML = '<span class="dc-dia">' + formatearFecha(fecha) + '</span>' +
+                     '<span class="pill p-' + est.nivel + '">' + est.texto + '</span>';
+
+    var body = document.createElement("div");
+    body.className = "dc-body";
+    body.innerHTML =
+      '<span>Operativos ' + (data.operativos || 0) + '/' + REGLAS_UI.cupoOp + '</span>' +
+      '<span>Maquinistas ' + (data.maquinistas || 0) + '/' + REGLAS_UI.cupoMaq + '</span>';
+
+    card.appendChild(head);
+    card.appendChild(body);
+
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "dc-btn";
+    btn.setAttribute("aria-pressed", sel ? "true" : "false");
+    btn.textContent = sel ? "✓ Seleccionada" : "Seleccionar";
+    if(est.nivel === "full") btn.disabled = true;
+    btn.addEventListener("click", function(f){
+      return function(){ toggleFecha(f); mostrarDetalleDia(f); };
+    }(fecha));
+    card.appendChild(btn);
+
+    grid.appendChild(card);
+  }
+
+  if(!habilitados){
+    grid.innerHTML = '<div class="vacio-suave">Este mes no tiene semanas de guardia habilitadas.<br>Usa los botones Ant / Sig para ver otro mes.</div>';
+  }
+}
+
+//══════════════════════════════════════
+// ESTADOS DE BOTONES
+//══════════════════════════════════════
+
+function _btnEstado(btn, cls, html){
+  btn.classList.remove("ok-state", "err-state");
+  if(cls) btn.classList.add(cls);
+  btn.innerHTML = html;
+}
+
 function escHtml(t){
   return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
+
+//══════════════════════════════════════
+// SELF-TEST FASE 2 (consola del navegador: __fase2SelfTest())
+//══════════════════════════════════════
+
+window.__fase2SelfTest = function(){
+  var r = {};
+  r.modo = window._MODO || null;
+  r.orientacion = window._ORIENT || null;
+  r.bodyDataMode = document.body.getAttribute("data-modo");
+  try {
+    r.bottomnavVisible = getComputedStyle(document.getElementById("bottomnav")).display !== "none";
+  } catch(e){ r.bottomnavVisible = null; }
+  var pa = document.getElementById("panel-asistencia");
+  r.panelAsistenciaEnDOM = !!pa;
+  r.asistenciaEsperada = window._cfg ? !!window._cfg.mostrarAsistencia : null;
+  r.asistenciaCoherente = window._cfg ? (!!pa === !!window._cfg.mostrarAsistencia) : null;
+  r.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  r.chipnav = !!document.getElementById("chipnav");
+  r.hintCorreo = (document.getElementById("email-hint") || {}).textContent || "";
+  console.table(r);
+  return r;
+};
 
 function abbreviarNombre(n){
   var partes = n.trim().split(/\s+/);
