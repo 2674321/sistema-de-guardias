@@ -43,7 +43,8 @@ function diagnosticoOcupacion() {
   var t0 = Date.now();
   var r = _diagBase();
   try {
-    var resp = _obtenerOcupacionInterna(null, null);
+    var resp = obtenerCalendario(null, null);
+    if (!resp.ok) { r.ok = false; r.error = resp.errorCode + ": " + resp.message; }
     var dias = 0, guardias = 0;
     var occ = resp.ocupacion || {};
     Object.keys(occ).forEach(function(k) {
@@ -69,7 +70,7 @@ function serializarRespuestaCalendario() {
   var t0 = Date.now();
   var r = _diagBase();
   try {
-    var resp = _obtenerOcupacionInterna(null, null);
+    var resp = obtenerCalendario(null, null);
     var json = JSON.stringify(resp); // si hay Date/funciones/objetos GAS, lanza aquí
     r.ok = true;
     r.bytes = json.length;

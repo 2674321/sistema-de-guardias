@@ -1022,6 +1022,7 @@ function healthCheck() {
 // Registro (consolidado multi-cargo) · Baja · Código de seguridad
 //══════════════════════════════════════════
 
+var LOGO_URL = "https://drive.google.com/thumbnail?id=1KGkEIbJWCCy8qYYWf-bjmTE7PC5UznAI&sz=w200";
 var EMAIL_LOGO = LOGO_URL;
 
 function _fechaLarga(fechaStr){
