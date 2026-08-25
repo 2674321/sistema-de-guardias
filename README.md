@@ -54,6 +54,34 @@ Desde el menú **Guardias CBC** en la hoja de cálculo:
 1. *Diagnóstico migración niveles* — informe sin escribir.
 2. *Ejecutar migración niveles* — pide confirmación, respalda la columna original en `_BackupMigracionNiveles` (oculta) y aplica. Idempotente.
 
+## Menú administrativo (hoja de cálculo)
+
+Al abrir la hoja: **🚒 GUARDIAS CBC**. Si no aparece (script independiente), ejecutar una vez
+desde el editor: `instalarTriggerMenuAdmin` — o usar el menú → Mantenimiento.
+
+Categorías: Sistema · Configuración · Formato · Guardias · Asistencia · Mantenimiento · Pruebas.
+Destacados:
+- **✨ Aplicar formato completo** — idempotente; formatea cada hoja según su tipo
+  (encabezados, filtros, zebra, niveles 🔵🟢🟣 con color, estados C/P/R/NC, validaciones,
+  hojas técnicas ocultas y protegidas).
+- **Config por secciones** — nuevo layout `C3:C8` (Calendario/Guardias/Reglas/Asistencia)
+  con validaciones; los valores legados `B*` se leen como respaldo y se migran solos.
+
+## Interfaz web (FASE 2)
+
+- **DEVICE_MODE**: `DESKTOP / TABLET / MOBILE` detectado por pointer/hover + viewport
+  (User-Agent solo de apoyo) + orientación; atributos `data-modo/data-orient` en `<body>`.
+- **Móvil**: bottom-nav táctil (áreas ≥44px), calendario como **lista/timeline** con pills
+  ● Disponible / ● Disponibilidad limitada / ● Completa y cupos por día.
+- **Desktop**: navegación sticky con scrollspy; puntos de estado en cada día del grid.
+- **Animaciones** profesionales respetando `prefers-reduced-motion`.
+- **Estados de botón**: GUARDANDO… → ✓ GUARDADO / ✗ ERROR (sin doble envío).
+- **Correo**: detección automática vía `Session.getActiveUser()` cuando Google lo permite;
+  siempre editable; si es anónimo, aviso discreto de ingreso manual.
+- **Auto-refresh inteligente** (45 s): se omite si hay interacción reciente (<25 s),
+  inputs activos, envíos en curso o pestaña oculta.
+- Consola: `__fase2SelfTest()` muestra modo, orientación y coherencia del panel Asistencia.
+
 ## Pruebas
 
 ```bash
