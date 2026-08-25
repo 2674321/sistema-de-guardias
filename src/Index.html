@@ -1788,7 +1788,13 @@ function ocultarSplashYa(){
   }
 }
 
-function mostrarErrorCarga(msg){
+var BTN_REINTENTAR =
+  '<button type="button" onclick="reintentarCalendario()" ' +
+  'style="min-height:44px;padding:10px 26px;border-radius:8px;border:none;background:#9b1a1a;color:#fff;' +
+  'font-family:var(--mono);letter-spacing:1px;font-size:11px;cursor:pointer;">↻ REINTENTAR</button>';
+
+// El texto SIEMPRE se escapa; las acciones son HTML propio confiable.
+function mostrarErrorCarga(msg, accionesHtml){
   var grid = document.getElementById("cal-grid");
   if(!grid) return;
   grid.className = "cal-grid";
@@ -1796,9 +1802,7 @@ function mostrarErrorCarga(msg){
   grid.innerHTML = '<div class="vacio-suave" role="alert">' +
     'La aplicación no pudo cargar la disponibilidad.<br>' +
     '<span style="font-family:var(--mono);font-size:10px;color:var(--red);">' + escHtml(msg || "") + '</span>' +
-    '<br><br><button type="button" onclick="reintentarCalendario()" ' +
-    'style="min-height:44px;padding:10px 26px;border-radius:8px;border:none;background:var(--red);color:#fff;' +
-    'font-family:var(--mono);letter-spacing:1px;font-size:11px;cursor:pointer;">↻ REINTENTAR</button></div>';
+    '<br><br>' + (accionesHtml || BTN_REINTENTAR) + '</div>';
 }
 
 //══════════════════════════════════════
@@ -2002,10 +2006,7 @@ function _finalizarCalendario(reqId, codigo, mensaje){
                   '<button type="button" onclick="reintentarCalendario()">↻ REINTENTAR</button>';
     if(grid.style.opacity !== "1") grid.style.opacity = "1";
   } else {
-    mostrarErrorCarga("[" + codigo + "] " + mensaje +
-      '<br><br><button type="button" onclick="reintentarCalendario()" ' +
-      'style="min-height:44px;padding:10px 24px;border-radius:8px;border:none;background:#9b1a1a;color:#fff;' +
-      'font-family:var(--mono);letter-spacing:1px;font-size:11px;cursor:pointer;">↻ REINTENTAR</button>');
+    mostrarErrorCarga("[" + codigo + "] " + mensaje);
   }
   ocultarSplashYa();
 }
@@ -3561,7 +3562,7 @@ setTimeout(function(){
   if(_calReq.estado === "loading" || _calReq.estado === "slow"){
     console.error("[Guardias] sin respuesta del servidor tras 35s");
     _finalizarCalendario(_calReq.id, "SIN_RESPUESTA",
-      "El servidor no respondió en 35 s. Si eres el administrador, abre el editor una vez y ejecuta cualquier función aceptando los permisos nuevos.");
+      "El servidor no respondió en 35 s. ADMINISTRADOR: abre el editor de Apps Script una vez y acepta los permisos nuevos (pantalla de Google), luego recarga aquí.");
   }
 }, 35000);
 
