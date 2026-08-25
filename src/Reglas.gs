@@ -273,3 +273,11 @@ function todasMismoMes(fechas) {
   }
   return true;
 }
+
+// Validador del healthCheck {ok:true, version, timestamp}
+function esHealthCheckValido(o) {
+  return !!(o && typeof o === "object" &&
+    o.ok === true &&
+    typeof o.version === "string" && o.version.length > 0 &&
+    typeof o.timestamp === "string" && o.timestamp.length > 0);
+}

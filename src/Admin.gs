@@ -70,6 +70,7 @@ function construirMenuAdmin() {
       ["Reparar estructura", "repararEstructura"],
       ["Verificar configuración", "verificarConfiguracion"],
       ["Verificar datos", "verificarDatos"],
+      ["🩺 Ping servidor (health check)", "pingServidor"],
       ["Instalar este menú en la hoja", "instalarTriggerMenuAdmin"]
     ]},
     { titulo: "🧪 Pruebas", items: [
@@ -904,4 +905,20 @@ function verResultadoTests() {
     txt = "No se pudo leer el resultado: " + e;
   }
   SpreadsheetApp.getUi().alert("🧪 Tests FASE 1/2", txt, SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+
+// Ping ligero desde el menú (usa healthCheck, nunca obtenerOcupacion)
+function pingServidor() {
+  var t0 = Date.now();
+  try {
+    var r = healthCheck();
+    var ms = Date.now() - t0;
+    SpreadsheetApp.getUi().alert("🩺 Servidor",
+      JSON.stringify(r) + "\n\nLatencia de ejecución: " + ms + " ms",
+      SpreadsheetApp.getUi().ButtonSet.OK);
+  } catch (e) {
+    SpreadsheetApp.getUi().alert("🩺 Servidor", "Sin respuesta: " + e.message,
+      SpreadsheetApp.getUi().ButtonSet.OK);
+  }
 }

@@ -287,6 +287,13 @@ function pruebasPuras() {
     var r = { ok: false, version: "cal-1", message: "x", diagnostico: {} };
     h.eq(esContratoCalendarioValido(r), false);
   });
+  h.t("healthCheck válido reconocido", function() {
+    h.eq(esHealthCheckValido({ ok:true, version:"cal-1", timestamp:"2026-08-25T00:00:00Z" }), true);
+    h.eq(esHealthCheckValido({ ok:false, version:"cal-1", timestamp:"x" }), false);
+    h.eq(esHealthCheckValido(null), false);
+    h.eq(esHealthCheckValido({ ok:true }), false);
+  });
+
   h.t("versión de contrato distinta → INVÁLIDO", function() {
     var r = { ok: true, version: "cal-0", generadoEn: "x", mes: 1, año: 2026,
               ocupacion: {}, configuracion: {}, diagnostico: {} };

@@ -1212,6 +1212,30 @@
     .dc-btn:active{ transform: scale(.985); }
     .submit-btn:active, .del-btn-confirmar:active{ transform: scale(.99); }
 
+    /* ── Estado de conexión ── */
+    #estado-conexion{
+      position: fixed; top: 8px; right: 10px; z-index: 1100;
+      font-family: var(--mono); font-size: 9px; letter-spacing: 1px;
+      padding: 5px 10px; border-radius: 999px; border: 1px solid transparent;
+      pointer-events: none;
+    }
+    #estado-conexion.ecx-ok   { background:#e2f3e8; color:#1a6b3a; border-color:#bcd9c6; }
+    #estado-conexion.ecx-sync { background:#e3edfb; color:#1a56b0; border-color:#b9cdf0; animation: pulso 1.4s ease-in-out infinite; }
+    #estado-conexion.ecx-slow { background:#fdf3d7; color:#9a7a00; border-color:#e5cf87; }
+    #estado-conexion.ecx-off  { background:#fde0e0; color:#b91c1c; border-color:#f0b4b4; }
+
+    .banner-degradado{
+      margin: 0 0 12px; padding: 9px 12px; border-radius: 6px;
+      background:#fdf3d7; border-left:4px solid #d9a400;
+      font-family: var(--sans); font-size:11.5px; color:#7a5a00; line-height:1.5;
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .banner-degradado button{
+      min-height:32px; padding:4px 14px; border-radius:6px; cursor:pointer;
+      border:1px solid #d9a400; background:#fff; color:#7a5a00;
+      font-family:var(--mono); font-size:10px; letter-spacing:1px;
+    }
+
     /* Selector completo: Voluntario / Maquinista */
     .cargo-tog{ gap: 6px; margin-top: 6px; }
     .ctog-btn{
@@ -1251,6 +1275,8 @@
     <button class="pdf-btn" onclick="exportarPDF()">PDF</button>
   </div>
 </header>
+
+<div id="estado-conexion" class="ecx off" role="status" aria-live="polite">✕ Sin conexión</div>
 
 <nav class="chipnav" id="chipnav" aria-label="Secciones">
   <a href="#panel-inscripcion" data-secc="panel-inscripcion">01 · Inscripción</a>
@@ -1621,6 +1647,8 @@ window.onload = () => {
     var activo = document.activeElement;
     var escribiendo = activo && /INPUT|SELECT|TEXTAREA/.test(activo.tagName);
     if(document.hidden || window._enviando || escribiendo) return;
+    if(_calReq.estado === "loading" || _calReq.estado === "slow") return; // sin paralelas
+    if(estado.seleccionadas.length > 0) return;                            // no pisar selecciones
     if(Date.now() - window._lastAct < 25000) return;
     cargarCalendario();
   }, 45000);
@@ -1743,20 +1771,94 @@ function _detectarCorreo(){
 //══════════════════════════════════════
 
 //══════════════════════════════════════
+// SPLASH Y ERRORES DE CARGA
+//══════════════════════════════════════
+
+function ocultarSplashYa(){
+  if(window._ocultarSplash){
+    var f = window._ocultarSplash;
+    window._ocultarSplash = null;
+    f();
+  }
+}
+
+function mostrarErrorCarga(msg){
+  var grid = document.getElementById("cal-grid");
+  if(!grid) return;
+  grid.className = "cal-grid";
+  grid.style.opacity = "1";
+  grid.innerHTML = '<div class="vacio-suave" role="alert">' +
+    'La aplicación no pudo cargar la disponibilidad.<br>' +
+    '<span style="font-family:var(--mono);font-size:10px;color:var(--red);">' + escHtml(msg || "") + '</span>' +
+    '<br><br><button type="button" onclick="reintentarCalendario()" ' +
+    'style="min-height:44px;padding:10px 26px;border-radius:8px;border:none;background:var(--red);color:#fff;' +
+    'font-family:var(--mono);letter-spacing:1px;font-size:11px;cursor:pointer;">↻ REINTENTAR</button></div>';
+}
+
+//══════════════════════════════════════
 // CALENDARIO — máquina de estados de petición
 // loading → slow → ok | error   ·   requestId evita respuestas obsoletas
 //══════════════════════════════════════
 
 var _calReq = { id: 0, estado: "idle", lentoTimer: null };
 
+function _setConexion(estado){
+  var el = document.getElementById("estado-conexion");
+  if(!el) return;
+  var mapa = {
+    ok:   ["ecx-ok",   "● Conectado"],
+    sync: ["ecx-sync", "◐ Sincronizando"],
+    slow: ["ecx-slow", "⚠ Servidor lento"],
+    off:  ["ecx-off",  "✕ Sin conexión"]
+  };
+  var m = mapa[estado] || mapa.off;
+  el.className = m[0];
+  el.textContent = m[1];
+}
+
+function quitarBannerDegradado(){
+  ["banner-actualizando","banner-fallback"].forEach(function(id){
+    var b = document.getElementById(id);
+    if(b) b.remove();
+  });
+}
+
+function reintentarCalendario(){
+  if(_calReq.estado === "loading" || _calReq.estado === "slow"){
+    mostrarToastInfo("Ya hay una actualización en curso…");
+    return;
+  }
+  quitarBannerDegradado();
+  cargarCalendario();
+}
+
 function cargarCalendario(){
+  if(_calReq.estado === "loading"){ return; } // sin peticiones simultáneas
   var reqId = ++_calReq.id;
+  var teniaSnapshot = !!window._ultimoCalendarioOk;
   _calReq.estado = "loading";
-  _pintarCarga();
+  _setConexion("sync");
+
+  if(teniaSnapshot){
+    // FALLBACK: mantener el último calendario válido visible mientras actualiza
+    var g0 = document.getElementById("cal-grid");
+    if(g0) g0.style.opacity = "0.55";
+    var b0 = document.getElementById("banner-actualizando");
+    if(!b0 && g0){
+      b0 = document.createElement("div");
+      b0.id = "banner-actualizando";
+      b0.className = "banner-degradado";
+      b0.setAttribute("role","status");
+      b0.innerHTML = '◐ Actualizando disponibilidad…';
+      g0.parentNode.insertBefore(b0, g0);
+    }
+  } else {
+    _pintarCarga();
+  }
 
   clearTimeout(_calReq.lentoTimer);
   _calReq.lentoTimer = setTimeout(function(){
-    if(_calReq.id !== reqId || _calReq.estado !== "loading") return;
+    if(_calReq.id !== reqId || (_calReq.estado !== "loading")) return;
     _calReq.estado = "slow";
     _avisoServidorLento();
   }, 8000);
@@ -1769,18 +1871,8 @@ function cargarCalendario(){
     .obtenerCalendario(estado.mes, estado.año);
 }
 
-function _pintarCarga(){
-  var grid = document.getElementById("cal-grid");
-  grid.className = "cal-grid";
-  grid.style.opacity = "0.6";
-  grid.innerHTML =
-    '<div class="dname">Lu</div><div class="dname">Ma</div><div class="dname">Mi</div>' +
-    '<div class="dname">Ju</div><div class="dname">Vi</div><div class="dname">Sa</div><div class="dname">Do</div>' +
-    '<div class="cal-loading"><div class="spinner-dot"></div><span class="spinner-label">Cargando calendario</span></div>';
-  ocultarAvisoLento();
-}
-
 function _avisoServidorLento(){
+  _setConexion("slow");
   var lbl = document.getElementById("splash-label");
   if(lbl) lbl.textContent = "El servidor está tardando más de lo habitual… seguimos esperando";
   var grid = document.getElementById("cal-grid");
@@ -1806,21 +1898,21 @@ function _resolverCalendario(reqId, data){
   clearTimeout(_calReq.lentoTimer);
   if(reqId !== _calReq.id) return; // respuesta obsoleta: se ignora
 
-  // Quirk conocido de google.script.run: payload null esporádico → 1 reintento
-  if((data === null || data === undefined)){
+  // Quirk conocido de google.script.run: payload null esporádico → reintento controlado
+  if(data === null || data === undefined){
     _calReq.reintentosNull = (_calReq.reintentosNull || 0) + 1;
     if(_calReq.reintentosNull <= 2){
+      _setConexion("sync");
       console.warn("[Guardias] respuesta null, reintentando", _calReq.reintentosNull);
-      setTimeout(cargarCalendario, 700);
+      setTimeout(function(){ _calReq.estado = "idle"; cargarCalendario(); }, 700);
       return;
     }
   } else {
     _calReq.reintentosNull = 0;
   }
 
-  // Puerta del contrato: solo se renderiza con cal-1 válido
   if(!esContratoCalendarioValido(data)){
-    _finalizarCalendario(reqId, "CONTRATO_INVALIDO", "La respuesta del servidor no cumple el formato esperado");
+    _finalizarCalendario(reqId, "CONTRATO_INVALIDO", "La respuesta no cumplió el formato esperado (" + (typeof data) + ")");
     return;
   }
   if(data.ok === false){
@@ -1828,9 +1920,13 @@ function _resolverCalendario(reqId, data){
     return;
   }
 
+  // ÉXITO
   _calReq.estado = "ok";
+  _setConexion("ok");
   window._lastCalDiag = data.diagnostico || {};
+  window._ultimoCalendarioOk = { mes: Number(data.mes), año: Number(data.año) };
   try { console.info("[Guardias] calendario OK", JSON.stringify(window._lastCalDiag)); } catch(e){}
+  quitarBannerDegradado();
 
   document.getElementById("cal-grid").style.opacity = "1";
   try {
@@ -1842,6 +1938,18 @@ function _resolverCalendario(reqId, data){
   }
   estado.mes = Number(data.mes);
   estado.año = Number(data.año);
+
+  // Avisos del servidor (ej: config incompleta)
+  var avisosBox = document.getElementById("avisos-calendario");
+  if(avisosBox) avisosBox.remove();
+  if(Array.isArray(data.avisos) && data.avisos.length){
+    avisosBox = document.createElement("div");
+    avisosBox.id = "avisos-calendario";
+    avisosBox.className = "banner-degradado";
+    avisosBox.innerHTML = "⚠️ " + data.avisos.map(escHtml).join("<br>⚠️ ");
+    var gRef = document.getElementById("cal-grid");
+    if(gRef) gRef.parentNode.insertBefore(avisosBox, gRef);
+  }
 
   _aplicarConfig({
     ok: true,
@@ -1857,9 +1965,33 @@ function _finalizarCalendario(reqId, codigo, mensaje){
   clearTimeout(_calReq.lentoTimer);
   if(reqId !== _calReq.id) return;
   _calReq.estado = "error";
+  _setConexion("off");
   console.error("[Guardias]", codigo, "-", mensaje);
-  document.getElementById("cal-grid").style.opacity = "1";
-  mostrarErrorCarga("[" + codigo + "] " + mensaje);
+
+  // FALLBACK: si hay un calendario previo válido, NO borrarlo
+  var grid = document.getElementById("cal-grid");
+  var hayPrevio = grid && grid.querySelector(".day, .dia-card") &&
+                  !grid.querySelector(".cal-loading");
+
+  if(hayPrevio){
+    var b = document.getElementById("banner-fallback");
+    if(!b){
+      b = document.createElement("div");
+      b.id = "banner-fallback";
+      b.className = "banner-degradado";
+      b.setAttribute("role","alert");
+      grid.parentNode.insertBefore(b, grid);
+    }
+    b.innerHTML = '✕ No se pudo actualizar la disponibilidad (' + escHtml(codigo) + '). ' +
+                  'Se muestra la última versión conocida. ' +
+                  '<button type="button" onclick="reintentarCalendario()">↻ REINTENTAR</button>';
+    if(grid.style.opacity !== "1") grid.style.opacity = "1";
+  } else {
+    mostrarErrorCarga("[" + codigo + "] " + mensaje +
+      '<br><br><button type="button" onclick="reintentarCalendario()" ' +
+      'style="min-height:44px;padding:10px 24px;border-radius:8px;border:none;background:#9b1a1a;color:#fff;' +
+      'font-family:var(--mono);letter-spacing:1px;font-size:11px;cursor:pointer;">↻ REINTENTAR</button>');
+  }
   ocultarSplashYa();
 }
 

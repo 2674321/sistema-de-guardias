@@ -752,6 +752,20 @@ function obtenerGuardiasConAsistencia(email) {
 //══════════════════════════════════════════
 
 var VERSION_CONTRATO_CALENDARIO = "cal-1";
+var BUILD_SERVICIO = "@26-blindaje";
+
+// Log estructurado de servicio. SIN datos sensibles (nunca nombres/emails/correo cuerpo).
+function _logServicio(funcion, requestId, duracionMs, nivel, detalle) {
+  try {
+    var usuario = "";
+    try { usuario = Session.getActiveUser().getEmail(); } catch (e) {}
+    Logger.log(JSON.stringify({
+      svc: "guardias", fn: funcion, req: requestId || "", ms: duracionMs || 0,
+      nivel: nivel || "info", usuario: usuario,
+      ts: new Date().toISOString(), detalle: detalle || ""
+    }));
+  } catch (e) {}
+}
 
 function _calVersionActual() {
   try { return Number(PropertiesService.getScriptProperties().getProperty("CAL_VER") || 1); }
@@ -788,22 +802,42 @@ function obtenerCalendario(mes, año) {
   } catch (e) { Logger.log("[CAL] caché lectura: " + e); }
 
   try {
-    // ── Configuración ──
+    // ── Configuración: tolerante a valores vacíos/incompletos ──
     var tConfig = Date.now();
     var config = obtenerConfigGeneral();
+    var avisos = [];
+    var hoy = new Date();
+    var configIncompleta = false;
+
     if (!config || isNaN(new Date(config.inicio).getTime())) {
-      throw { errorCode: "CONFIG_INVALIDA", message: "La hoja Config no tiene fecha de inicio válida." };
+      configIncompleta = true;
+      // Fallback: mes actual y semana 0 desde el día 1; el calendario se ve,
+      // con los días deshabilitados y un aviso visible para el administrador.
+      avisos.push("Config incompleta: falta la fecha de inicio (Config C3). Los días aparecen deshabilitados.");
+      config = config || {};
+      config.inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1, 12);
+      config.mes = hoy.getMonth();
+      config.año = hoy.getFullYear();
+      if (!Array.isArray(config.semanas) || !config.semanas.length) config.semanas = [0];
     }
     if (mes == null) mes = config.mes;
     if (año == null) año = config.año;
     diag.configMs = Date.now() - tConfig;
+    diag.avisos = avisos;
 
     // ── Lectura (una sola vez por petición) ──
     var tLect = Date.now();
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sheet = ss.getSheetByName(SHEET_NAME);
     if (!sheet) throw { errorCode: "HOJA_FALTANTE", message: "No existe la hoja Guardias." };
-    var dataAll = sheet.getDataRange().getValues();
+    var dataAll;
+    try {
+      dataAll = sheet.getDataRange().getValues();
+    } catch (errLect1) {
+      // Error temporal de Sheets: un único reintento tras una pausa corta
+      Utilities.sleep(400);
+      dataAll = sheet.getDataRange().getValues();
+    }
     var asisSh = ss.getSheetByName("Asistencia");
     var asisData = asisSh ? asisSh.getDataRange().getValues() : [];
     diag.lecturaMs = Date.now() - tLect;
@@ -833,26 +867,33 @@ function obtenerCalendario(mes, año) {
       },
       diagnostico: diag
     };
-
-    // ── Serialización (medida + garantía: si esto falla, va al catch) ──
+    if (avisos.length) {
+      payload.avisos = avisos;
+      payload.configuracion.configIncompleta = true;
+    }
     var tSer = Date.now();
     var json = JSON.stringify(payload);
     diag.serializacionMs = Date.now() - tSer;
     diag.totalMs = Date.now() - t0;
+    diag.requestId = "req-" + t0 + "-" + Math.floor(Math.random() * 1000);
     payload.diagnostico = diag;
 
     try { CacheService.getScriptCache().put("CAL_" + _calVersionActual(), json, 120); } catch (e) {}
 
+    _logServicio("obtenerCalendario", diag.requestId, diag.totalMs, "info",
+      "cache=" + diag.cache + " filas=" + diag.filasLeidas + (avisos.length ? " avisos=" + avisos.length : ""));
     return payload;
 
   } catch (err) {
     var esObj = err && typeof err === "object";
-    Logger.log("obtenerCalendario ERROR: " + (esObj ? JSON.stringify(err) : err));
+    var codigoErr = esObj ? (err.errorCode || "INTERNO") : "INTERNO";
+    var mensajeErr = esObj ? (err.message || "Error desconocido") : String(err);
+    _logServicio("obtenerCalendario", "req-" + t0, Date.now() - t0, "error", codigoErr + ": " + mensajeErr);
     return {
       ok: false,
-      errorCode: esObj ? (err.errorCode || "INTERNO") : "INTERNO",
-      message: esObj ? (err.message || "Error desconocido") : String(err),
-      diagnostico: { build: VERSION_CONTRATO_CALENDARIO, totalMs: Date.now() - t0 }
+      errorCode: codigoErr,
+      message: mensajeErr,
+      diagnostico: { build: BUILD_SERVICIO, totalMs: Date.now() - t0 }
     };
   }
 }
@@ -958,6 +999,18 @@ function _construirSnapshotCalendario(dataAll, asisData, config, mes, año) {
 // Compatibilidad: los campos históricos siguen presentes dentro del contrato.
 function obtenerOcupacion(mes, año) {
   return obtenerCalendario(mes, año);
+}
+
+// Heartbeat mínimo: NUNCA usar obtenerOcupacion como ping.
+function healthCheck() {
+  var r;
+  try {
+    r = { ok: true, version: VERSION_CONTRATO_CALENDARIO, build: BUILD_SERVICIO,
+          timestamp: new Date().toISOString() };
+  } catch (e) {
+    r = { ok: false, error: String(e) };
+  }
+  return r;
 }
 
 //══════════════════════════════════════════
