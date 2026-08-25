@@ -1788,7 +1788,14 @@ function cargarCalendario(){
   .withSuccessHandler(data => {
     document.getElementById("cal-grid").style.opacity = "1";
     try {
-      if(!data || !data.ocupacion) throw new Error("El servidor respondió sin datos");
+      if(data && data.ok === false){
+        mostrarErrorCarga(data.error || "Error desconocido del servidor");
+        return;
+      }
+      if(!data || !data.ocupacion) {
+        console.error("[Guardias] respuesta sin datos:", data);
+        throw new Error("El servidor respondió sin datos (revisa consola F12)");
+      }
       try {
         estado.ocupacion = structuredClone(data.ocupacion);
       } catch(err) {

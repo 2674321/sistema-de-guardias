@@ -741,11 +741,22 @@ function obtenerGuardiasConAsistencia(email) {
 }
 
 function obtenerOcupacion(mes, año) {
+  try {
+    return _obtenerOcupacionInterna(mes, año);
+  } catch (e) {
+    // Nunca devolver un objeto vacío silencioso: el motivo visible.
+    Logger.log("obtenerOcupacion: " + e);
+    return { ok: false, error: "Error al leer la disponibilidad: " + e.message };
+  }
+}
+
+function _obtenerOcupacionInterna(mes, año) {
   var config = obtenerConfigGeneral();
   if (mes == null) mes = config.mes;
   if (año == null) año = config.año;
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) throw new Error("No existe la hoja Guardias.");
   var data = sheet.getDataRange().getValues();
   var ocupacion = {};
 
@@ -837,7 +848,7 @@ function obtenerOcupacion(mes, año) {
     }
   } catch (e) { Logger.log("obtenerOcupacion/asistencia: " + e); }
 
-  return { ocupacion: ocupacion, mes: mes, año: año };
+  return { ok: true, ocupacion: ocupacion, mes: mes, año: año };
 }
 
 //══════════════════════════════════════════
