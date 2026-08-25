@@ -1194,7 +1194,7 @@
     /*══════════════════════════════════════════
        MINIMALISMO — sin avisos auxiliares
     ═══════════════════════════════════════════*/
-    .field-hint{ display: none !important; }
+    /* hints: visibles solo cuando tienen contenido */
 
     /* Anclas bajo la navegación sticky */
     .panel{ scroll-margin-top: 64px; }
@@ -1251,6 +1251,174 @@
     @media (max-width: 480px){
       .ctog-btn{ font-size: 11px; padding: 9px 4px; min-height: 40px; }
     }
+
+    /*══════════════════════════════════════════
+       PULIDO PROFESIONAL FINAL
+    ═══════════════════════════════════════════*/
+    :root{
+      --sel:       #1a56b0;
+      --sel-bg:    #e8f1fd;
+      --radius-card: 14px;
+      --sombra-1: 0 1px 2px rgba(14,14,14,.05), 0 10px 30px -18px rgba(14,14,14,.28);
+    }
+    body{ -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    @media (min-width: 1400px){ .page-body{ max-width: 1080px; } }
+
+    /* ── Paneles como tarjetas ── */
+    .panel{
+      border-radius: var(--radius-card);
+      overflow: hidden;
+      border: 1px solid var(--rule);
+      box-shadow: var(--sombra-1);
+      background: #fff;
+    }
+    .panel-head{
+      background: linear-gradient(180deg,#fbfaf8,#f3f0ea);
+      border-bottom: 1px solid var(--rule);
+      padding: 12px 16px;
+    }
+    .panel-head-num{
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: 8px;
+      background: var(--ink); color: #fff;
+      font-family: var(--mono); font-size: 11px; margin-right: 10px;
+    }
+    .panel-head-title{ font-family: var(--display); letter-spacing: .3px; font-size: 14px; color: var(--ink); }
+
+    /* ── Fix separación indicador ● + número ── */
+    .dot{ margin-right: 6px !important; }
+    .pill{ gap: 6px; }
+
+    /* ── Día desktop como componente ── */
+    .day{
+      min-height: 96px;
+      padding: 8px 9px 9px;
+      border-radius: 11px;
+      display: flex; flex-direction: column; gap: 6px;
+      border: 1px solid var(--rule);
+    }
+    .day.empty, .day.blocked{ background: transparent; border-color: transparent; box-shadow: none; cursor: default; }
+    .day-top{ display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+    .day-n{ font-family: var(--display); font-size: 16px; color: var(--ink); line-height: 1; }
+    .day-cuentas{
+      margin-top: auto; display: flex; flex-direction: column; gap: 2px;
+      font-family: var(--mono); font-size: 7.5px; letter-spacing: .5px;
+      text-transform: uppercase; color: var(--ink-soft);
+    }
+    .day-cuentas b{ color: var(--ink); font-size: 8.5px; }
+    .day.sel{
+      background: var(--sel-bg);
+      border-color: var(--sel);
+      box-shadow: 0 8px 20px -10px rgba(26,86,176,.45);
+    }
+    .day.sel::after{ background: var(--sel); }
+    .day.sel .day-n{ color: var(--sel); }
+
+    /* ── Segmented controls ── */
+    .seg{
+      display: flex; gap: 4px;
+      background: var(--paper-dark);
+      padding: 4px; border-radius: 12px;
+    }
+    .seg button{
+      flex: 1; min-height: 40px; border: none; border-radius: 9px;
+      background: transparent; color: var(--ink-soft);
+      font-family: var(--mono); font-size: 10.5px; letter-spacing: .5px;
+      cursor: pointer;
+      transition: background var(--motion-rapida), color var(--motion-rapida),
+                  box-shadow var(--motion-rapida), transform var(--motion-rapida);
+    }
+    .seg button:hover:not(.on){ background: rgba(255,255,255,.65); color: var(--ink); }
+    .seg button.on{
+      background: #fff; color: var(--ink); font-weight: 600;
+      box-shadow: 0 1px 3px rgba(14,14,14,.14);
+    }
+
+    /* Niveles con identidad 🔵🟢🟣 */
+    .seg-nivel button{
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      text-transform: uppercase; font-size: 10px; min-height: 42px;
+    }
+    .ndot{ width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; opacity: .5; transition: opacity var(--motion-rapida); }
+    .seg-nivel button.on .ndot{ opacity: 1; }
+    .nd-ini{ background: var(--lvl-ini); } .nd-op{ background: var(--lvl-op); } .nd-pro{ background: var(--lvl-pro); }
+    .seg-nivel button.on[data-nivel="INICIAL"]{ color: var(--lvl-ini); box-shadow: inset 0 0 0 1.5px var(--lvl-ini), 0 1px 3px rgba(14,14,14,.12); }
+    .seg-nivel button.on[data-nivel="OPERATIVO"]{ color: var(--lvl-op); box-shadow: inset 0 0 0 1.5px var(--lvl-op), 0 1px 3px rgba(14,14,14,.12); }
+    .seg-nivel button.on[data-nivel="PROFESIONAL"]{ color: var(--lvl-pro); box-shadow: inset 0 0 0 1.5px var(--lvl-pro), 0 1px 3px rgba(14,14,14,.12); }
+    .nivel-nota{
+      display: block; margin-top: 7px;
+      font-family: var(--mono); font-size: 9px; letter-spacing: .6px; color: var(--ink-faint);
+    }
+
+    /* Días segmented */
+    .seg-dias button{ font-size: 13px; font-weight: 600; }
+
+    /* ── Resumen de selección ── */
+    .resumen-box{
+      display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+      padding: 10px 12px; border-radius: 10px;
+      background: var(--paper-dark);
+      font-family: var(--mono); font-size: 9.5px; letter-spacing: .5px;
+    }
+    .resumen-box:empty{ display: none; }
+    .resumen-fech{
+      background: #fff; border: 1px solid var(--rule); border-radius: 999px;
+      padding: 4px 10px; color: var(--ink); text-transform: uppercase;
+    }
+    .resumen-meta{ margin-left: auto; color: var(--ink-soft); text-transform: uppercase; }
+
+    /* ── Botones unificados ── */
+    .submit-btn, .del-btn-confirmar, .dc-btn{
+      border-radius: 10px;
+      transition: transform var(--motion-rapida), box-shadow var(--motion-base),
+                  background var(--motion-rapida);
+    }
+    .submit-btn:hover:not(:disabled),
+    .del-btn-confirmar:hover:not(:disabled){
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px -10px rgba(14,14,14,.5);
+    }
+    .submit-btn:active:not(:disabled),
+    .del-btn-confirmar:active:not(:disabled),
+    .dc-btn:active{ transform: scale(.985); }
+
+    /* ── Navegación activa con marca ── */
+    .chipnav a.activo{ position: relative; }
+    .chipnav a.activo::after{
+      content: ""; position: absolute; left: 14px; right: 14px; bottom: -1px;
+      height: 2px; background: var(--red); border-radius: 2px;
+    }
+    .bottomnav button{ position: relative; }
+    .bottomnav button.activo::before{
+      content: ""; position: absolute; top: 0; left: 22%; right: 22%;
+      height: 2px; background: #fff; border-radius: 0 0 3px 3px;
+    }
+
+    /* ── Transición suave al cambiar mes / refrescar ── */
+    .cal-grid > *{ animation: fadeUp .24s var(--motion-suave) both; }
+
+    /* ── Hint de correo (verde, discreto) ── */
+    .field-hint{
+      display: block; margin-top: 6px;
+      font-family: var(--mono); font-size: 9px; letter-spacing: .8px;
+      color: var(--ok);
+    }
+    .field-hint:empty{ display: none !important; }
+
+    /* ── Tarjeta móvil refinada ── */
+    .dc-head{ padding-bottom: 8px; border-bottom: 1px dashed var(--rule); }
+    .dc-dia{
+      text-transform: uppercase; letter-spacing: .5px; font-size: 12.5px; color: var(--ink);
+      font-family: var(--display);
+    }
+    .dc-dia b{ font-size: 15px; }
+    .dc-body{ flex-direction: column; gap: 5px; }
+    .dc-line{
+      display: flex; justify-content: space-between;
+      font-family: var(--mono); font-size: 9.5px; letter-spacing: .6px;
+      color: var(--ink-soft); text-transform: uppercase;
+    }
+    .dc-line b{ color: var(--ink); }
   </style>
 </head>
 <body style="min-height:100vh;">
@@ -1314,26 +1482,29 @@
         <label class="field-label" for="email">Correo electrónico</label>
         <input type="email" id="email" placeholder="correo@ejemplo.com" autocomplete="email" oninput="validarCampo(this, /^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Correo inválido')">
         <span class="field-err" id="err-email"></span>
+        <span class="field-hint" id="email-hint"></span>
       </div>
 
       <div class="field field-op">
-        <label class="field-label">Condición</label>
-        <div class="cond-grid">
-          <button class="cond-opt" id="opt-op" onclick="seleccionarCond('operativo')">Operativo</button>
-          <button class="cond-opt" id="opt-pr" onclick="seleccionarCond('profesional')">Profesional</button>
+        <label class="field-label">Nivel de bombero</label>
+        <div class="seg seg-nivel" id="seg-nivel" role="group" aria-label="Nivel de bombero">
+          <button type="button" id="opt-in" data-nivel="INICIAL" onclick="seleccionarCond('inicial')" aria-pressed="true"><span class="ndot nd-ini"></span>Inicial</button>
+          <button type="button" id="opt-op" data-nivel="OPERATIVO" onclick="seleccionarCond('operativo')" aria-pressed="false"><span class="ndot nd-op"></span>Operativo</button>
+          <button type="button" id="opt-pr" data-nivel="PROFESIONAL" onclick="seleccionarCond('profesional')" aria-pressed="false"><span class="ndot nd-pro"></span>Profesional</button>
         </div>
+        <span class="nivel-nota" id="nivel-nota">Sin restricciones de cupo</span>
       </div>
 
       <div class="sep"><span class="sep-label">Fechas de guardia</span></div>
 
-      <div class="dias-row">
-        <span class="field-label">Cantidad de días</span>
-        <select id="num-dias" class="dias-select" onchange="seleccionarNumDias(parseInt(this.value))" aria-label="Cuántas guardias quieres seleccionar">
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4" selected>4</option>
-        </select>
+      <div class="field">
+        <label class="field-label">Cantidad de guardias</label>
+        <div class="seg seg-dias" id="seg-dias" role="group" aria-label="Cantidad de guardias a seleccionar">
+          <button type="button" id="segd-1" onclick="seleccionarNumDias(1)" aria-pressed="false">1</button>
+          <button type="button" id="segd-2" onclick="seleccionarNumDias(2)" aria-pressed="false">2</button>
+          <button type="button" id="segd-3" onclick="seleccionarNumDias(3)" aria-pressed="false">3</button>
+          <button type="button" id="segd-4" class="on" onclick="seleccionarNumDias(4)" aria-pressed="true">4</button>
+        </div>
       </div>
 
       <div class="date-row" id="date-row-1">
@@ -1373,7 +1544,8 @@
         </div>
       </div>
 
-      <div id="sel-count" class="sel-count">0 de 4 seleccionados</div>
+      <div id="sel-count" class="sel-count">0 seleccionados</div>
+      <div id="resumen-guardias" class="resumen-box" aria-live="polite"></div>
 
       <div class="msg msg-error" id="errores"></div>
       <div class="msg msg-ok"    id="exito"><p>Guardias registradas con éxito</p></div>
@@ -1665,16 +1837,8 @@ function _aplicarConfig(cfg){
   if(!cfg || !cfg.ok) return;
   window._cfg = cfg;
 
-  var maxDias = cfg.cantidadGuardias || 4;
-  var sel = document.getElementById("num-dias");
-  if(sel){
-    for(var o = sel.options.length - 1; o >= 0; o--){
-      if(parseInt(sel.options[o].value, 10) > maxDias) sel.remove(o);
-    }
-    var valor = Math.min(maxDias, 4);
-    sel.value = String(valor);
-    seleccionarNumDias(valor);
-  }
+  window._maxDias = Math.min(cfg.cantidadGuardias || 4, 4);
+  seleccionarNumDias(window._maxDias);
 
   // Panel Asistencia: 1 visible · 0 desaparece por completo
   var mostrar = !!cfg.mostrarAsistencia;
@@ -1762,11 +1926,18 @@ function _initNavegacion(){
 // queda vacío y editable como siempre.
 function _detectarCorreo(){
   var input = document.getElementById("email");
+  var hint = document.getElementById("email-hint");
   google.script.run
     .withSuccessHandler(function(resp){
-      if(resp && resp.ok && resp.correo && !input.value.trim()){
-        input.value = resp.correo;
-        validarCampo(input, /^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Correo inválido");
+      if(resp && resp.ok && resp.correo){
+        if(!input.value.trim()){
+          input.value = resp.correo;
+          validarCampo(input, /^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Correo inválido");
+        }
+        if(hint && input.value === resp.correo){
+          hint.textContent = "✓ Detectado automáticamente";
+          hint.className = "field-hint";
+        }
       }
     })
     .detectarCorreoUsuario();
@@ -1803,6 +1974,20 @@ function mostrarErrorCarga(msg, accionesHtml){
     'La aplicación no pudo cargar la disponibilidad.<br>' +
     '<span style="font-family:var(--mono);font-size:10px;color:var(--red);">' + escHtml(msg || "") + '</span>' +
     '<br><br>' + (accionesHtml || BTN_REINTENTAR) + '</div>';
+}
+
+// Partes de fecha sin bug de zona horaria — copia cliente de Reglas.gs
+function fechaPartesDe(valor){
+  if(Object.prototype.toString.call(valor) === "[object Date]"){
+    if(isNaN(valor.getTime())) return null;
+    return { y: valor.getFullYear(), m: valor.getMonth() + 1, d: valor.getDate() };
+  }
+  var sx = String(valor == null ? "" : valor).trim();
+  var mch = sx.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(!mch) return null;
+  var y = parseInt(mch[1],10), m = parseInt(mch[2],10), d = parseInt(mch[3],10);
+  if(m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return { y:y, m:m, d:d };
 }
 
 // Contrato cal-1 — copia cliente del validador (Reglas.gs es servidor)
@@ -2189,21 +2374,35 @@ function renderCalendario(){
     celda.dataset.fecha =
       fecha;
 
-    const cupos =
-      obtenerTextoCupos(data);
-
     const estDia = estadoDe(data);
-    celda.innerHTML = `
-      <div class="day-n">${dia}</div>
-      <div class="day-cap"><span class="dot d-${estDia.nivel}" aria-hidden="true"></span>${cupos}</div>
-    `;
+    const opsDia = data.operativos || 0;
+    const maqDia = data.maquinistas || 0;
+    celda.innerHTML =
+      '<div class="day-top">' +
+        '<span class="day-n">' + dia + '</span>' +
+        '<span class="pill p-' + estDia.nivel + '">' + estDia.texto + '</span>' +
+      '</div>' +
+      '<div class="day-cuentas">' +
+        '<span>OP <b>' + opsDia + '/' + REGLAS_UI.cupoOp + '</b></span>' +
+        '<span>MQ <b>' + maqDia + '/' + REGLAS_UI.cupoMaq + '</b></span>' +
+      '</div>';
 
+    celda.setAttribute("role", "button");
+    celda.tabIndex = 0;
+    celda.setAttribute("aria-pressed", estado.seleccionadas.includes(fecha) ? "true" : "false");
+    var activarDia = function(){
+      toggleFecha(fecha);
+      mostrarDetalleDia(fecha);
+    };
     if(data.habilitado){
-      celda.onclick = () => {
-        toggleFecha(fecha);
-        mostrarDetalleDia(fecha);
-      };
+      celda.onclick = activarDia;
     }
+    celda.addEventListener("keydown", function(ev){
+      if(ev.key === "Enter" || ev.key === " "){
+        ev.preventDefault();
+        activarDia();
+      }
+    });
 
     grid.appendChild(celda);
 
@@ -2287,37 +2486,41 @@ function obtenerTextoCupos(data){
 //══════════════════════════════════════
 
 function seleccionarCond(tipo){
-  if(estado.condicion === tipo){
+  // 'inicial' = sin condición (sin cupo); operativo/profesional consumen cupo
+  if(tipo === "inicial"){
+    estado.condicion = null;
+  } else if(estado.condicion === tipo){
     estado.condicion = null;
   } else {
     estado.condicion = tipo;
   }
-  var opBtn = document.getElementById("opt-op");
-  var prBtn = document.getElementById("opt-pr");
-  opBtn.className = "cond-opt" + (estado.condicion === "operativo" ? " sel-op" : "");
-  prBtn.className = "cond-opt" + (estado.condicion === "profesional" ? " sel-pr" : "");
-
-  var badge = document.getElementById("cargo-status-badge");
-  if(estado.condicion === "operativo"){
-    badge.textContent = "Operativo";
-    badge.className = "cargo-status vol";
-  } else if(estado.condicion === "profesional"){
-    badge.textContent = "Profesional";
-    badge.className = "cargo-status mac";
-  } else {
-    badge.textContent = "Inicial — sin restricciones";
-    badge.className = "cargo-status neutral";
-  }
-  clearTimeout(window._opTimer);
-  window._opTimer = setTimeout(function(){
-    var txt = estado.condicion ? (estado.condicion === "operativo" ? "Operativo" : "Profesional") : "Inicial — sin restricciones";
-    badge.textContent = txt;
-    badge.className = estado.condicion === "operativo" ? "cargo-status vol" : (estado.condicion === "profesional" ? "cargo-status mac" : "cargo-status neutral");
-  }, 3000);
-
+  _pintarNivel();
   renderCalendario();
 }
 
+function _pintarNivel(){
+  var activo = estado.condicion === "operativo" ? "OPERATIVO"
+             : estado.condicion === "profesional" ? "PROFESIONAL"
+             : "INICIAL";
+  [["INICIAL","opt-in"],["OPERATIVO","opt-op"],["PROFESIONAL","opt-pr"]].forEach(function(p){
+    var b = document.getElementById(p[1]);
+    if(!b) return;
+    var on = p[0] === activo;
+    b.className = on ? "on" : "";
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  var nota = document.getElementById("nivel-nota");
+  if(nota){
+    nota.textContent = activo === "INICIAL" ? "Sin restricciones de cupo"
+      : activo === "OPERATIVO" ? "Cupo: máx 2 operativos por día"
+      : "Cupo: cuenta dentro de los 2 operativos por día";
+  }
+  var badge = document.getElementById("cargo-status-badge");
+  if(badge){
+    badge.textContent = activo.charAt(0) + activo.slice(1).toLowerCase();
+    badge.className = "cargo-status " + (activo === "INICIAL" ? "neutral" : activo === "OPERATIVO" ? "vol" : "mac");
+  }
+}
 
 //══════════════════════════════════════
 // SELECCIONAR FECHA
@@ -2376,7 +2579,8 @@ function toggleFecha(fecha){
     actualizarInputs();
 
     var celda = document.querySelector("#cal-grid .day[data-fecha='" + fecha + "']");
-    if(celda) celda.classList.remove("sel");
+    if(celda){ celda.classList.remove("sel"); celda.setAttribute("aria-pressed","false"); }
+    if(window._MODO === "MOBILE") renderCalendario();
 
     return;
   }
@@ -2425,7 +2629,8 @@ function toggleFecha(fecha){
   limpiarMensajes();
 
   var celda = document.querySelector("#cal-grid .day[data-fecha='" + fecha + "']");
-  if(celda) celda.classList.add("sel");
+  if(celda){ celda.classList.add("sel"); celda.setAttribute("aria-pressed","true"); }
+  if(window._MODO === "MOBILE") renderCalendario();
 
 }
 
@@ -2434,8 +2639,21 @@ function toggleFecha(fecha){
 // SELECCIONAR NÚMERO DE DÍAS
 //══════════════════════════════════════
 
+function _pintarDias(n){
+  for(var i = 1; i <= 4; i++){
+    var b = document.getElementById("segd-" + i);
+    if(!b) continue;
+    var oculto = i > (window._maxDias || 4);
+    b.style.display = oculto ? "none" : "";
+    b.className = (i === n) ? "on" : "";
+    b.setAttribute("aria-pressed", (i === n) ? "true" : "false");
+  }
+}
+
 function seleccionarNumDias(n){
+  n = Math.min(n, window._maxDias || 4);
   estado.numDias = n;
+  _pintarDias(n);
   for(var i=1;i<=4;i++){
     var cell = document.getElementById("date-cell-" + i);
     if(cell) cell.style.display = i <= n ? "" : "none";
@@ -2500,6 +2718,23 @@ function actualizarSeleccionCount(){
   el.className = "sel-count";
   if(n > 0) el.classList.add("has-sel");
   if(n >= max) el.classList.add("full");
+  renderResumen();
+}
+
+function renderResumen(){
+  var box = document.getElementById("resumen-guardias");
+  if(!box) return;
+  if(!estado.seleccionadas.length){ box.innerHTML = ""; return; }
+  var nivelTxt = estado.condicion === "operativo" ? "OPERATIVO"
+               : estado.condicion === "profesional" ? "PROFESIONAL" : "INICIAL";
+  var pills = estado.seleccionadas.map(function(f){
+    var fp = fechaPartesDe(f);
+    var d = new Date(fp.y, fp.m - 1, fp.d);
+    var nombre = DIAS[(d.getDay() + 6) % 7] + " " + fp.d;
+    return '<span class="resumen-fech">' + nombre + '</span>';
+  }).join("");
+  box.innerHTML = pills +
+    '<span class="resumen-meta">Nivel ' + nivelTxt + '</span>';
 }
 
 
@@ -2736,12 +2971,9 @@ function enviar(){
 function limpiarFormulario(){
 
   estado.seleccionadas = [];
-  var selND = document.getElementById("num-dias");
-  var maxOpt = (selND && selND.options.length)
-    ? parseInt(selND.options[selND.options.length - 1].value, 10)
-    : 4;
+  var maxOpt = window._maxDias || 4;
   estado.numDias = maxOpt;
-  if(selND) selND.value = String(maxOpt);
+  _pintarDias(maxOpt);
 
   ["nombre","email"].forEach(function(id){
     var el = document.getElementById(id);
@@ -2750,8 +2982,7 @@ function limpiarFormulario(){
   });
 
   estado.condicion = null;
-  document.getElementById("opt-op").className = "cond-opt";
-  document.getElementById("opt-pr").className = "cond-opt";
+  _pintarNivel();
   document.querySelectorAll(".field-err").forEach(function(e){ e.textContent = ""; });
 
   for(var i=1;i<=4;i++){
@@ -3533,16 +3764,20 @@ function renderCalendarioLista(grid){
     card.className = "dia-card" + (sel ? " sel" : "") + (est.nivel === "full" ? " llena" : "");
     card.setAttribute("role", "listitem");
 
+    var fpCard = fechaPartesDe(fecha);
+    var jsD = new Date(fpCard.y, fpCard.m - 1, fpCard.d);
+    var nombreDiaC = DIAS[(jsD.getDay() + 6) % 7].toUpperCase();
+
     var head = document.createElement("div");
     head.className = "dc-head";
-    head.innerHTML = '<span class="dc-dia">' + formatearFecha(fecha) + '</span>' +
+    head.innerHTML = '<span class="dc-dia">' + nombreDiaC + ' <b>' + fpCard.d + '</b></span>' +
                      '<span class="pill p-' + est.nivel + '">' + est.texto + '</span>';
 
     var body = document.createElement("div");
     body.className = "dc-body";
     body.innerHTML =
-      '<span>Operativos ' + (data.operativos || 0) + '/' + REGLAS_UI.cupoOp + '</span>' +
-      '<span>Maquinistas ' + (data.maquinistas || 0) + '/' + REGLAS_UI.cupoMaq + '</span>';
+      '<div class="dc-line"><span>Operativos</span><b>' + (data.operativos || 0) + ' / ' + REGLAS_UI.cupoOp + '</b></div>' +
+      '<div class="dc-line"><span>Maquinistas</span><b>' + (data.maquinistas || 0) + ' / ' + REGLAS_UI.cupoMaq + '</b></div>';
 
     card.appendChild(head);
     card.appendChild(body);
@@ -3551,7 +3786,7 @@ function renderCalendarioLista(grid){
     btn.type = "button";
     btn.className = "dc-btn";
     btn.setAttribute("aria-pressed", sel ? "true" : "false");
-    btn.textContent = sel ? "✓ Seleccionada" : "Seleccionar";
+    btn.textContent = sel ? "✓ SELECCIONADA" : (est.nivel === "full" ? "COMPLETA" : "SELECCIONAR");
     if(est.nivel === "full") btn.disabled = true;
     btn.addEventListener("click", function(f){
       return function(){ toggleFecha(f); mostrarDetalleDia(f); };
