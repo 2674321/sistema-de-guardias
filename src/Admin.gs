@@ -186,17 +186,13 @@ function instalarSistema() {
       return creados.length ? "creadas " + creados.join(", ") : null;
     });
 
-    paso("Config por secciones + validaciones", function() {
-      prepararConfiguracionSilencioso(ss);
-    });
-
     paso("Estadísticas regeneradas", function() {
       generarEstadisticasBasicas();
       actualizarEstadisticas();
     });
 
     paso("Formato completo de todas las hojas", function() {
-      fmtDetalle = aplicarFormatoCompletoCore({ silencioso: true });
+      fmtDetalle = aplicarFormatoCompletoCore({ silencioso: true }); // incluye Config aquí, una única vez
     });
 
     invalidarCacheConfig();
@@ -304,7 +300,7 @@ function prepararConfiguracion() {
     ["Máximo permitido: 2, 3 o 4. Vacío = 4. Cuántas hacer lo decide libremente cada voluntario (desde 1)."],
     ["Fecha tope para anotarse. Vacío = sin límite."],
     ["Días mínimos antes de la primera guardia para poder darse de baja. 0 = sin restricción."],
-    ["1 = visible en la app · 0 = completamente oculto."]
+    ["1 = visible · 0 o vacío = completamente oculto."]
   ]);
 
   // Colores por sección
@@ -420,6 +416,7 @@ function aplicarFormatoCompletoCore(opts) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var resumen = [];
   var dry = !!opts.dryRun;
+  var incluirConfig = (opts.incluirConfig !== false);
 
   // ── Guardias (DATOS) ──
   var g = ss.getSheetByName("Guardias");
@@ -464,9 +461,9 @@ function aplicarFormatoCompletoCore(opts) {
     resumen.push("✓ Guardias — DATOS: encabezados, filtros, fechas, niveles 🔵🟢🟣, validaciones");
   }
 
-  // ── Config (CONFIGURACION) ──
+  // ── Config (CONFIGURACION) — solo si no se formateó en un paso previo ──
   var cfgSh = ss.getSheetByName("Config");
-  if (cfgSh) {
+  if (cfgSh && incluirConfig) {
     if (!dry) prepararConfiguracionSilencioso(ss);
     resumen.push("✓ Config — CONFIGURACIÓN: secciones, valores migrados, validaciones");
   }
@@ -506,13 +503,15 @@ function aplicarFormatoCompletoCore(opts) {
       var cols = e.getLastColumn();
       var filasE = e.getLastRow() - 1;
       _estiloTablaBase(e, { ultimaCol: cols, anchos: Array.apply(null, Array(cols)).map(function(_, i) { return i === 0 ? 230 : 120; }) });
-      if (filasE > 0) {
+      if (filasE > 0 && cols >= 2) {
         e.getRange(2, 1, filasE, 1).setFontWeight("bold").setFontColor(PALETA.tinta);
         // Valores como "tarjetas": número grande y destacado
         e.getRange(2, 2, filasE, cols - 1)
           .setFontWeight("bold").setFontSize(12).setFontColor(PALETA.rojo)
           .setHorizontalAlignment("right");
-        e.getRange(2, 3, filasE, Math.max(cols - 2, 0)).setHorizontalAlignment("right");
+        if (cols > 2) {
+          e.getRange(2, 3, filasE, cols - 2).setHorizontalAlignment("right");
+        }
       }
       _bordes(e, e.getLastRow(), cols);
     }
@@ -847,7 +846,7 @@ function prepararConfiguracionSilencioso(ss) {
     ["Máximo permitido: 2, 3 o 4. Vacío = 4. Cuántas hacer lo decide libremente cada voluntario (desde 1)."],
     ["Fecha tope para anotarse. Vacío = sin límite."],
     ["Días mínimos antes de la primera guardia para poder darse de baja. 0 = sin restricción."],
-    ["1 = visible en la app · 0 = completamente oculto."]
+    ["1 = visible · 0 o vacío = completamente oculto."]
   ]);
 
 

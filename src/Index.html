@@ -1194,6 +1194,22 @@
     ═══════════════════════════════════════════*/
     .field-hint{ display: none !important; }
 
+    /* Anclas bajo la navegación sticky */
+    .panel{ scroll-margin-top: 64px; }
+
+    /* Micro-interacciones sobrias (solo con puntero fino) */
+    @media (hover: hover){
+      body:not([data-modo="MOBILE"]) .day:not(.empty):hover{
+        transform: translateY(-2px);
+        box-shadow: 0 5px 14px rgba(14,14,14,.10);
+      }
+    }
+    .day .day-n{ transition: transform var(--motion-base) var(--motion-suave); }
+    .day.sel .day-n{ transform: scale(1.1); }
+    .sel-count.full{ animation: pulso 1s ease-in-out 2; }
+    .dc-btn:active{ transform: scale(.985); }
+    .submit-btn:active, .del-btn-confirmar:active{ transform: scale(.99); }
+
     /* Selector completo: Voluntario / Maquinista */
     .cargo-tog{ gap: 6px; margin-top: 6px; }
     .ctog-btn{

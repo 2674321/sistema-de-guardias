@@ -56,7 +56,7 @@ function esEmailValido(email) {
 }
 
 // Resuelve "Mostrar panel de asistencia" (Config!C8 nuevo / B9 legado).
-// 1, "1", true → true · 0, "0", false → false · vacío/inválido → default true
+// 1, "1", true → true · 0, "0", false → false · vacío/inválido → default FALSE (oculto)
 function resolverMostrarAsistencia(valor, valorLegado) {
   function f(v) {
     if (v === "" || v === null || v === undefined) return null;
@@ -69,7 +69,7 @@ function resolverMostrarAsistencia(valor, valorLegado) {
   if (nuevo !== null) return nuevo;
   var viejo = f(valorLegado);
   if (viejo !== null) return viejo;
-  return true; // default: visible
+  return false; // default: OCULTO (minimalista por defecto)
 }
 
 // Resuelve cantidad de guardias (Config!C5 nuevo / B10 legado). Solo 2|3|4.

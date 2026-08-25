@@ -214,11 +214,11 @@ function pruebasPuras() {
     h.eq(resolverMostrarAsistencia(0, ""), false);
     h.eq(resolverMostrarAsistencia("0 ", null), false);
   });
-  h.t("resolverMostrarAsistencia: vacío usa legado y luego default visible", function() {
+  h.t("resolverMostrarAsistencia: vacío usa legado y luego default OCULTO", function() {
     h.eq(resolverMostrarAsistencia("", 0), false);
     h.eq(resolverMostrarAsistencia("", 1), true);
-    h.eq(resolverMostrarAsistencia("", ""), true);
-    h.eq(resolverMostrarAsistencia(null, null), true);
+    h.eq(resolverMostrarAsistencia("", ""), false);
+    h.eq(resolverMostrarAsistencia(null, null), false);
   });
 
   // ── RESOLUTOR CANTIDAD DE GUARDIAS ──

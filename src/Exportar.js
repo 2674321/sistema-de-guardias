@@ -18,7 +18,7 @@ function generarPDF() {
     var mapa = {}
     for (var d = 1; d <= totalDias; d++) {
       var key = año + "-" + (config.mes + 1) + "-" + d
-      mapa[key] = { voluntarios: [], voluntariosEmail: [], maquinistas: [], maquinistasEmail: [], operativos: [], operativosLetra: {} }
+      mapa[key] = { voluntarios: [], voluntariosEmail: [], maquinistas: [], maquinistasEmail: [], operativos: [], operativosNivel: {} }
     }
 
     var emailsVol = {}, emailsMaq = {}
@@ -46,7 +46,7 @@ function generarPDF() {
         }
         if (consumeCupoOperativo(nivelFila) && mapa[fechaStr]) {
           if (!mapa[fechaStr].operativos.includes(nombre)) mapa[fechaStr].operativos.push(nombre)
-          mapa[fechaStr].operativosLetra[nombre] = nivelLetra(nivelFila)
+          mapa[fechaStr].operativosNivel[nombre] = nivelFila
         }
       }
     }
@@ -123,7 +123,7 @@ function generarPDF() {
             seen[email].tipo = "m+v"
             return
           }
-          seen[email] = {nombre: n, email: email, tipo: "v", operativo: info.operativos.indexOf(n) !== -1, opLetra: info.operativosLetra[n]}
+          seen[email] = {nombre: n, email: email, tipo: "v", operativo: info.operativos.indexOf(n) !== -1, nivel: info.operativosNivel[n] || "INICIAL"}
           personas.push(seen[email])
         })
         info.maquinistas.forEach(function(n, idx) {
@@ -132,7 +132,7 @@ function generarPDF() {
             seen[email].tipo = "m+v"
             return
           }
-          seen[email] = {nombre: n, email: email, tipo: "m", operativo: info.operativos.indexOf(n) !== -1, opLetra: info.operativosLetra[n]}
+          seen[email] = {nombre: n, email: email, tipo: "m", operativo: info.operativos.indexOf(n) !== -1, nivel: info.operativosNivel[n] || "INICIAL"}
           personas.push(seen[email])
         })
       }
@@ -155,8 +155,10 @@ function generarPDF() {
               if (est.reemplazoNombre) reempTexts.push(est.reemplazoNombre)
             }
           }
-          var opLetra = (p.operativo ? (p.opLetra || "O") : "I")
-          rowsHtml += "<tr class='pr'><td class='" + cls + "'>" + (p.operativo ? "<span class='op-badge'>" + opLetra + "</span>" : "<span class='op-badge' style='background:#888;'>I</span>") + esc(abreviar(p.nombre)) + "</td>" +
+          var niv = p.nivel || "INICIAL"
+          var letraN = niv === "PROFESIONAL" ? "P" : (niv === "OPERATIVO" ? "O" : "I")
+          var claseN = niv === "PROFESIONAL" ? "lv-p" : (niv === "OPERATIVO" ? "lv-o" : "lv-i")
+          rowsHtml += "<tr class='pr'><td class='" + cls + "'><span class='lv " + claseN + "' title='" + niv + "'>" + letraN + "</span>" + esc(abreviar(p.nombre)) + "</td>" +
             "<td class='asis-cell'>" + estC + "</td>" +
             "<td class='asis-cell'>" + estG + "</td>" +
             "<td class='asis-cell'>" + estNC + "</td>" +
@@ -175,6 +177,8 @@ function generarPDF() {
 
       var countClass = ""
       if (totalDia > 0) countClass = " has-guardias"
+      var colIdx = (primerDia + d - 1) % 7
+      if (colIdx >= 5) countClass += " finde"
 
       celdas += "<td class='cel" + countClass + "'>" +
         "<div class='cel-head'><span class='dia-n'>" + d + "</span>" +
@@ -248,6 +252,13 @@ function generarPDF() {
       ".itbl .pr td.m\\+v{border-left-color:transparent;background:linear-gradient(135deg,#1a3a9b,#6b2fa0);color:#333;font-weight:700}" +
       ".op-badge{display:inline-block;background:#f0c040;color:#333;font-size:5pt;font-weight:700;padding:0 3px;border-radius:2px;margin-right:3px;letter-spacing:0.5px;line-height:12px;vertical-align:middle}" +
 
+      ".lv{display:inline-block;min-width:12px;padding:0 3px;border-radius:2px;font-size:5pt;font-weight:700;line-height:12px;text-align:center;margin-right:3px;vertical-align:middle}" +
+      ".lv-i{background:#e3edfb;color:#1a56b0}" +
+      ".lv-o{background:#e2f3e8;color:#1a6b3a}" +
+      ".lv-p{background:#efe6fa;color:#6b2fa0}" +
+      "td.cel.finde{background:#faf7f1}" +
+      ".leyenda-nivel{display:flex;justify-content:center;align-items:center;gap:16px;font-size:6.5pt;color:#888;margin:-8px 0 12px;font-family:'Helvetica Neue',Arial,sans-serif}" +
+      ".leyenda-nivel .lv{margin-right:2px}" +
       ".reemp-info{font-size:5.5pt;color:#1a3a9b;font-family:'Helvetica Neue',Arial,sans-serif;line-height:1.5;padding:4px 2px 0;border-top:1px dashed #bbb;margin-top:3px}" +
       ".itbl .pr td:not(:first-child){text-align:center}" +
       ".asis-cell{font-weight:600;font-size:6.5pt;color:#444}" +
@@ -305,13 +316,23 @@ function generarPDF() {
         "<div class='stat'><span class='stat-num'>" + totalGuardias + "</span><span class='stat-label'>Guardias</span><span class='stat-bar gray'></span></div>" +
       "</div>" +
 
+      "<div class='leyenda-nivel'>" +
+        "<span>Niveles:</span>" +
+        "<span><span class='lv lv-i'>I</span> Inicial</span>" +
+        "<span><span class='lv lv-o'>O</span> Operativo</span>" +
+        "<span><span class='lv lv-p'>P</span> Profesional</span>" +
+      "</div>" +
+
       // ═══ TABLA ═══
       "<table><thead><tr>" +
       diasSemana.map(function(d) { return "<th>" + d + "</th>" }).join("") +
       "</tr></thead><tbody><tr>" + celdas + "</tr></tbody></table>" +
 
       // ═══ FOOTER ═══
-      "<div class='ftr'>1ra Compa\u00F1\u00EDa de Bomberos del CBC</div>" +
+      "<div class='ftr'>" +
+        "<span class='f-l'>1ra Compa\u00F1\u00EDa de Bomberos del CBC</span>" +
+        "<span class='f-r'>Generado: " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm") + "</span>" +
+      "</div>" +
       "</div>" +
       "</body></html>"
 
