@@ -139,10 +139,15 @@ function invalidarCacheConfig() {
 }
 
 // Endpoint público para el frontend
+// NOTA IMPORTANTE: aquí NO se llama a _autoInstalarTriggerMenu().
+// Usar ScriptApp dentro de getConfig exigía el alcance script.scriptapp
+// autorizado, y mientras el propietario no re-consintiera, TODAS las
+// llamadas google.script.run fallaban (pantalla cargando infinito).
+// La instalación del menú vive en: menú Mantenimiento o función
+// instalarTriggerMenuAdmin ejecutada una vez desde el editor.
 function getConfig() {
   try {
     var c = obtenerConfigGeneral();
-    _autoInstalarTriggerMenu(); // best-effort, silencioso e idempotente
     return {
       ok: true,
       cantidadGuardias: c.cantidadGuardias,
@@ -152,6 +157,7 @@ function getConfig() {
       semanas: c.semanas
     };
   } catch (e) {
+    Logger.log("getConfig: " + e);
     return { ok: false, error: e.message };
   }
 }
