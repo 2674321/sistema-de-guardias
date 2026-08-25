@@ -281,3 +281,20 @@ function esHealthCheckValido(o) {
     typeof o.version === "string" && o.version.length > 0 &&
     typeof o.timestamp === "string" && o.timestamp.length > 0);
 }
+
+//══════════════════════════════════════════
+// PARSEADOR ROBUSTO DE SEMANAS HABILITADAS
+// Acepta: "0,2" · 0.2 (número, por coma decimal regional) · "0;2" ·
+//         "0 2" · "0, 2" · 2 (una sola semana)
+// Devuelve array de enteros o [] si no hay nada válido.
+//══════════════════════════════════════════
+
+function parseSemanas(valor) {
+  var crudo = String(valor == null ? "" : valor);
+  // Puntos y espacios fuera de lugar → separadores; conserva dígitos y comas
+  var limpio = crudo.replace(/[^0-9,;]/g, ",").replace(/;+/g, ",");
+  if (!limpio) return [];
+  return limpio.split(",")
+    .map(function(x){ return parseInt(x.trim(), 10); })
+    .filter(function(n){ return !isNaN(n); });
+}

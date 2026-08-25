@@ -903,7 +903,8 @@ function _semanaHabilitadaDe(fechaKey, config) {
   var fp = fechaPartesDe(fechaKey);
   if (!fp) return false;
   if ((fp.m - 1) !== config.mes || fp.y !== config.año) return false;
-  var inicio = config.inicio instanceof Date ? config.inicio : new Date(String(config.inicio).trim() + "T12:00:00");
+  var iniRaw = config.inicio instanceof Date ? config.inicio : new Date(String(config.inicio).trim() + "T12:00:00");
+  var inicio = new Date(iniRaw.getFullYear(), iniRaw.getMonth(), iniRaw.getDate(), 12);
   var f = new Date(fp.y, fp.m - 1, fp.d, 12);
   var diff = Math.floor((f - inicio) / 86400000);
   if (diff < 0) return false;

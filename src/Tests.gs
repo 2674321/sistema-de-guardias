@@ -287,6 +287,20 @@ function pruebasPuras() {
     var r = { ok: false, version: "cal-1", message: "x", diagnostico: {} };
     h.eq(esContratoCalendarioValido(r), false);
   });
+  h.t("parseSemanas: texto con coma", function() {
+    h.eq(parseSemanas("0,2"), [0, 2]);
+  });
+  h.t("parseSemanas: número decimal regional 0.2 → [0,2]", function() {
+    h.eq(parseSemanas(0.2), [0, 2]);
+    h.eq(parseSemanas("0.2"), [0, 2]);
+  });
+  h.t("parseSemanas: otros separadores y una sola semana", function() {
+    h.eq(parseSemanas("0;2"), [0, 2]);
+    h.eq(parseSemanas("0 2"), [0, 2]);
+    h.eq(parseSemanas(2), [2]);
+    h.eq(parseSemanas("abc"), []);
+  });
+
   h.t("healthCheck válido reconocido", function() {
     h.eq(esHealthCheckValido({ ok:true, version:"cal-1", timestamp:"2026-08-25T00:00:00Z" }), true);
     h.eq(esHealthCheckValido({ ok:false, version:"cal-1", timestamp:"x" }), false);

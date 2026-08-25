@@ -86,7 +86,10 @@ function _leerCeldaConfig(sheet, clave) {
 function obtenerInicioSemanaConfig() {
   var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("Config");
   var val = _leerCeldaConfig(sheet, "inicio").valor;
-  if (val instanceof Date) return val;
+  if (val instanceof Date) {
+    // Mediodía local: inmune a cambios de hora y a la hora grabada en la celda
+    return new Date(val.getFullYear(), val.getMonth(), val.getDate(), 12);
+  }
   return new Date(String(val).trim() + "T12:00:00");
 }
 
@@ -113,9 +116,9 @@ function obtenerConfigGeneral() {
 
   var rSemanas = _leerCeldaConfig(sheet, "semanas");
   var semanas = CONFIG.semanasHabilitadasDefault.slice();
-  if (rSemanas.valor) {
-    var parts = String(rSemanas.valor).split(",").map(function(s) { return parseInt(s.trim(), 10); });
-    if (parts.length > 0 && parts.every(function(p) { return !isNaN(p); })) semanas = parts;
+  if (rSemanas.valor !== "") {
+    var parts = parseSemanas(rSemanas.valor);
+    if (parts.length > 0) semanas = parts;
   }
 
   var rCantidad = _leerCeldaConfig(sheet, "cantidadGuardias");
