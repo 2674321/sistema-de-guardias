@@ -48,6 +48,44 @@ function consumeCupoOperativo(nivel) {
 }
 
 //══════════════════════════════════════════
+// VALIDADORES Y RESOLUTORES PUROS
+//══════════════════════════════════════════
+
+function esEmailValido(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email == null ? "" : email).trim());
+}
+
+// Resuelve "Mostrar panel de asistencia" (Config!C8 nuevo / B9 legado).
+// 1, "1", true → true · 0, "0", false → false · vacío/inválido → default true
+function resolverMostrarAsistencia(valor, valorLegado) {
+  function f(v) {
+    if (v === "" || v === null || v === undefined) return null;
+    var s = String(v).trim();
+    if (s === "1") return true;
+    if (s === "0") return false;
+    return null;
+  }
+  var nuevo = f(valor);
+  if (nuevo !== null) return nuevo;
+  var viejo = f(valorLegado);
+  if (viejo !== null) return viejo;
+  return true; // default: visible
+}
+
+// Resuelve cantidad de guardias (Config!C5 nuevo / B10 legado). Solo 2|3|4.
+function resolverCantidadGuardias(valor, valorLegado, defecto) {
+  function p(v) {
+    var n = parseInt(v, 10);
+    return (n === 2 || n === 3 || n === 4) ? n : null;
+  }
+  var nuevo = p(valor);
+  if (nuevo !== null) return nuevo;
+  var viejo = p(valorLegado);
+  if (viejo !== null) return viejo;
+  return defecto || 4;
+}
+
+//══════════════════════════════════════════
 // CAPACIDAD POR DÍA
 // Cuenta igual que hace cumplir el motor:
 //  - maquinistas: filas cuyo cargo incluye "maquinista"
