@@ -1805,6 +1805,24 @@ function mostrarErrorCarga(msg, accionesHtml){
     '<br><br>' + (accionesHtml || BTN_REINTENTAR) + '</div>';
 }
 
+// Contrato cal-1 — copia cliente del validador (Reglas.gs es servidor)
+function _esContratoCalendarioValido(obj){
+  if(!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+  if(obj.version !== "cal-1") return false;
+  if(!obj.diagnostico || typeof obj.diagnostico !== "object") return false;
+  if(obj.ok === true){
+    if(typeof obj.mes !== "number" || typeof obj.año !== "number") return false;
+    if(!obj.ocupacion || typeof obj.ocupacion !== "object") return false;
+    if(!obj.configuracion || typeof obj.configuracion !== "object") return false;
+    return true;
+  }
+  if(obj.ok === false){
+    return typeof obj.errorCode === "string" && !!obj.errorCode &&
+           typeof obj.message === "string";
+  }
+  return false;
+}
+
 //══════════════════════════════════════
 // CALENDARIO — máquina de estados de petición
 // loading → slow → ok | error   ·   requestId evita respuestas obsoletas
@@ -1840,6 +1858,17 @@ function reintentarCalendario(){
   }
   quitarBannerDegradado();
   cargarCalendario();
+}
+
+function _pintarCarga(){
+  var grid = document.getElementById("cal-grid");
+  grid.className = "cal-grid";
+  grid.style.opacity = "0.6";
+  grid.innerHTML =
+    '<div class="dname">Lu</div><div class="dname">Ma</div><div class="dname">Mi</div>' +
+    '<div class="dname">Ju</div><div class="dname">Vi</div><div class="dname">Sa</div><div class="dname">Do</div>' +
+    '<div class="cal-loading"><div class="spinner-dot"></div><span class="spinner-label">Cargando calendario</span></div>';
+  ocultarAvisoLento();
 }
 
 function cargarCalendario(){
@@ -1921,7 +1950,7 @@ function _resolverCalendario(reqId, data){
     _calReq.reintentosNull = 0;
   }
 
-  if(!esContratoCalendarioValido(data)){
+  if(!_esContratoCalendarioValido(data)){
     _finalizarCalendario(reqId, "CONTRATO_INVALIDO", "La respuesta no cumplió el formato esperado (" + (typeof data) + ")");
     return;
   }
