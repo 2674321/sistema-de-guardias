@@ -1,6 +1,5 @@
-const SHEET_ID = "1pvDXSzGwySOPK9hDIHgGjbb4XMY7wQDk3RTC5QSPsWs";
-const SHEET_NAME = "Guardias";
-var _configCache = null;
+// Constantes SHEET_ID / SHEET_NAME y configuración central: ver Config.gs
+// Reglas de negocio puras: ver Reglas.gs · Utilidades de datos: ver Db.gs
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("Index")
@@ -12,6 +11,13 @@ function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu("Guardias CBC")
     .addItem("Formatear hoja", "formatearHojaGuardias")
+    .addSeparator()
+    .addItem("Diagnóstico migración niveles", "diagnosticoMigracionNiveles")
+    .addItem("Ejecutar migración niveles", "ejecutarMigracionDesdeMenu")
+    .addSeparator()
+    .addItem("Repoblar estadísticas detalladas", "actualizarEstadisticas")
+    .addItem("Preparar etiquetas Config", "inicializarNotasConfig")
+    .addItem("Ejecutar tests FASE 1", "ejecutarTestsFase1")
     .addToUi();
 }
 
@@ -20,6 +26,10 @@ function onOpen() {
 //══════════════════════════════════════════
 
 function registrarGuardia(datos) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    return { ok: false, errores: ["El sistema está ocupado procesando otro registro. Espera unos segundos e inténtalo de nuevo."] };
+  }
   try {
     var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
     if (!sheet) {
@@ -29,9 +39,11 @@ function registrarGuardia(datos) {
     var nombre = datos.nombre;
     var email = datos.email;
     var cargo = datos.cargo;
-    var condicion = datos.condicion || "";
-    var operativo = condicion === "operativo" || condicion === "profesional";
-    var condLetra = condicion === "operativo" ? "O" : (condicion === "profesional" ? "P" : "");
+    var nivel = normalizarNivel(datos.condicion);
+    if (nivel === null) {
+      return { ok: false, errores: ["Condición inválida. Debe ser Inicial, Operativo o Profesional."] };
+    }
+
     var fechasRaw = [datos.fecha1, datos.fecha2, datos.fecha3, datos.fecha4];
     var fechas = fechasRaw.filter(function(f) { return f && String(f).trim(); });
     var errores = [];
@@ -41,27 +53,15 @@ function registrarGuardia(datos) {
       errores.push("Cargo inválido.");
     }
 
-    // VALIDAR CANTIDAD DE GUARDIAS (1 a 4)
-    if (fechas.length < 1) {
-      errores.push("Selecciona al menos 1 día.");
-    }
-    if (fechas.length > 4) {
-      errores.push("Máximo 4 días.");
-    }
-
-    // VALIDAR FECHAS DISTINTAS
-    if (fechas.length !== new Set(fechas).size) {
-      errores.push("Las fechas no deben repetirse.");
-    }
+    // VALIDAR CANTIDADES Y REPETICIONES (regla central en Reglas.gs)
+    var evalCantidad = evaluarCantidadFechas(fechas, [], obtenerConfigGeneral().cantidadGuardias);
+    errores = errores.concat(evalCantidad.errores.filter(function(m) {
+      return m.indexOf("Ya estás registrado") === -1; // ese chequeo aplica solo con histórico
+    }));
 
     // VALIDAR MISMO MES
-    if (fechas.length > 0) {
-      var meses = fechas.map(function(f) {
-        return new Date(f + "T12:00:00").getMonth();
-      });
-      if (new Set(meses).size > 1) {
-        errores.push("Todas las fechas deben ser del mismo mes.");
-      }
+    if (fechas.length > 0 && !todasMismoMes(fechas)) {
+      errores.push("Todas las fechas deben ser del mismo mes.");
     }
 
     var fechaRef = new Date(fechas[0] + "T12:00:00");
@@ -96,25 +96,21 @@ function registrarGuardia(datos) {
 
     // Fusionar fechas si ya existe registro (re-registro)
     if (filaExistenteIdx !== null) {
-      var todas = fechasExistentes.slice();
-      fechas.forEach(function(f) {
-        if (todas.indexOf(f) === -1) todas.push(f);
+      var evalMerge = evaluarCantidadFechas(fechas, fechasExistentes, obtenerConfigGeneral().cantidadGuardias);
+      // Al fusionar, la cantidad por inscripción ya no limita: importa el tope histórico (4)
+      evalMerge.errores.forEach(function(m) {
+        if (m.indexOf("por inscripción") === -1 && errores.indexOf(m) === -1) errores.push(m);
       });
-      todas.sort();
-
-      if (todas.length > 4) {
-        errores.push("Ya tienes " + fechasExistentes.length + " guardias. Agregando estas fechas superas el máximo de 4.");
-      }
-
-      if (todas.length === fechasExistentes.length) {
-        errores.push("Ya estás registrado para estas fechas.");
-      }
 
       if (errores.length > 0) {
         return { ok: false, errores: errores };
       }
 
-      fechas = todas;
+      fechas = evalMerge.fusion;
+    } else {
+      if (errores.length > 0) {
+        return { ok: false, errores: errores };
+      }
     }
 
     // VALIDAR FECHA LÍMITE DE INSCRIPCIÓN (una sola llamada a config)
@@ -144,41 +140,26 @@ function registrarGuardia(datos) {
     }
 
     // VALIDAR CAPACIDAD POR DÍA según rol del usuario
-    // No operativo → siempre puede registrarse
+    // Inicial → siempre puede registrarse
     // Maquinista → bloqueado si ya hay 1 maquinista
-    // Operativo → bloqueado si ya hay 2+ operativos
+    // Operativo/Profesional → bloqueado si ya hay 2 operativos
     var soyMaq = cargo.indexOf("maquinista") !== -1;
     var soyVol = cargo.indexOf("voluntario") !== -1;
-    var soyOp = operativo;
+    var consumoCupoOp = consumeCupoOperativo(nivel);
 
     var todosLlenos = true;
     var diasMes = new Date(año, mes + 1, 0).getDate();
     for (var dd = 1; dd <= diasMes; dd++) {
       var fd = año + "-" + String(mes + 1).padStart(2, "0") + "-" + String(dd).padStart(2, "0");
       if (!esSemanaHabilitada(fd)) continue;
-      var maqD = 0, opsD = 0;
-      for (var ri = 1; ri < dataAll.length; ri++) {
-        if (!dataAll[ri][2]) continue;
-        for (var ci = 4; ci <= 7; ci++) {
-          if (!dataAll[ri][ci]) continue;
-          var df = dataAll[ri][ci] instanceof Date
-            ? Utilities.formatDate(dataAll[ri][ci], Session.getScriptTimeZone(), "yyyy-MM-dd")
-            : String(dataAll[ri][ci] || "").trim();
-          if (df === fd) {
-            var rcargo = String(dataAll[ri][3] || "").trim().toLowerCase();
-            if (rcargo.indexOf("maquinista") !== -1) maqD++;
-            var rcond = String(dataAll[ri][8] || "").trim();
-            if (rcond === "O" || rcond === "P") opsD++;
-          }
-        }
-      }
+      var cuentaDia = contarCupoDiaFilas(dataAll, fd);
       // Este día está disponible para este usuario?
       var disponible = false;
-      if (!soyMaq && !soyOp) {
-        disponible = true;  // voluntario no operativo siempre puede
+      if (!soyMaq && !consumoCupoOp) {
+        disponible = true;  // inicial siempre puede
       } else {
-        if (soyMaq && maqD < 1) disponible = true;
-        if (soyOp && opsD < 2) disponible = true;
+        if (soyMaq && cuentaDia.maquinistas < REGLAS.cupoMaquinistaPorDia) disponible = true;
+        if (consumoCupoOp && cuentaDia.operativos < REGLAS.cupoOperativoPorDia) disponible = true;
       }
       if (disponible) { todosLlenos = false; break; }
     }
@@ -186,34 +167,12 @@ function registrarGuardia(datos) {
     if (!todosLlenos) {
       for (var fi = 0; fi < fechasNuevas.length; fi++) {
         var f = fechasNuevas[fi];
-        var maqEnDia = 0, opsEnDia = 0;
-        for (var ri = 1; ri < dataAll.length; ri++) {
-          if (!dataAll[ri][2]) continue;
-          for (var ci = 4; ci <= 7; ci++) {
-            if (!dataAll[ri][ci]) continue;
-            var df = dataAll[ri][ci] instanceof Date
-              ? Utilities.formatDate(dataAll[ri][ci], Session.getScriptTimeZone(), "yyyy-MM-dd")
-              : String(dataAll[ri][ci] || "").trim();
-            if (df === f) {
-              var rcargo = String(dataAll[ri][3] || "").trim().toLowerCase();
-              if (rcargo.indexOf("maquinista") !== -1) maqEnDia++;
-              var rcond = String(dataAll[ri][8] || "").trim();
-              if (rcond === "O" || rcond === "P") opsEnDia++;
-            }
-          }
-        }
-        var bloqueado = false;
-        if (soyMaq && soyVol) {
-          var maqFree = maqEnDia < 1;
-          var volFree = !soyOp || opsEnDia < 2;
-          if (!maqFree && !volFree) bloqueado = true;
-        } else if (soyMaq && maqEnDia >= 1 && soyOp && opsEnDia >= 2) bloqueado = true;
-        else if (soyMaq && maqEnDia >= 1) bloqueado = true;
-        else if (soyOp && opsEnDia >= 2) bloqueado = true;
+        var cuentaF = contarCupoDiaFilas(dataAll, f);
+        var bloqueado = diaBloqueadoPara(cuentaF, cargo, consumoCupoOp);
         if (bloqueado) {
           var motivo = [];
-          if (soyMaq && maqEnDia >= 1) motivo.push("maquinista");
-          if (soyOp && opsEnDia >= 2) motivo.push("2 operativos");
+          if (soyMaq && cuentaF.maquinistas >= REGLAS.cupoMaquinistaPorDia) motivo.push("maquinista");
+          if (consumoCupoOp && cuentaF.operativos >= REGLAS.cupoOperativoPorDia) motivo.push(REGLAS.cupoOperativoPorDia + " operativos");
           errores.push("El día " + f + " ya tiene " + motivo.join(" y ") + ".");
         }
       }
@@ -224,11 +183,10 @@ function registrarGuardia(datos) {
     }
 
     // ESCRIBIR EN LA HOJA
-      if (filaExistenteIdx !== null) {
+    var f0 = fechas[0] || "", f1 = fechas[1] || "", f2 = fechas[2] || "", f3 = fechas[3] || "";
+    if (filaExistenteIdx !== null) {
         // Actualizar fila existente (re-registro)
-        var filaValores = [new Date(), nombre, email, cargo,
-          fechas[0], fechas[1], fechas[2], fechas[3],
-          condLetra];
+        var filaValores = [new Date(), nombre, email, cargo, f0, f1, f2, f3, nivel];
         sheet.getRange(filaExistenteIdx + 1, 1, 1, filaValores.length).setValues([filaValores]);
       } else {
         // Nueva fila
@@ -239,7 +197,7 @@ function registrarGuardia(datos) {
             break;
           }
         }
-        var nuevaFila = [new Date(), nombre, email, cargo, fechas[0], fechas[1], fechas[2], fechas[3], condLetra];
+        var nuevaFila = [new Date(), nombre, email, cargo, f0, f1, f2, f3, nivel];
 
       if (filaLibre) {
         sheet.getRange(filaLibre, 1, 1, nuevaFila.length).setValues([nuevaFila]);
@@ -253,7 +211,7 @@ function registrarGuardia(datos) {
       if (email.indexOf("@guardias.local") === -1) {
         enviarConfirmacion(nombre, email, cargo, fechas);
       }
-    } catch (e) {}
+    } catch (e) { Logger.log("Email confirmación: " + e); }
 
     generarEstadisticasBasicas();
 
@@ -276,43 +234,15 @@ function registrarGuardia(datos) {
       if (!encontrado) {
         asisSh.appendRow([email, nombre, cargo, "", "", "", "", "", "", "", "", "", "", "", "", new Date()]);
       }
-    } catch(e) {}
+    } catch (e) { Logger.log("Actualización Asistencia tras registro: " + e); }
 
     return { ok: true };
   } catch (e) {
-    return { ok: false, errores: ["Error interno: " + e.message] };
+    Logger.log("registrarGuardia: " + e);
+    return { ok: false, errores: ["Ocurrió un problema al guardar tu inscripción. Intenta nuevamente; si persiste, avisa al Ayudante."] };
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
   }
-}
-
-//══════════════════════════════════════════
-// BUSCAR FILA VACÍA
-//══════════════════════════════════════════
-
-function buscarFilaVacia(sheet) {
-  var data = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (data[i].every(function(c) { return c === ""; })) {
-      return i + 1;
-    }
-  }
-  return null;
-}
-
-//══════════════════════════════════════════
-// VALIDAR SI YA ESTÁ REGISTRADO
-//══════════════════════════════════════════
-
-function bomberoYaRegistrado(sheet, email, mes, año) {
-  var data = sheet.getDataRange().getValues();
-  var emailBuscado = String(email).trim().toLowerCase();
-  for (var i = 1; i < data.length; i++) {
-    if (!data[i][2]) continue;
-    if (String(data[i][2]).trim().toLowerCase() === emailBuscado && data[i][4]) {
-      var f = new Date(data[i][4]);
-      if (f.getMonth() === mes && f.getFullYear() === año) return true;
-    }
-  }
-  return false;
 }
 
 //══════════════════════════════════════════
@@ -326,17 +256,21 @@ function buscarGuardiasPorEmail(email) {
     var guardias = [];
     var nombre = "";
 
-    // Detectar mes más reciente
+    // Detectar mes más reciente (fecha máxima de toda la hoja, no la última fila)
     var mesActivo = null;
     var añoActivo = null;
+    var fechaMax = null;
 
     for (var i = 1; i < datos.length; i++) {
       var fila = datos[i];
       for (var c = 4; c <= 7; c++) {
         if (fila[c]) {
           var f = new Date(fila[c]);
-          mesActivo = f.getMonth();
-          añoActivo = f.getFullYear();
+          if (!fechaMax || f > fechaMax) {
+            fechaMax = f;
+            mesActivo = f.getMonth();
+            añoActivo = f.getFullYear();
+          }
         }
       }
     }
@@ -392,22 +326,37 @@ function buscarGuardiasPorEmail(email) {
 // ELIMINAR GUARDIAS POR EMAIL (mes activo)
 //══════════════════════════════════════════
 
-function eliminarGuardiasPorEmail(email) {
+function eliminarGuardiasPorEmail(email, codigo) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    return { ok: false, error: "El sistema está ocupado procesando otra operación. Espera unos segundos e inténtalo de nuevo." };
+  }
   try {
+    // Verificación de identidad: código enviado al correo del bombero
+    // Evita que cualquier persona pueda dar de baja guardias ajenas con solo conocer el correo.
+    var verif = verificarCodigoEliminacion_(email, codigo);
+    if (!verif.ok) {
+      return { ok: false, error: verif.error, necesitaCodigo: true };
+    }
+
     var sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
     var datos = sh.getDataRange().getValues();
     var emailBuscado = String(email || "").trim().toLowerCase();
 
-    // Detectar mes activo
+    // Detectar mes activo (fecha máxima de toda la hoja)
     var mesActivo = null;
     var añoActivo = null;
+    var fechaMaxDel = null;
     for (var i = 1; i < datos.length; i++) {
       var fila = datos[i];
       for (var c = 4; c <= 7; c++) {
         if (fila[c]) {
           var f = new Date(fila[c]);
-          mesActivo = f.getMonth();
-          añoActivo = f.getFullYear();
+          if (!fechaMaxDel || f > fechaMaxDel) {
+            fechaMaxDel = f;
+            mesActivo = f.getMonth();
+            añoActivo = f.getFullYear();
+          }
         }
       }
     }
@@ -491,7 +440,7 @@ function eliminarGuardiasPorEmail(email) {
     generarEstadisticasBasicas();
     try {
       enviarConfirmacionEliminacion(nombreUsuario, email, cargoUsuario, fechasEliminadas);
-    } catch(e) {}
+    } catch (e) { Logger.log("Email baja: " + e); }
     try {
       var logSs = SpreadsheetApp.openById(SHEET_ID);
       var logSh = logSs.getSheetByName("LogEliminaciones");
@@ -503,98 +452,22 @@ function eliminarGuardiasPorEmail(email) {
         logSh.getRange(1,1,1,5).setValues([["Fecha","Email","Nombre","Cargo","Fechas"]]);
       }
       logSh.appendRow([new Date(), email, nombreUsuario || "(sin nombre)", cargoUsuario || "", fechasEliminadas.join(", ") || "(sin datos)"]);
-    } catch(e) {}
+    } catch (e) { Logger.log("LogEliminaciones: " + e); }
 
     return { ok: true, eliminadas: eliminadas, filasEliminadas: filasEliminar.length };
   } catch (err) {
-    return { ok: false, error: err.toString() };
+    Logger.log("eliminarGuardiasPorEmail: " + err);
+    return { ok: false, error: "Ocurrió un problema al eliminar tus guardias. Intenta nuevamente; si persiste, avisa al Ayudante." };
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
   }
 }
 
 //══════════════════════════════════════════
-// CONFIGURACIÓN
+// CONFIGURACIÓN → movida a Config.gs
+// (obtenerInicioSemanaConfig, obtenerConfigGeneral,
+//  esSemanaHabilitada, inicializarNotasConfig)
 //══════════════════════════════════════════
-
-function obtenerInicioSemanaConfig() {
-  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("Config");
-  var val = sheet.getRange("B3").getValue();
-  if (val instanceof Date) return val;
-  return new Date(String(val).trim() + "T12:00:00");
-}
-
-function obtenerConfigGeneral() {
-  if (_configCache) return _configCache;
-  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("Config");
-  var inicio = obtenerInicioSemanaConfig();
-
-  var diasEliminacion = 3;
-  try {
-    var v = sheet.getRange("B6").getValue();
-    if (v !== "" && v != null) {
-      var n = Number(v);
-      if (!isNaN(n) && n >= 0) diasEliminacion = n;
-    }
-  } catch(e) {}
-
-  var fechaLimite = null;
-  try {
-    var v = sheet.getRange("B7").getValue();
-    if (v) {
-      if (v instanceof Date) fechaLimite = v;
-      else fechaLimite = new Date(String(v).trim() + "T12:00:00");
-    }
-  } catch(e) {}
-
-  var semanas = [0, 2];
-  try {
-    var v = sheet.getRange("B8").getValue();
-    if (v) {
-      var parts = String(v).split(",").map(function(s) { return parseInt(s.trim(), 10); });
-      if (parts.length > 0) semanas = parts;
-    }
-  } catch(e) {}
-
-  _configCache = {
-    inicio: inicio,
-    mes: inicio.getMonth(),
-    año: inicio.getFullYear(),
-    diasEliminacion: diasEliminacion,
-    fechaLimite: fechaLimite,
-    semanas: semanas
-  };
-  return _configCache;
-}
-
-function esSemanaHabilitada(fechaStr) {
-  var fecha = new Date(fechaStr + "T12:00:00");
-  var config = obtenerConfigGeneral();
-
-  if (fecha.getMonth() !== config.mes || fecha.getFullYear() !== config.año) {
-    return false;
-  }
-
-  var diffDias = Math.floor((fecha - config.inicio) / (1000 * 60 * 60 * 24));
-  if (diffDias < 0) return false;
-
-  var semana = Math.floor(diffDias / 7);
-  return config.semanas.indexOf(semana) !== -1;
-}
-
-//══════════════════════════════════════════
-// INICIALIZAR NOTAS DE CONFIG (ejecutar una vez desde el editor)
-//══════════════════════════════════════════
-
-function inicializarNotasConfig() {
-  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("Config");
-  sheet.getRange("A6").setValue("Días para eliminar");
-  sheet.getRange("C6").setValue("Antelación mínima en días para permitir la baja de guardias. Ej: 3 = se puede eliminar hasta 3 días antes de la primera guardia.");
-  sheet.getRange("A7").setValue("Fecha límite inscripción");
-  sheet.getRange("C7").setValue("Fecha tope para registrarse. Si está vacía no hay límite. Si se configuró, después de esa fecha nadie puede anotarse.");
-  sheet.getRange("A8").setValue("Semanas habilitadas");
-  sheet.getRange("C8").setValue("Índices de las semanas de guardia (0 = primera, 1 = segunda, etc). Ej: 0, 2 = primera y tercera semana.");
-  sheet.getRange("A6:C8").setFontSize(9);
-  sheet.getRange("A6:A8").setFontWeight("bold");
-}
 
 function obtenerGuardiasDelDia(fechaStr) {
   try {
@@ -611,11 +484,14 @@ function obtenerGuardiasDelDia(fechaStr) {
           ? Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd")
           : String(val).trim();
         if (f === fechaStr) {
+          var nivelDia = normalizarNivel(data[i][8]);
           resultado.push({
             nombre: data[i][1] || "",
             email: String(data[i][2] || "").trim().toLowerCase(),
             cargo: String(data[i][3] || "").trim().toLowerCase(),
-            operativo: String(data[i][8] || "").trim().toLowerCase() === "sí"
+            nivel: nivelDia,
+            condicion: nivelLetra(nivelDia),
+            operativo: consumeCupoOperativo(nivelDia)
           });
         }
       }
@@ -653,7 +529,7 @@ function obtenerGuardiasDelDia(fechaStr) {
           }
         }
       }
-    } catch(e) {}
+    } catch (e) { Logger.log("obtenerGuardiasDelDia/asistencia: " + e); }
 
     var total = resultado.length;
     var voluntarios = resultado.filter(function(r) { return r.cargo.indexOf("voluntario") !== -1; }).length;
@@ -682,75 +558,27 @@ function inicializarHojaAsistencia() {
     "G4_Estado","G4_ReempNombre","G4_ReempEmail",
     "UltimaActualizacion"];
 
-  // Only set header and migrate if first row differs from new format
-  var firstRow = sh.getRange(1, 1, 1, headers.length).getValues()[0];
-  var needsMigration = (firstRow[0] !== "Email" || firstRow[3] !== "G1_Estado");
-  if (needsMigration) {
+  // Solo escribe encabezados si la hoja está vacía.
+  // NUNCA borra datos: si el formato no coincide, se avisa y se requiere migración manual.
+  var lastRow = sh.getLastRow();
+  if (lastRow === 0) {
     sh.getRange(1, 1, 1, headers.length).setValues([headers]);
     sh.setFrozenRows(1);
-    if (sh.getLastRow() > 1) {
-      sh.getRange(2, 1, sh.getLastRow() - 1, headers.length).clearContent();
-    }
+    return sh;
+  }
+  var firstRow = sh.getRange(1, 1, 1, headers.length).getValues()[0];
+  var formatoIncorrecto = (firstRow[0] !== "Email" || firstRow[3] !== "G1_Estado");
+  if (formatoIncorrecto && lastRow > 1) {
+    throw new Error("La hoja Asistencia tiene un formato antiguo con datos. No se modificará automáticamente; requiere migración manual.");
   }
   return sh;
 }
 
-function marcarAsistencia(email, fecha, estado, reemplazoNombre, reemplazoEmail) {
-  try {
-    if (estado === "NC") {
-      return { ok: false, error: "No cumple' solo lo marca el oficial en la planilla." };
-    }
-
-    // Validación: G (cumple) solo se puede marcar el día de la guardia o después
-    if (estado === "C") {
-      var hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-      var partes = fecha.split("-");
-      var fechaGuardia = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
-      if (fechaGuardia > hoy) {
-        return { ok: false, error: "No puedes marcar 'Cumple' antes del día de la guardia." };
-      }
-    }
-
-    var sh = inicializarHojaAsistencia();
-    var datos = sh.getDataRange().getValues();
-
-    // Buscar si ya existe un registro para este email+fecha
-    for (var i = 1; i < datos.length; i++) {
-      if (String(datos[i][1]).trim().toLowerCase() === email.trim().toLowerCase() &&
-          String(datos[i][0]).trim() === fecha) {
-        // Actualizar
-        datos[i][4] = estado;
-        datos[i][5] = reemplazoNombre || "";
-        datos[i][6] = reemplazoEmail || "";
-        datos[i][7] = new Date();
-        sh.getRange(i + 1, 1, 1, 8).setValues([datos[i]]);
-        return { ok: true };
-      }
-    }
-
-    // Nuevo registro — buscar nombre y cargo del bombero
-    var ss = SpreadsheetApp.openById(SHEET_ID);
-    var guardiasSh = ss.getSheetByName(SHEET_NAME);
-    var guardiasData = guardiasSh.getDataRange().getValues();
-    var nombre = "";
-    var cargo = "";
-    for (var i = 1; i < guardiasData.length; i++) {
-      if (String(guardiasData[i][2] || "").trim().toLowerCase() === email.trim().toLowerCase()) {
-        nombre = guardiasData[i][1] || "";
-        cargo = String(guardiasData[i][3] || "").trim();
-        break;
-      }
-    }
-
-    sh.appendRow([fecha, email, nombre, cargo, estado, reemplazoNombre || "", reemplazoEmail || "", new Date()]);
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e.toString() };
-  }
-}
-
 function guardarAsistencias(email, registros) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    return { ok: false, error: "El sistema está ocupado. Espera unos segundos e inténtalo de nuevo." };
+  }
   try {
     email = String(email || "").trim().toLowerCase();
     if (!email) return { ok: false, error: "Email requerido." };
@@ -838,65 +666,11 @@ function guardarAsistencias(email, registros) {
 
     return { ok: !huboError, resultados: resultados };
   } catch (e) {
-    return { ok: false, error: e.toString() };
+    Logger.log("guardarAsistencias: " + e);
+    return { ok: false, error: "No se pudieron guardar los cambios de asistencia. Intenta nuevamente." };
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
   }
-}
-
-function obtenerAsistencia(email, mes, año) {
-  try {
-    var sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName("Asistencia");
-    if (!sh) return { ok: true, registros: [] };
-    var datos = sh.getDataRange().getValues();
-    var registros = {};
-
-    for (var i = 1; i < datos.length; i++) {
-      var f = datos[i][0];
-      if (!f) continue;
-      var fechaStr = _fechaCelda(f);
-      var fechaObj = new Date(fechaStr + "T12:00:00");
-      if (fechaObj.getMonth() !== mes || fechaObj.getFullYear() !== año) continue;
-      if (String(datos[i][1]).trim().toLowerCase() !== email.trim().toLowerCase()) continue;
-
-      registros[fechaStr] = {
-        estado: datos[i][4] || "",
-        reemplazoNombre: datos[i][5] || "",
-        reemplazoEmail: datos[i][6] || ""
-      };
-    }
-
-    return { ok: true, registros: registros };
-  } catch (e) {
-    return { ok: false, error: e.toString() };
-  }
-}
-
-function _fechaCelda(val) {
-  if (Object.prototype.toString.call(val) === '[object Date]' && !isNaN(val.getTime())) {
-    return Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd");
-  }
-  var s = String(val || "").trim();
-  return s.replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, "$1-$2-$3")
-          .replace(/^(\d{4})-(\d)-(\d)$/, "$1-0$2-0$3")
-          .replace(/^(\d{4})-(\d{2})-(\d)$/, "$1-$2-0$3")
-          .replace(/^(\d{4})-(\d)-(\d{2})$/, "$1-0$2-$3");
-}
-
-function _obtenerGuardiaIndex(email, fecha) {
-  email = String(email || "").trim().toLowerCase();
-  fecha = _fechaCelda(String(fecha || "").trim());
-  var ss = SpreadsheetApp.openById(SHEET_ID);
-  var data = ss.getSheetByName(SHEET_NAME).getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][2] || "").trim().toLowerCase() !== email) continue;
-    for (var c = 4; c <= 7; c++) {
-      if (!data[i][c]) continue;
-      var f = data[i][c] instanceof Date
-        ? Utilities.formatDate(data[i][c], Session.getScriptTimeZone(), "yyyy-MM-dd")
-        : String(data[i][c] || "").trim();
-      if (f === fecha) return c - 4;
-    }
-  }
-  return -1;
 }
 
 function obtenerGuardiasConAsistencia(email) {
@@ -953,7 +727,7 @@ function obtenerGuardiasConAsistencia(email) {
           break;
         }
       }
-    } catch(e) {}
+    } catch (e) { Logger.log("obtenerGuardiasConAsistencia: " + e); }
 
     var meses = ["enero","febrero","marzo","abril","mayo","junio",
                  "julio","agosto","septiembre","octubre","noviembre","diciembre"];
@@ -999,8 +773,8 @@ function obtenerOcupacion(mes, año) {
     if (!data[i][2]) continue;
     var cargo = String(data[i][3]).trim().toLowerCase();
     var email = String(data[i][2]).trim().toLowerCase();
-    var condLetra = String(data[i][8] || "").trim();
-    var operativo = condLetra === "O" || condLetra === "P";
+    var nivel = normalizarNivel(data[i][8]);
+    var operativo = consumeCupoOperativo(nivel);
     for (var j = 4; j <= 7; j++) {
       if (!data[i][j]) continue;
       var val = data[i][j];
@@ -1012,6 +786,8 @@ function obtenerOcupacion(mes, año) {
         nombre: data[i][1] || "",
         email: email,
         cargo: cargo,
+        nivel: nivel,
+        condicion: nivelLetra(nivel),
         operativo: operativo
       });
       if (cargo.includes("maquinista")) {
@@ -1020,7 +796,8 @@ function obtenerOcupacion(mes, año) {
       if (cargo.includes("voluntario")) {
         ocupacion[fecha].voluntarios++;
       }
-      if (operativo && cargo.includes("voluntario")) ocupacion[fecha].operativos++;
+      // Mismo criterio que el motor de reglas: O/P consumen cupo operativo
+      if (operativo) ocupacion[fecha].operativos++;
     }
   }
 
@@ -1066,7 +843,7 @@ function obtenerOcupacion(mes, año) {
         }
       }
     }
-  } catch(e) {}
+  } catch (e) { Logger.log("obtenerOcupacion/asistencia: " + e); }
 
   return { ocupacion: ocupacion, mes: mes, año: año };
 }
@@ -1430,7 +1207,7 @@ function enviarRecordatorios() {
           body: textBody,
           htmlBody: htmlBody
         });
-      } catch(e) {}
+      } catch (e) { Logger.log("Recordatorio " + persona.email + ": " + e); }
     })(agrupados[emailKey]);
   }
 
@@ -1472,7 +1249,7 @@ function formatearHojaGuardias() {
     if (ultimaCol < 1) return;
 
     // Forzar 9 columnas con encabezados correctos
-    var headers = ["Timestamp", "Nombre", "Email", "Cargo", "Guardia 01", "Guardia 02", "Guardia 03", "Guardia 04", "Condición"];
+    var headers = ["Timestamp", "Nombre", "Email", "Cargo", "Guardia 01", "Guardia 02", "Guardia 03", "Guardia 04", "Nivel"];
     var numFilas = sh.getLastRow();
 
     // Escribir encabezados
@@ -1492,23 +1269,18 @@ function formatearHojaGuardias() {
     sh.setColumnWidth(3, 220);
     sh.setColumnWidth(4, 110);
     for (var c = 5; c <= 8; c++) sh.setColumnWidth(c, 130);
-    sh.setColumnWidth(9, 90);
+    sh.setColumnWidth(9, 120);
 
-    // Migrar datos existentes (filas 2+)
+    // Nota: la columna Nivel (I) ya no se reescribe aquí.
+    // La lectura usa normalizarNivel() (Reglas.gs) y la migración
+    // histórica se hace con "Ejecutar migración niveles" del menú.
+
+    // Formatear y normalizar fechas existentes (filas 2+)
     if (numFilas > 1) {
       for (var i = 2; i <= numFilas; i++) {
         var filaRange = sh.getRange(i, 1, 1, headers.length);
         var bg = i % 2 === 0 ? "#f7f5f2" : "#ffffff";
         filaRange.setBackground(bg);
-
-        // Normalizar condicion (col 9)
-        var condCelda = sh.getRange(i, 9);
-        var condVal = String(condCelda.getValue() || "").trim().toLowerCase();
-        if (condVal === "sí" || condVal === "si") {
-          condCelda.setValue("O");
-        } else if (condVal === "no") {
-          condCelda.setValue("");
-        }
 
         // Normalizar fechas (cols 5-8)
         for (var c = 5; c <= 8; c++) {
@@ -1553,9 +1325,10 @@ function formatearHojaGuardias() {
 }
 
 function generarEstadisticasBasicas() {
-  formatearHojaGuardias();
+  // Ligera: solo métricas agregadas. No formatea la hoja (eso es manual, menú "Formatear hoja").
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var sh = ss.getSheetByName(SHEET_NAME);
+  if (!sh) return;
   var data = sh.getDataRange().getValues();
 
   var totalGuardias = 0;

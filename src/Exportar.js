@@ -18,14 +18,14 @@ function generarPDF() {
     var mapa = {}
     for (var d = 1; d <= totalDias; d++) {
       var key = año + "-" + (config.mes + 1) + "-" + d
-      mapa[key] = { voluntarios: [], voluntariosEmail: [], maquinistas: [], maquinistasEmail: [], operativos: [] }
+      mapa[key] = { voluntarios: [], voluntariosEmail: [], maquinistas: [], maquinistasEmail: [], operativos: [], operativosLetra: {} }
     }
 
     var emailsVol = {}, emailsMaq = {}
 
     for (var i = 1; i < datos.length; i++) {
       if (!datos[i][2]) continue
-      var operativo = String(datos[i][8] || "").trim().toLowerCase() === "sí"
+      var nivelFila = normalizarNivel(datos[i][8])
       for (var c = 4; c <= 7; c++) {
         if (!datos[i][c]) continue
         var f = new Date(datos[i][c])
@@ -44,8 +44,9 @@ function generarPDF() {
           if (mapa[fechaStr]) { mapa[fechaStr].voluntarios.push(nombre); mapa[fechaStr].voluntariosEmail.push(email) }
           emailsVol[email] = true
         }
-        if (condLetra && mapa[fechaStr] && !mapa[fechaStr].operativos.includes(nombre)) {
-          mapa[fechaStr].operativos.push(nombre)
+        if (consumeCupoOperativo(nivelFila) && mapa[fechaStr]) {
+          if (!mapa[fechaStr].operativos.includes(nombre)) mapa[fechaStr].operativos.push(nombre)
+          mapa[fechaStr].operativosLetra[nombre] = nivelLetra(nivelFila)
         }
       }
     }
@@ -122,7 +123,7 @@ function generarPDF() {
             seen[email].tipo = "m+v"
             return
           }
-          seen[email] = {nombre: n, email: email, tipo: "v", operativo: info.operativos.indexOf(n) !== -1}
+          seen[email] = {nombre: n, email: email, tipo: "v", operativo: info.operativos.indexOf(n) !== -1, opLetra: info.operativosLetra[n]}
           personas.push(seen[email])
         })
         info.maquinistas.forEach(function(n, idx) {
@@ -131,7 +132,7 @@ function generarPDF() {
             seen[email].tipo = "m+v"
             return
           }
-          seen[email] = {nombre: n, email: email, tipo: "m", operativo: info.operativos.indexOf(n) !== -1}
+          seen[email] = {nombre: n, email: email, tipo: "m", operativo: info.operativos.indexOf(n) !== -1, opLetra: info.operativosLetra[n]}
           personas.push(seen[email])
         })
       }
@@ -154,7 +155,8 @@ function generarPDF() {
               if (est.reemplazoNombre) reempTexts.push(est.reemplazoNombre)
             }
           }
-          rowsHtml += "<tr class='pr'><td class='" + cls + "'>" + (p.operativo ? "<span class='op-badge'>P</span>" : "<span class='op-badge' style='background:#888;'>I</span>") + esc(abreviar(p.nombre)) + "</td>" +
+          var opLetra = (p.operativo ? (p.opLetra || "O") : "I")
+          rowsHtml += "<tr class='pr'><td class='" + cls + "'>" + (p.operativo ? "<span class='op-badge'>" + opLetra + "</span>" : "<span class='op-badge' style='background:#888;'>I</span>") + esc(abreviar(p.nombre)) + "</td>" +
             "<td class='asis-cell'>" + estC + "</td>" +
             "<td class='asis-cell'>" + estG + "</td>" +
             "<td class='asis-cell'>" + estNC + "</td>" +
