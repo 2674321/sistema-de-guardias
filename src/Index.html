@@ -1188,6 +1188,27 @@
       .submit-btn, .del-btn-confirmar{ min-height: 50px; font-size: 12.5px; }
       input[type="date"], .del-input{ min-height: 48px; font-size: 15px; }
     }
+
+    /*══════════════════════════════════════════
+       MINIMALISMO — sin avisos auxiliares
+    ═══════════════════════════════════════════*/
+    .field-hint{ display: none !important; }
+
+    /* Selector completo: Voluntario / Maquinista */
+    .cargo-tog{ gap: 6px; margin-top: 6px; }
+    .ctog-btn{
+      flex: 1 1 0;
+      min-height: 36px;
+      padding: 7px 8px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: .4px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    @media (max-width: 480px){
+      .ctog-btn{ font-size: 11px; padding: 9px 4px; min-height: 40px; }
+    }
   </style>
 </head>
 <body style="min-height:100vh;">
@@ -1249,7 +1270,6 @@
         <label class="field-label" for="email">Correo electrónico</label>
         <input type="email" id="email" placeholder="correo@ejemplo.com" autocomplete="email" oninput="validarCampo(this, /^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Correo inválido')">
         <span class="field-err" id="err-email"></span>
-        <span class="field-hint" id="email-hint" aria-live="polite"></span>
       </div>
 
       <div class="field field-op">
@@ -1271,23 +1291,22 @@
           <option value="4" selected>4</option>
         </select>
       </div>
-      <span class="field-hint manual" id="dias-hint">Elige cuántas guardias quieres hacer — tú decides cuántas</span>
 
       <div class="date-row" id="date-row-1">
         <div class="date-cell">
           <span class="field-label">Fecha 01</span>
           <input type="date" id="fecha1" onchange="actualizarCal()">
           <div class="cargo-tog" id="cargo-tog-1">
-            <button class="ctog-btn" id="ctog1-v" onclick="seleccionarCargoDia(1,'voluntario')" title="Voluntario">V</button>
-            <button class="ctog-btn" id="ctog1-m" onclick="seleccionarCargoDia(1,'maquinista')" title="Maquinista">M</button>
+            <button class="ctog-btn" id="ctog1-v" onclick="seleccionarCargoDia(1,'voluntario')" title="Voluntario">Voluntario</button>
+            <button class="ctog-btn" id="ctog1-m" onclick="seleccionarCargoDia(1,'maquinista')" title="Maquinista">Maquinista</button>
           </div>
         </div>
         <div class="date-cell" id="date-cell-2">
           <span class="field-label">Fecha 02</span>
           <input type="date" id="fecha2" onchange="actualizarCal()">
           <div class="cargo-tog" id="cargo-tog-2">
-            <button class="ctog-btn" id="ctog2-v" onclick="seleccionarCargoDia(2,'voluntario')" title="Voluntario">V</button>
-            <button class="ctog-btn" id="ctog2-m" onclick="seleccionarCargoDia(2,'maquinista')" title="Maquinista">M</button>
+            <button class="ctog-btn" id="ctog2-v" onclick="seleccionarCargoDia(2,'voluntario')" title="Voluntario">Voluntario</button>
+            <button class="ctog-btn" id="ctog2-m" onclick="seleccionarCargoDia(2,'maquinista')" title="Maquinista">Maquinista</button>
           </div>
         </div>
       </div>
@@ -1296,16 +1315,16 @@
           <span class="field-label">Fecha 03</span>
           <input type="date" id="fecha3" onchange="actualizarCal()">
           <div class="cargo-tog" id="cargo-tog-3">
-            <button class="ctog-btn" id="ctog3-v" onclick="seleccionarCargoDia(3,'voluntario')" title="Voluntario">V</button>
-            <button class="ctog-btn" id="ctog3-m" onclick="seleccionarCargoDia(3,'maquinista')" title="Maquinista">M</button>
+            <button class="ctog-btn" id="ctog3-v" onclick="seleccionarCargoDia(3,'voluntario')" title="Voluntario">Voluntario</button>
+            <button class="ctog-btn" id="ctog3-m" onclick="seleccionarCargoDia(3,'maquinista')" title="Maquinista">Maquinista</button>
           </div>
         </div>
         <div class="date-cell" id="date-cell-4">
           <span class="field-label">Fecha 04</span>
           <input type="date" id="fecha4" onchange="actualizarCal()">
           <div class="cargo-tog" id="cargo-tog-4">
-            <button class="ctog-btn" id="ctog4-v" onclick="seleccionarCargoDia(4,'voluntario')" title="Voluntario">V</button>
-            <button class="ctog-btn" id="ctog4-m" onclick="seleccionarCargoDia(4,'maquinista')" title="Maquinista">M</button>
+            <button class="ctog-btn" id="ctog4-v" onclick="seleccionarCargoDia(4,'voluntario')" title="Voluntario">Voluntario</button>
+            <button class="ctog-btn" id="ctog4-m" onclick="seleccionarCargoDia(4,'maquinista')" title="Maquinista">Maquinista</button>
           </div>
         </div>
       </div>
@@ -1694,39 +1713,17 @@ function _initNavegacion(){
 // CORREO — detección automática (siempre editable)
 //══════════════════════════════════════
 
+// Detección silenciosa: prellena el correo si Google lo permite.
+// Sin mensajes ni avisos: si no hay detección, el campo simplemente
+// queda vacío y editable como siempre.
 function _detectarCorreo(){
-  var hint = document.getElementById("email-hint");
   var input = document.getElementById("email");
-
-  if(!input._hintBound){
-    input._hintBound = true;
-    input.addEventListener("input", function(){
-      if(hint.classList.contains("detectado")){
-        hint.className = "field-hint manual";
-        hint.textContent = "✎ Correo editable — puedes usar otro si lo necesitas";
-      }
-    });
-  }
-
   google.script.run
     .withSuccessHandler(function(resp){
-      if(resp && resp.ok && resp.correo){
-        if(!input.value.trim()){
-          input.value = resp.correo;
-          validarCampo(input, /^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Correo inválido");
-        }
-        hint.className = "field-hint detectado";
-        hint.textContent = input.value === resp.correo
-          ? "✓ Correo detectado automáticamente"
-          : "✓ Tu cuenta es " + resp.correo + " — usando el correo ingresado";
-      } else {
-        hint.className = "field-hint manual";
-        hint.textContent = "Ingresa tu correo manualmente";
+      if(resp && resp.ok && resp.correo && !input.value.trim()){
+        input.value = resp.correo;
+        validarCampo(input, /^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Correo inválido");
       }
-    })
-    .withFailureHandler(function(){
-      hint.className = "field-hint manual";
-      hint.textContent = "Ingresa tu correo manualmente";
     })
     .detectarCorreoUsuario();
 }
@@ -3005,22 +3002,6 @@ function renderAsistencia(resp, email){
   document.getElementById("asis-save-area").style.display = "none";
   document.getElementById("asis-toast-info").style.display = "none";
 
-  var ncLegend = document.getElementById("asis-nc-legend");
-  if(!ncLegend){
-    ncLegend = document.createElement("div");
-    ncLegend.id = "asis-nc-legend";
-    ncLegend.style.cssText = "font-family:var(--mono);font-size:9px;color:var(--ink-faint);letter-spacing:0.3px;margin-bottom:12px;padding:8px 12px;background:var(--paper-dark);border-radius:4px;";
-    ncLegend.innerHTML = '<strong>NC</strong> (No cumple) — lo marca el oficial directamente en la planilla.';
-    var header = document.querySelector("#asis-resultado > div:first-child");
-    if(header) header.parentNode.insertBefore(ncLegend, header.nextSibling);
-
-    var pLegend = document.createElement("div");
-    pLegend.id = "asis-p-legend";
-    pLegend.style.cssText = "font-family:var(--mono);font-size:9px;color:var(--ink-faint);letter-spacing:0.3px;margin-bottom:12px;padding:8px 12px;background:var(--paper-dark);border-radius:4px;";
-    pLegend.innerHTML = '<strong>P</strong> (Permiso) — solo si ya tenías guardia y no puedes cumplir. <strong>R</strong> (Reemplazo) es mejor — otro bombero toma tu lugar.';
-    if(header) header.parentNode.insertBefore(pLegend, ncLegend.nextSibling);
-  }
-
   var cont = document.getElementById("asis-guardias");
   cont.innerHTML = "";
 
@@ -3142,9 +3123,6 @@ function marcarAsistenciaChip(email, fecha, estado, chip){
   window._asisPendientes[fecha] = { estado: estado, reemplazoNombre: "" };
   document.getElementById("asis-save-area").style.display = "block";
 
-  if(estado === "P"){
-    mostrarToastInfo("📋 Permiso: solo si ya tenías guardia. Mejor usa R (Reemplazo). Envía el permiso a ayudantec1@bomberosdecoquimbo.cl");
-  }
 }
 
 function abrirMenuEstado(chip, email, fecha, estadoActual){
