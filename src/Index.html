@@ -1608,8 +1608,6 @@ window.onload = () => {
         var valor = Math.min(cfg.cantidadGuardias, 4);
         sel.value = String(valor);
         seleccionarNumDias(valor);
-        var dh = document.getElementById("dias-hint");
-        if(dh) dh.textContent = "Elige cuántas guardias quieres hacer (1 a " + valor + ") — tú decides";
       }
 
       // Panel Asistencia: B9=1 visible · B9=0 desaparece por completo (contenido y navegación)
@@ -3354,7 +3352,6 @@ window.__fase2SelfTest = function(){
   r.asistenciaCoherente = window._cfg ? (!!pa === !!window._cfg.mostrarAsistencia) : null;
   r.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   r.chipnav = !!document.getElementById("chipnav");
-  r.hintCorreo = (document.getElementById("email-hint") || {}).textContent || "";
   console.table(r);
   return r;
 };
