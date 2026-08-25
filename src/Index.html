@@ -1793,8 +1793,21 @@ function cargarCalendario(){
         return;
       }
       if(!data || !data.ocupacion) {
-        console.error("[Guardias] respuesta sin datos:", data);
-        throw new Error("El servidor respondió sin datos (revisa consola F12)");
+        var tipo = typeof data;
+        var vista = "";
+        try {
+          vista = (tipo === "string") ? String(data).slice(0, 200) : JSON.stringify(data);
+          if(vista === undefined) vista = "(vacío)";
+        } catch(err){ vista = "(no serializable)"; }
+        console.error("[Guardias] respuesta inesperada:", tipo, vista);
+
+        // Caso conocido: sesión de Google vencida → llega HTML de login como "éxito"
+        if(tipo === "string" && /<html|accounts\.google|Sign in/i.test(String(data))){
+          mostrarErrorCarga("Tu sesión de Google venció. Recarga la página (F5), inicia sesión si te lo pide y vuelve a entrar.");
+          ocultarSplashYa();
+          return;
+        }
+        throw new Error("Respuesta inesperada [" + tipo + "]: " + vista);
       }
       try {
         estado.ocupacion = structuredClone(data.ocupacion);
