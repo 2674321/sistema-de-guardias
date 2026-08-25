@@ -752,7 +752,7 @@ function obtenerGuardiasConAsistencia(email) {
 //══════════════════════════════════════════
 
 var VERSION_CONTRATO_CALENDARIO = "cal-1";
-var BUILD_SERVICIO = "@26-blindaje";
+var BUILD_SERVICIO = "v1.0.0";
 
 // Log estructurado de servicio. SIN datos sensibles (nunca nombres/emails/correo cuerpo).
 function _logServicio(funcion, requestId, duracionMs, nivel, detalle) {

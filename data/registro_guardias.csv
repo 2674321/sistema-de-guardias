@@ -1,43 +1,4 @@
-Timestamp,Nombre,Email,Cargo,Guardia 01,Guardia 02,Guardia 03,Guardia 04,Operativo
-4/07/2026 23:44:57,Renato Rodriguez,renatopaolo2020@gmail.com,voluntario,2026-07-08,2026-07-11,2026-07-21,2026-07-24,Sí
-4/07/2026 23:45:51,Emmanuel Jopia,josejopialopez@hotmail.com,voluntario,2026-07-08,2026-07-11,2026-07-21,2026-07-24,Sí
-4/07/2026 23:47:19,Mikaela Silva Castro,silvacastromikaela007@gmail.com,voluntario,2026-07-09,2026-07-10,2026-07-20,2026-07-26,Sí
-,,,,,,,,No
-5/07/2026 0:57:34,Cristobal Ramírez,rcristobal473@gmail.com,voluntario,2026-07-12,,,,Sí
-5/07/2026 1:10:04,Jorge Vera,jorgeveraoviedo1@gmail.com,maquinista,2026-07-24,2026-07-11,,,No
-5/07/2026 2:11:38,Cristóbal Gamboa,cristobalagamboaa@gmail.com,voluntario,2026-07-08,2026-07-11,2026-07-21,2026-07-24,No
-5/07/2026 2:15:11,Ian Duque,ianduque625@gmail.com,voluntario,2026-07-06,2026-07-10,2026-07-20,2026-07-24,No
-5/07/2026 2:27:16,Paula Saavedra,paulasaavedra74@gmail.com,voluntario,2026-07-06,jueves 9,2026-07-20,26/7/2026,No
-5/07/2026 2:27:57,felipe melo,felipeoomph1988@gmail.com,voluntario,2026-07-06,2026-07-09,2026-07-20,2026-07-26,No
-5/07/2026 10:51:21,Raúl Rodriguez Pizarro,Raul.rodriguez86@gmail.com,maquinista,2026-07-09,,,,No
-5/07/2026 11:25:00,Patricio Varela,patriciovarelacontreras@gmail.com,voluntario,2026-07-07,2026-07-12,2026-07-22,2026-07-25,No
-,,,,,,,,No
-10/07/2026 1:39:12,Pilar Aracena,pilar.aracena29@gmail.com,voluntario,2026-07-06,2026-07-09,2026-07-20,jueves 23,No
-5/07/2026 16:44:49,Matias nuñez,nunez.matias132@gmail.com,maquinista,2026-07-25,,,,No
-5/07/2026 21:14:26,Franco Rangel,frankorangel.quezada@gmail.com,voluntario,2026-07-08,2026-07-10,2026-07-21,2026-07-22,No
-5/07/2026 21:14:26,Alvaro varela,correo@gmail.com,maquinista,2026-07-06,2026-07-07,,,No
-5/07/2026 21:14:26,Aymara segura,correo@gmail.com,voluntario,2026-07-06,2026-07-07,,,Sí
-6/07/2026 18:25:09,Arlett Adaros,arlett.adaross@gmail.com,voluntario,2026-07-08,2026-07-10,2026-07-22,2026-07-24,No
-6/07/2026 20:28:08,Constanza Adaros,adaros.c@gmail.com,voluntario,2026-07-08,2026-07-10,2026-07-22,2026-07-24,No
-6/07/2026 20:28:08,Carlos Adaros,a@gmail.com,maquinista,viernes 10,miércoles 22,,,
-11/07/2026 22:19:25,Carlos Hernandez,carlos.06061996@gmail.com,voluntario,2026-07-07,2026-07-09,viernes 10,,No
-31/07/2026 22:02:27,Emmanuel Jopia,josejopialopez@hotmail.com,voluntario,2026-08-07,2026-08-03,2026-08-16,2026-08-17,Sí
-31/07/2026 22:05:55,ian Duque,ianduque625@gmail.com,voluntario,2026-08-03,2026-08-07,2026-08-17,2026-08-21,No
-31/07/2026 22:07:13,Mikaela Silva Castro,silvacastromikaela007@gmail.com,voluntario,2026-08-03,2026-08-07,2026-08-18,2026-08-19,Sí
-31/07/2026 22:14:02,Javier Díaz,xavierxdd@gmail.com,voluntario,2026-08-06,2026-08-21,,,Sí
-7/08/2026 2:01:30,Carlos Hernández Gutiérrez,carlos.06061996@gmail.com,voluntario,2026-08-03,2026-08-05,2026-08-06,,No
-31/07/2026 22:25:36,Cristóbal Gamboa Arriagada,cristobalagamboaa@gmail.com,voluntario,2026-08-06,2026-08-08,2026-08-16,2026-08-17,No
-1/08/2026 3:42:49,Franco Rangel,Frankorangel.quezada@gmail.com,voluntario,2026-08-04,2026-08-05,2026-08-18,2026-08-19,No
-1/08/2026 10:01:31,Alejandro  Santana,alejandro.santana132@gmail.com,maquinista,2026-08-06,2026-08-20,,,Sí
-2/08/2026 14:31:18,Matias Núñez,nunez.matias132@gmail.com,maquinista,2026-08-07,2026-08-21,,,No
-2/08/2026 18:59:48,Renato Rodriguez,renatopaolo2020@gmail.com,voluntario,2026-08-05,2026-08-08,2026-08-19,2026-08-20,Sí
-17/08/2026 9:48:12,alvaro varela cruz,varelacruzalvaro@gmail.com,maquinista,2026-08-03,2026-08-04,2026-08-17,,No
-3/08/2026 14:11:05,Aymara Segura,aymarasegura24@gmail.com,voluntario,2026-08-04,2026-08-17,,,Sí
-,,,,,,,,No
-3/08/2026 16:28:38,Arlett A.,arlett.adaross@gmail.com,voluntario,2026-08-06,2026-08-08,2026-08-20,2026-08-21,No
-3/08/2026 16:28:43,Comstanza Adaros,adaros.c@gmail.com,voluntario,2026-08-06,2026-08-08,2026-08-20,2026-08-21,No
-4/08/2026 17:40:04,karla inzunza,karlainzcas@gmail.com,voluntario,2026-08-04,,,,No
-17/08/2026 0:30:05,Paula Saavedra Verasay,paulasaavedra74@gmail.com,voluntario,2026-08-03,2026-08-04,2026-08-20,2026-08-22,No
-4/08/2026 17:53:26,Felipe Melo,Felipeoomph1988@gmail.com,voluntario,,2026-08-09,,,No
-17/08/2026 0:30:55,Felipe Melo,felipeoomph1988@gmail.com,voluntario,2026-08-20,2026-08-22,,,No
-17/08/2026 12:20:21,Pilar Aracena,pilar.aracena29@gmail.com,voluntario,2026-08-20,,,,No
+Timestamp,Nombre,Email,Cargo,Guardia 01,Guardia 02,Guardia 03,Guardia 04,Nivel
+01/09/2026 12:00:00,Bombero Demo Uno,demo1@ejemplo.cl,voluntario,2026-09-07,2026-09-21,,,OPERATIVO
+01/09/2026 12:01:00,Bombero Demo Dos,demo2@ejemplo.cl,maquinista,2026-09-07,,,,INICIAL
+02/09/2026 12:00:00,Bombero Demo Tres,demo3@ejemplo.cl,voluntario,2026-09-21,2026-09-23,,,"PROFESIONAL"

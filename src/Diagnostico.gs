@@ -7,7 +7,7 @@
 //   google.script.run.withSuccessHandler(console.log).serializarRespuestaCalendario()
 //══════════════════════════════════════════
 
-var BUILD = "v2-diag-@25";
+var BUILD = "v1.0.0";
 
 function _diagBase() {
   return { timestamp: new Date().toISOString(), build: BUILD };

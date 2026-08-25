@@ -1,0 +1,13 @@
+# Datos locales con información real (el repo incluye solo demo anónima)
+data/registro_guardias-real.csv
+data/*.local.csv
+
+# Credenciales / entorno
+.clasprc.json
+.env
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+*.log
+node_modules/
