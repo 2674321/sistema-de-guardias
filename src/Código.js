@@ -67,8 +67,8 @@ function registrarGuardia(datos) {
     for (var bi = 1; bi < dataAll.length; bi++) {
       if (!dataAll[bi][2]) continue;
       if (String(dataAll[bi][2]).trim().toLowerCase() === emailBuscado && dataAll[bi][4]) {
-        var bf = new Date(dataAll[bi][4]);
-        if (bf.getMonth() === mes && bf.getFullYear() === año) {
+        var bfp = fechaPartesDe(dataAll[bi][4]);
+        if (bfp && (bfp.m - 1) === mes && bfp.y === año) {
           filaExistenteIdx = bi;
           for (var ci = 4; ci <= 7; ci++) {
             if (!dataAll[bi][ci]) continue;
@@ -253,11 +253,13 @@ function buscarGuardiasPorEmail(email) {
       var fila = datos[i];
       for (var c = 4; c <= 7; c++) {
         if (fila[c]) {
-          var f = new Date(fila[c]);
-          if (!fechaMax || f > fechaMax) {
-            fechaMax = f;
-            mesActivo = f.getMonth();
-            añoActivo = f.getFullYear();
+          var fpb = fechaPartesDe(fila[c]);
+          if (!fpb) continue;
+          var claveNum = fpb.y * 10000 + fpb.m * 100 + fpb.d;
+          if (!fechaMax || claveNum > fechaMax) {
+            fechaMax = claveNum;
+            mesActivo = fpb.m - 1;
+            añoActivo = fpb.y;
           }
         }
       }
@@ -339,11 +341,13 @@ function eliminarGuardiasPorEmail(email, codigo) {
       var fila = datos[i];
       for (var c = 4; c <= 7; c++) {
         if (fila[c]) {
-          var f = new Date(fila[c]);
-          if (!fechaMaxDel || f > fechaMaxDel) {
-            fechaMaxDel = f;
-            mesActivo = f.getMonth();
-            añoActivo = f.getFullYear();
+          var fpd = fechaPartesDe(fila[c]);
+          if (!fpd) continue;
+          var claveNumD = fpd.y * 10000 + fpd.m * 100 + fpd.d;
+          if (!fechaMaxDel || claveNumD > fechaMaxDel) {
+            fechaMaxDel = claveNumD;
+            mesActivo = fpd.m - 1;
+            añoActivo = fpd.y;
           }
         }
       }
@@ -361,9 +365,9 @@ function eliminarGuardiasPorEmail(email, codigo) {
       if (String(fila[2]).trim().toLowerCase() !== emailBuscado) continue;
       for (var c = 4; c <= 7; c++) {
         if (!fila[c]) continue;
-        var f = new Date(fila[c]);
-        if (f.getMonth() === mesActivo && f.getFullYear() === añoActivo) {
-          fechasUsuario.push(f);
+        var fpu = fechaPartesDe(fila[c]);
+        if (fpu && (fpu.m - 1) === mesActivo && fpu.y === añoActivo) {
+          fechasUsuario.push(new Date(fpu.y, fpu.m - 1, fpu.d, 12));
         }
       }
     }
@@ -685,10 +689,10 @@ function obtenerGuardiasConAsistencia(email) {
 
       for (var c = 4; c <= 7; c++) {
         if (!datos[i][c]) continue;
-        var f = new Date(datos[i][c]);
-        if (f.getMonth() === mes && f.getFullYear() === año) {
+        var fpc = fechaPartesDe(datos[i][c]);
+        if (fpc && (fpc.m - 1) === mes && fpc.y === año) {
           fechas.push({
-            fecha: Utilities.formatDate(f, Session.getScriptTimeZone(), "yyyy-MM-dd"),
+            fecha: fpc.y + "-" + pad2(fpc.m) + "-" + pad2(fpc.d),
             indice: c - 4
           });
         }
@@ -1086,7 +1090,9 @@ function enviarRecordatorios() {
 
     for (var c = 4; c <= 7; c++) {
       if (!fila[c]) continue;
-      var f = new Date(fila[c]);
+      var fpr = fechaPartesDe(fila[c]);
+      if (!fpr) continue;
+      var f = new Date(fpr.y, fpr.m - 1, fpr.d);
       f.setHours(0, 0, 0, 0);
 
       if (f.getTime() === manana.getTime()) {

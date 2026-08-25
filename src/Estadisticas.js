@@ -39,11 +39,9 @@ function generarEstadisticasDias() {
       var fecha = fila[c];
       if (!fecha) continue;
 
-      var fechaStr = Utilities.formatDate(
-        new Date(fecha),
-        Session.getScriptTimeZone(),
-        "yyyy-MM-dd"
-      );
+      var fpe = fechaPartesDe(fecha);
+      if (!fpe) continue;
+      var fechaStr = fpe.y + "-" + pad2(fpe.m) + "-" + pad2(fpe.d);
 
       if (!stats[fechaStr]) {
         stats[fechaStr] = { voluntarios: 0, maquinistas: 0 };
@@ -93,13 +91,14 @@ function generarEstadisticasMensuales() {
       var fecha = fila[c];
       if (!fecha) continue;
 
-      var f = new Date(fecha);
-      var key = f.getFullYear() + "-" + String(f.getMonth() + 1).padStart(2, "0");
+      var fpm = fechaPartesDe(fecha);
+      if (!fpm) continue;
+      var key = fpm.y + "-" + pad2(fpm.m);
 
       if (!stats[key]) {
         stats[key] = {
-          año: f.getFullYear(),
-          mes: f.getMonth(),
+          año: fpm.y,
+          mes: fpm.m - 1,
           voluntarios: 0,
           maquinistas: 0,
           total: 0

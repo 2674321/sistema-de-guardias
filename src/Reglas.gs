@@ -55,6 +55,33 @@ function esEmailValido(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email == null ? "" : email).trim());
 }
 
+//══════════════════════════════════════════
+// FECHAS — partes seguras por zona horaria
+//
+// PROBLEMA que resuelve: new Date("2026-07-08") se interpreta como
+// medianoche UTC; en Santiago (UTC-3) eso es el 7 de julio a las 21:00,
+// así que getDate()/getMonth() devuelven EL DÍA ANTERIOR.
+//
+// fechaPartesDe acepta Date o texto "YYYY-MM-DD" (con o sin ceros)
+// y devuelve SIEMPRE las partes reales: {y:2026, m:7, d:8} (m:1-12).
+// Devuelve null si no se puede interpretar.
+//══════════════════════════════════════════
+
+function fechaPartesDe(valor) {
+  if (Object.prototype.toString.call(valor) === "[object Date]") {
+    if (isNaN(valor.getTime())) return null;
+    return { y: valor.getFullYear(), m: valor.getMonth() + 1, d: valor.getDate() };
+  }
+  var s = String(valor == null ? "" : valor).trim();
+  var mch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!mch) return null;
+  var y = parseInt(mch[1], 10), m = parseInt(mch[2], 10), d = parseInt(mch[3], 10);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return { y: y, m: m, d: d };
+}
+
+function pad2(n) { return String(n).padStart(2, "0"); }
+
 // Resuelve "Mostrar panel de asistencia" (Config!C8 nuevo / B9 legado).
 // 1, "1", true → true · 0, "0", false → false · vacío/inválido → default FALSE (oculto)
 function resolverMostrarAsistencia(valor, valorLegado) {

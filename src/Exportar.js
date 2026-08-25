@@ -28,9 +28,9 @@ function generarPDF() {
       var nivelFila = normalizarNivel(datos[i][8])
       for (var c = 4; c <= 7; c++) {
         if (!datos[i][c]) continue
-        var f = new Date(datos[i][c])
-        if (f.getMonth() !== config.mes || f.getFullYear() !== año) continue
-        var fechaStr = año + "-" + (config.mes + 1) + "-" + f.getDate()
+        var fpx = fechaPartesDe(datos[i][c])
+        if (!fpx || (fpx.m - 1) !== config.mes || fpx.y !== año) continue
+        var fechaStr = año + "-" + (config.mes + 1) + "-" + fpx.d
         var nombre = datos[i][1] || ""
         var email = String(datos[i][2] || "").trim().toLowerCase()
         var cargo = String(datos[i][3] || "").trim().toLowerCase()

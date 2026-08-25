@@ -233,6 +233,30 @@ function pruebasPuras() {
     h.eq(resolverCantidadGuardias("", "", 4), 4);
   });
 
+  // ── FECHAS SIN BUG DE ZONA HORARIA ──
+  h.t("fechaPartesDe: texto YYYY-MM-DD conserva el día exacto", function() {
+    var p = fechaPartesDe("2026-07-08");
+    h.eq([p.y, p.m, p.d], [2026, 7, 8]);
+  });
+  h.t("fechaPartesDe: acepta sin ceros y con basura al final", function() {
+    var p = fechaPartesDe("2026-7-8T12:00:00");
+    h.eq([p.y, p.m, p.d], [2026, 7, 8]);
+  });
+  h.t("fechaPartesDe: Date construido local conserva partes", function() {
+    var d = new Date(2026, 6, 8); // 8 julio local
+    var p = fechaPartesDe(d);
+    h.eq([p.y, p.m, p.d], [2026, 7, 8]);
+  });
+  h.t("fechaPartesDe: inválidos → null", function() {
+    h.eq(fechaPartesDe(""), null);
+    h.eq(fechaPartesDe("no-fecha"), null);
+    h.eq(fechaPartesDe("2026-13-40"), null);
+    h.eq(fechaPartesDe(new Date("zzz")), null);
+  });
+  h.t("pad2 completa a dos dígitos", function() {
+    h.eq(pad2(7), "07"); h.eq(pad2(12), "12");
+  });
+
   return h.resultados;
 }
 
