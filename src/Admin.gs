@@ -276,15 +276,24 @@ function prepararConfiguracion() {
   sh.getRange("A2:D2").setValues([["SECCIÓN", "PARÁMETRO", "VALOR", "NOTA"]])
     .setBackground("#333333").setFontColor("#ffffff").setFontWeight("bold");
 
-  var filas = [
-    ["CALENDARIO", "Primer lunes de guardia del mes", "", "Inicio de la semana 0 del calendario mensual."],
-    ["CALENDARIO", "Semanas habilitadas (ej: 0,2)", "", "Índices de semanas desde el primer lunes. Vacío = 0,2."],
-    ["GUARDIAS",   "Cantidad de guardias por inscripción", "", "2, 3 o 4. Vacío = 4. No afecta registros históricos."],
-    ["GUARDIAS",   "Fecha límite de inscripción", "", "Fecha tope para anotarse. Vacío = sin límite."],
-    ["REGLAS",     "Días de antelación para eliminar", "", "Días mínimos antes de la primera guardia para poder darse de baja. 0 = sin restricción."],
-    ["ASISTENCIA", "Mostrar panel de asistencia (1/0)", "", "1 = visible en la app · 0 = completamente oculto."]
-  ];
-  sh.getRange("A3:D8").setValues(filas);
+  // IMPORTANTE: escribir solo etiquetas (A,B) y notas (D).
+  // La columna C (VALOR) nunca se sobreescribe aquí.
+  sh.getRange("A3:B8").setValues([
+    ["CALENDARIO", "Primer lunes de guardia del mes"],
+    ["CALENDARIO", "Semanas habilitadas (ej: 0,2)"],
+    ["GUARDIAS",   "Cantidad de guardias por inscripción"],
+    ["GUARDIAS",   "Fecha límite de inscripción"],
+    ["REGLAS",     "Días de antelación para eliminar"],
+    ["ASISTENCIA", "Mostrar panel de asistencia (1/0)"]
+  ]);
+  sh.getRange("D3:D8").setValues([
+    ["Inicio de la semana 0 del calendario mensual."],
+    ["Índices de semanas desde el primer lunes. Vacío = 0,2."],
+    ["2, 3 o 4. Vacío = 4. No afecta registros históricos."],
+    ["Fecha tope para anotarse. Vacío = sin límite."],
+    ["Días mínimos antes de la primera guardia para poder darse de baja. 0 = sin restricción."],
+    ["1 = visible en la app · 0 = completamente oculto."]
+  ]);
 
   // Colores por sección
   var coloresSeccion = {
@@ -299,7 +308,7 @@ function prepararConfiguracion() {
   }
 
   // Validaciones de datos (aviso, no bloqueo duro, para no frenar ediciones avanzadas)
-  var reglas = SpreadsheetApp.newDataValidation;
+  var reglas = SpreadsheetApp.newDataValidation();
   sh.getRange("C3").setDataValidation(reglas.requireDate().setAllowInvalid(true).build());
   sh.getRange("C5").setDataValidation(reglas.requireValueInList(["2", "3", "4"], true).setAllowInvalid(true).build());
   sh.getRange("C6").setDataValidation(reglas.requireDate().setAllowInvalid(true).build());
@@ -362,6 +371,18 @@ function _estiloTablaBase(sh, o) {
   if (o.ocultarGridlines !== false) sh.setHiddenGridlines(true);
 }
 
+// Bordes sutiles para toda la tabla (aspecto de app, no de hoja cruda)
+function _bordes(sh, filas, cols) {
+  try {
+    if (filas > 0 && cols > 0) {
+      sh.getRange(1, 1, filas, cols).setBorder(
+        true, true, true, true, true, true,
+        PALETA.borde, SpreadsheetApp.BorderStyle.SOLID
+      );
+    }
+  } catch (e) { Logger.log("bordes " + sh.getName() + ": " + e); }
+}
+
 // Regla condicional simple: texto exacto → fondo/texto
 function _reglaTexto(rango, textos, paleta) {
   var reglas = [];
@@ -416,9 +437,13 @@ function aplicarFormatoCompletoCore(opts) {
       g.setConditionalFormatRules(reglasNivel);
 
       // Validaciones suaves
-      var dv = SpreadsheetApp.newDataValidation;
+      var dv = SpreadsheetApp.newDataValidation();
       g.getRange("D2:D").setDataValidation(dv.requireValueInList(["voluntario", "maquinista"], true).setAllowInvalid(true).build());
       g.getRange("I2:I").setDataValidation(dv.requireValueInList(["INICIAL", "OPERATIVO", "PROFESIONAL"], true).setAllowInvalid(true).build());
+
+      // Bordes y alineaciones finales
+      _bordes(g, g.getLastRow(), 9);
+      g.getRange("D2:D").setHorizontalAlignment("center");
 
       // Timestamp atenuado ya aplicado; nombre destacado
       g.getRange("B2:B").setFontWeight("medium");
@@ -455,6 +480,7 @@ function aplicarFormatoCompletoCore(opts) {
       });
       a.setConditionalFormatRules(reglasAsis);
       a.getRange("P2:P").setNumberFormat("dd/mm/yyyy hh:mm").setFontSize(9);
+      _bordes(a, a.getLastRow(), Math.min(a.getLastColumn(), 16));
     }
     resumen.push("✓ Asistencia — ASISTENCIA: C/P/R/NC con color, columnas congeladas");
   }
@@ -465,9 +491,17 @@ function aplicarFormatoCompletoCore(opts) {
     if (!e) return;
     if (!dry && e.getLastRow() > 0) {
       var cols = e.getLastColumn();
-      _estiloTablaBase(e, { ultimaCol: cols, anchos: Array.apply(null, Array(cols)).map(function(_, i) { return i === 0 ? 190 : 110; }) });
-      e.getRange(2, 1, Math.max(e.getLastRow() - 1, 1), cols).setHorizontalAlignment("left");
-      e.getRange(2, 2, Math.max(e.getLastRow() - 1, 1), 1).setHorizontalAlignment("right");
+      var filasE = e.getLastRow() - 1;
+      _estiloTablaBase(e, { ultimaCol: cols, anchos: Array.apply(null, Array(cols)).map(function(_, i) { return i === 0 ? 230 : 120; }) });
+      if (filasE > 0) {
+        e.getRange(2, 1, filasE, 1).setFontWeight("bold").setFontColor(PALETA.tinta);
+        // Valores como "tarjetas": número grande y destacado
+        e.getRange(2, 2, filasE, cols - 1)
+          .setFontWeight("bold").setFontSize(12).setFontColor(PALETA.rojo)
+          .setHorizontalAlignment("right");
+        e.getRange(2, 3, filasE, Math.max(cols - 2, 0)).setHorizontalAlignment("right");
+      }
+      _bordes(e, e.getLastRow(), cols);
     }
     resumen.push("✓ " + nombre + " — ESTADÍSTICAS");
   });
@@ -778,14 +812,24 @@ function prepararConfiguracionSilencioso(ss) {
   sh.getRange("A2:D2").setValues([["SECCIÓN", "PARÁMETRO", "VALOR", "NOTA"]])
     .setBackground("#333333").setFontColor("#ffffff").setFontWeight("bold");
 
-  sh.getRange("A3:D8").setValues([
-    ["CALENDARIO", "Primer lunes de guardia del mes", "", "Inicio de la semana 0 del calendario mensual."],
-    ["CALENDARIO", "Semanas habilitadas (ej: 0,2)", "", "Índices de semanas desde el primer lunes. Vacío = 0,2."],
-    ["GUARDIAS",   "Cantidad de guardias por inscripción", "", "2, 3 o 4. Vacío = 4. No afecta registros históricos."],
-    ["GUARDIAS",   "Fecha límite de inscripción", "", "Fecha tope para anotarse. Vacío = sin límite."],
-    ["REGLAS",     "Días de antelación para eliminar", "", "Días mínimos antes de la primera guardia para poder darse de baja. 0 = sin restricción."],
-    ["ASISTENCIA", "Mostrar panel de asistencia (1/0)", "", "1 = visible en la app · 0 = completamente oculto."]
+  // Igual que arriba: C (VALOR) jamás se sobreescribe.
+  sh.getRange("A3:B8").setValues([
+    ["CALENDARIO", "Primer lunes de guardia del mes"],
+    ["CALENDARIO", "Semanas habilitadas (ej: 0,2)"],
+    ["GUARDIAS",   "Cantidad de guardias por inscripción"],
+    ["GUARDIAS",   "Fecha límite de inscripción"],
+    ["REGLAS",     "Días de antelación para eliminar"],
+    ["ASISTENCIA", "Mostrar panel de asistencia (1/0)"]
   ]);
+  sh.getRange("D3:D8").setValues([
+    ["Inicio de la semana 0 del calendario mensual."],
+    ["Índices de semanas desde el primer lunes. Vacío = 0,2."],
+    ["2, 3 o 4. Vacío = 4. No afecta registros históricos."],
+    ["Fecha tope para anotarse. Vacío = sin límite."],
+    ["Días mínimos antes de la primera guardia para poder darse de baja. 0 = sin restricción."],
+    ["1 = visible en la app · 0 = completamente oculto."]
+  ]);
+
 
   var coloresSeccion = { "CALENDARIO": "#e3edfb", "GUARDIAS": "#f7e3e3", "REGLAS": "#efefef", "ASISTENCIA": "#e2f3e8" };
   for (var f = 3; f <= 8; f++) {
@@ -795,15 +839,17 @@ function prepararConfiguracionSilencioso(ss) {
     sh.getRange(f, 4).setFontColor("#777777").setFontSize(9).setWrap(true);
   }
 
-  var reglas = SpreadsheetApp.newDataValidation;
+  var reglas = SpreadsheetApp.newDataValidation();
   sh.getRange("C3").setDataValidation(reglas.requireDate().setAllowInvalid(true).build());
   sh.getRange("C5").setDataValidation(reglas.requireValueInList(["2", "3", "4"], true).setAllowInvalid(true).build());
   sh.getRange("C6").setDataValidation(reglas.requireDate().setAllowInvalid(true).build());
   sh.getRange("C7").setDataValidation(reglas.requireNumberGreaterThanOrEqualTo(0).setAllowInvalid(true).build());
   sh.getRange("C8").setDataValidation(reglas.requireValueInList(["0", "1"], true).setAllowInvalid(true).build());
   sh.getRange("C3:C8").setBackground("#fffdf5").setFontWeight("bold");
+  sh.getRange("C3:C8").setHorizontalAlignment("center");
 
   _estiloTablaBase(sh, { ultimaCol: 4, congelarFilas: 2, anchos: [120, 250, 110, 380], zebraDesde: 3 });
+  _bordes(sh, 8, 4);
   invalidarCacheConfig();
 }
 
