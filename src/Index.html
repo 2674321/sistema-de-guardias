@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
   <title>Guardias — 1ra Compañía CBC</title>
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -1786,33 +1788,63 @@ function cargarCalendario(){
   .withSuccessHandler(data => {
     document.getElementById("cal-grid").style.opacity = "1";
     try {
-      estado.ocupacion = structuredClone(data.ocupacion);
+      if(!data || !data.ocupacion) throw new Error("El servidor respondió sin datos");
+      try {
+        estado.ocupacion = structuredClone(data.ocupacion);
+      } catch(err) {
+        estado.ocupacion = JSON.parse(JSON.stringify(data.ocupacion));
+      }
+      estado.mes = Number(data.mes);
+      estado.año = Number(data.año);
+      renderCalendario();
+      ocultarSplashYa();
     } catch(e) {
-      estado.ocupacion = JSON.parse(JSON.stringify(data.ocupacion));
+      console.error("[Guardias] carga de calendario:", e);
+      mostrarErrorCarga("No se pudo preparar la disponibilidad: " + (e && e.message ? e.message : e));
+      ocultarSplashYa();
     }
-
-    estado.mes =
-      Number(data.mes);
-
-    estado.año =
-      Number(data.año);
-
-    renderCalendario();
-
-    if(window._ocultarSplash){
-      window._ocultarSplash();
-      window._ocultarSplash = null;
-    }
-
   })
   .withFailureHandler(cargarCalendarioError)
   .obtenerOcupacion(estado.mes, estado.año);
 
 }
 
+function ocultarSplashYa(){
+  if(window._ocultarSplash){
+    var f = window._ocultarSplash;
+    window._ocultarSplash = null;
+    f();
+  }
+}
+
+function mostrarErrorCarga(msg){
+  var grid = document.getElementById("cal-grid");
+  if(grid){
+    grid.className = "cal-grid";
+    grid.innerHTML = '<div class="vacio-suave" role="alert">' +
+      'La aplicación no terminó de arrancar.<br>' + escHtml(msg || "") +
+      '<br><br><a href="javascript:location.reload(true)" style="color:var(--red);font-family:var(--mono);letter-spacing:1px;">↻ RECARGAR</a></div>';
+  }
+}
+
+// Watchdog: si tras 12 s el splash sigue ahí, algo falló silenciosamente:
+// se quita el splash y se muestra el estado de error (nunca loading infinito).
+setTimeout(function(){
+  var sp = document.getElementById("splash");
+  var visible = sp && sp.style.display !== "none" && sp.style.opacity !== "0";
+  if(visible){
+    console.warn("[Guardias] watchdog: quitando splash tras espera máxima");
+    ocultarSplashYa();
+    var grid = document.getElementById("cal-grid");
+    if(grid && !grid.querySelector(".day, .dia-card")){
+      mostrarErrorCarga("El servidor tardó demasiado en responder.");
+    }
+  }
+}, 12000);
+
 function cargarCalendarioError(){
   document.getElementById("cal-grid").style.opacity = "1";
-  if(window._ocultarSplash){ window._ocultarSplash(); window._ocultarSplash = null; }
+  ocultarSplashYa();
   var loading = document.querySelector("#cal-grid .cal-loading");
   var msg = '<div class="vacio-suave" role="status">No pudimos cargar la disponibilidad en este momento.<br>Verifica tu conexión e inténtalo de nuevo.<br><br><a href="javascript:cargarCalendario()" style="color:var(--red);font-family:var(--mono);letter-spacing:1px;">↻ REINTENTAR</a></div>';
   if(loading) loading.innerHTML = msg;
