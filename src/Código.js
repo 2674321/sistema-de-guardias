@@ -757,7 +757,9 @@ function _obtenerOcupacionInterna(mes, año) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) throw new Error("No existe la hoja Guardias.");
+  var _t0 = Date.now(); // [DIAG]
   var data = sheet.getDataRange().getValues();
+  if (typeof _DIAG !== "undefined" && _DIAG) Logger.log("[DIAG] ocupacion: lectura " + (Date.now() - _t0) + "ms (" + data.length + " filas)");
   var ocupacion = {};
 
   var totalDias = new Date(año, mes + 1, 0).getDate();
@@ -848,6 +850,7 @@ function _obtenerOcupacionInterna(mes, año) {
     }
   } catch (e) { Logger.log("obtenerOcupacion/asistencia: " + e); }
 
+  if (typeof _DIAG !== "undefined" && _DIAG) Logger.log("[DIAG] ocupacion: total " + (Date.now() - _t0) + "ms"); // [DIAG]
   return { ok: true, ocupacion: ocupacion, mes: mes, año: año };
 }
 

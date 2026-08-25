@@ -6,6 +6,7 @@
 const SHEET_ID = "1pvDXSzGwySOPK9hDIHgGjbb4XMY7wQDk3RTC5QSPsWs";
 const SHEET_NAME = "Guardias";
 var _configCache = null;
+var _DIAG = true; // [DIAG] instrumentación temporal de auditoría
 
 const CONFIG = {
   niveles: ["INICIAL", "OPERATIVO", "PROFESIONAL"],
@@ -91,8 +92,10 @@ function obtenerInicioSemanaConfig() {
 
 function obtenerConfigGeneral() {
   if (_configCache) return _configCache;
+  var _t0 = Date.now(); // [DIAG]
   var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("Config");
   var inicio = obtenerInicioSemanaConfig();
+  if (_DIAG) Logger.log("[DIAG] config: apertura+inicio " + (Date.now() - _t0) + "ms");
 
   var rDias = _leerCeldaConfig(sheet, "diasEliminacion");
   var diasEliminacion = CONFIG.diasEliminacionDefault;
@@ -131,6 +134,7 @@ function obtenerConfigGeneral() {
     mostrarAsistencia: resolverMostrarAsistencia(rAsistenciaNueva, rAsistenciaLegada),
     _origenes: { diasEliminacion: rDias.origen, fechaLimite: rLimite.origen, semanas: rSemanas.origen, cantidadGuardias: rCantidad.origen }
   };
+  if (_DIAG) Logger.log("[DIAG] config: total " + (Date.now() - _t0) + "ms"); // [DIAG]
   return _configCache;
 }
 

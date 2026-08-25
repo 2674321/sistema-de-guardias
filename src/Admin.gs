@@ -58,7 +58,7 @@ function construirMenuAdmin() {
     { titulo: "👨‍🚒 Guardias", items: [
       ["📊 Actualizar estadísticas", "actualizarEstadisticasMenu"],
       ["🔎 Diagnóstico de guardias", "diagnosticoGuardias"],
-      ["📅 Diagnóstico de calendario", "diagnosticoCalendario"]
+      ["📅 Diagnóstico de calendario", "diagnosticoCalendarioUI"]
     ]},
     { titulo: "🩺 Asistencia", items: [
       ["Mostrar panel de asistencia", "mostrarPanelAsistencia"],
@@ -639,7 +639,7 @@ function diagnosticoGuardias() {
   SpreadsheetApp.getUi().alert(msg, SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
-function diagnosticoCalendario() {
+function diagnosticoCalendarioUI() {
   var cfg = obtenerConfigGeneral();
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var dataAll = ss.getSheetByName(SHEET_NAME).getDataRange().getValues();
