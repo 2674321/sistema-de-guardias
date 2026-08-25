@@ -18,10 +18,14 @@ src/                      # Código Apps Script (sincronizado con clasp)
 
 ## Sincronización con Apps Script
 
+Configuración en `.clasp.json` (raíz del repo, `rootDir: src`). Ejecutar desde la raíz:
+
 ```bash
-cd src && clasp clone 1gvzkZacaIwROBDB247ls9BFLcW-29BVFMLZs93D0BgtdjPDKU1hZTDH9
-# o tras editar: clasp push
+clasp pull   # Apps Script → repo
+clasp push   # repo → Apps Script
 ```
+
+Requiere sesión previa: `clasp login` (cuenta propietaria).
 
 ## Datos
 
