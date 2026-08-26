@@ -54,6 +54,13 @@ Web App (Index.html, SPA) ──google.script.run──► Backend Apps Script �
 ### Correo con código de verificación
 ![Correo código de verificación](docs/img/guardias-correo-codigo.png)
 
+### Calendario bimestral — Escritorio
+![Calendario bimestral PC](docs/img/guardias-calendario-bimestral-pc.png)
+
+### Calendario bimestral — Móvil
+![Calendario bimestral móvil](docs/img/guardias-calendario-bimestral-movil.jpg)
+
+
 ## Configuración (hoja `Config`)
 
 | Celda | Parámetro | Default |
