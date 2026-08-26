@@ -48,28 +48,33 @@ function registrarGuardia(datos) {
       return m.indexOf("Ya estás registrado") === -1; // ese chequeo aplica solo con histórico
     }));
 
-    // VALIDAR MISMO MES
-    if (fechas.length > 0 && !todasMismoMes(fechas)) {
-      errores.push("Todas las fechas deben ser del mismo mes.");
-    }
-
-    var fechaRef = new Date(fechas[0] + "T12:00:00");
-    var mes = fechaRef.getMonth();
-    var año = fechaRef.getFullYear();
-
     // Leer datos una sola vez (optimización)
     var dataAll = sheet.getDataRange().getValues();
 
-    // BUSCAR SI YA TIENE GUARDIAS EN ESTE MES
+    // BUSCAR DUPLICADOS DENTRO DEL CICLO (28 días desde config.inicio)
     var emailBuscado = String(email).trim().toLowerCase();
-    var filaExistenteIdx = null;  // 0-based index en dataAll
+    var configCiclo = obtenerConfigGeneral();
+    var iniCiclo = configCiclo.inicio instanceof Date
+      ? configCiclo.inicio
+      : new Date(String(configCiclo.inicio).trim() + "T12:00:00");
+    iniCiclo = new Date(iniCiclo.getFullYear(), iniCiclo.getMonth(), iniCiclo.getDate(), 12);
+    var _fechasCicloSet = {};
+    for (var _dc = 0; _dc < 28; _dc++) {
+      var _fd = new Date(iniCiclo.getTime() + _dc * 86400000);
+      _fechasCicloSet[_fd.getFullYear() + "-" + String(_fd.getMonth() + 1).padStart(2, "0") + "-" + String(_fd.getDate()).padStart(2, "0")] = true;
+    }
+
+    var filaExistenteIdx = null;
     var fechasExistentes = [];
 
     for (var bi = 1; bi < dataAll.length; bi++) {
       if (!dataAll[bi][2]) continue;
-      if (String(dataAll[bi][2]).trim().toLowerCase() === emailBuscado && dataAll[bi][4]) {
-        var bfp = fechaPartesDe(dataAll[bi][4]);
-        if (bfp && (bfp.m - 1) === mes && bfp.y === año) {
+      if (String(dataAll[bi][2]).trim().toLowerCase() !== emailBuscado) continue;
+      if (!dataAll[bi][4]) continue;
+      var bfp = fechaPartesDe(dataAll[bi][4]);
+      if (bfp) {
+        var bKey = bfp.y + "-" + String(bfp.m).padStart(2, "0") + "-" + String(bfp.d).padStart(2, "0");
+        if (_fechasCicloSet[bKey]) {
           filaExistenteIdx = bi;
           for (var ci = 4; ci <= 7; ci++) {
             if (!dataAll[bi][ci]) continue;
@@ -137,15 +142,14 @@ function registrarGuardia(datos) {
     var consumoCupoOp = consumeCupoOperativo(nivel);
 
     var todosLlenos = true;
-    var diasMes = new Date(año, mes + 1, 0).getDate();
-    for (var dd = 1; dd <= diasMes; dd++) {
-      var fd = año + "-" + String(mes + 1).padStart(2, "0") + "-" + String(dd).padStart(2, "0");
+    for (var _dc2 = 0; _dc2 < 28; _dc2++) {
+      var _fd2 = new Date(iniCiclo.getTime() + _dc2 * 86400000);
+      var fd = _fd2.getFullYear() + "-" + String(_fd2.getMonth() + 1).padStart(2, "0") + "-" + String(_fd2.getDate()).padStart(2, "0");
       if (!esSemanaHabilitada(fd)) continue;
       var cuentaDia = contarCupoDiaFilas(dataAll, fd);
-      // Este día está disponible para este usuario?
       var disponible = false;
       if (!soyMaq && !consumoCupoOp) {
-        disponible = true;  // inicial siempre puede
+        disponible = true;
       } else {
         if (soyMaq && cuentaDia.maquinistas < REGLAS.cupoMaquinistaPorDia) disponible = true;
         if (consumoCupoOp && cuentaDia.operativos < REGLAS.cupoOperativoPorDia) disponible = true;
