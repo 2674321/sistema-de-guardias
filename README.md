@@ -1,4 +1,4 @@
-# 🚒 Sistema de Guardias — 1ª Compañía de Bomberos del CBC
+# Sistema de Guardias — 1ª Compañía de Bomberos del CBC
 
 Sistema de calendarización y gestión de guardias para la 1ª Compañía del Cuerpo de Bomberos de Coquimbo. Construido sobre **Google Apps Script** (backend + web app) con **Google Sheets** como base de datos.
 
@@ -48,7 +48,7 @@ Web App (Index.html, SPA) ──google.script.run──► Backend Apps Script �
 | C7 | Días de antelación para eliminar | 3 |
 | C8 | Mostrar panel Asistencia (1/0) | 0 (oculto) |
 
-Menú **🚒 GUARDIAS CBC** en la hoja: instalación automática del disparador la primera vez que la app corre; si no aparece, ejecutar `instalarTriggerMenuAdmin` desde el editor.
+Menú ** GUARDIAS CBC** en la hoja: instalación automática del disparador la primera vez que la app corre; si no aparece, ejecutar `instalarTriggerMenuAdmin` desde el editor.
 
 ## Desarrollo local
 
