@@ -214,14 +214,10 @@ function _autoInstalarTriggerMenu() {
 function esSemanaHabilitada(fechaStr) {
   var fecha = new Date(fechaStr + "T12:00:00");
   var config = obtenerConfigGeneral();
-
-  if (fecha.getMonth() !== config.mes || fecha.getFullYear() !== config.año) {
-    return false;
-  }
-
-  var diffDias = Math.floor((fecha - config.inicio) / (1000 * 60 * 60 * 24));
-  if (diffDias < 0) return false;
-
+  var iniRaw = config.inicio instanceof Date ? config.inicio : new Date(String(config.inicio).trim() + "T12:00:00");
+  var inicio = new Date(iniRaw.getFullYear(), iniRaw.getMonth(), iniRaw.getDate(), 12);
+  var diffDias = Math.floor((fecha - inicio) / (1000 * 60 * 60 * 24));
+  if (diffDias < 0 || diffDias >= 28) return false;
   var semana = Math.floor(diffDias / 7);
   return config.semanas.indexOf(semana) !== -1;
 }
