@@ -37,6 +37,23 @@ Web App (Index.html, SPA) ──google.script.run──► Backend Apps Script �
 - **Estadísticas** diarias/mensuales/ranking y **exportación PDF** mensual.
 - **Estados de conexión** (● Conectado · ◐ Sincronizando · ⚠ Lento · ✕ Sin conexión) con fallback al último calendario válido.
 
+## Capturas de pantalla
+
+### Ventana principal
+![Ventana principal GUARDIAS](docs/img/guardias-ventana-principal.png)
+
+### Página principal con inscripciones
+![Página principal rellenada](docs/img/guardias-pagina-rellenada.png)
+
+### Baja protegida de guardia
+![Baja de guardias](docs/img/guardias-baja.png)
+
+### Correo de días de guardia
+![Correo de días de guardia](docs/img/guardias-correo-dias.png)
+
+### Correo con código de verificación
+![Correo código de verificación](docs/img/guardias-correo-codigo.png)
+
 ## Configuración (hoja `Config`)
 
 | Celda | Parámetro | Default |
