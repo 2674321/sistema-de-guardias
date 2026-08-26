@@ -2277,146 +2277,107 @@ function cargarCalendarioError(){
 //══════════════════════════════════════
 
 function renderCalendario(){
+  var grid = document.getElementById("cal-grid");
+  var titulo = document.getElementById("cal-titulo");
 
-  const grid =
-    document.getElementById("cal-grid");
+  // Obtener todas las fechas del ciclo, ordenadas
+  var fechas = Object.keys(estado.ocupacion).sort();
+  if(!fechas.length){
+    titulo.textContent = "—";
+    grid.innerHTML = "";
+    return;
+  }
 
-  const titulo =
-    document.getElementById("cal-titulo");
-
-  titulo.textContent =
-    `${MESES[estado.mes]} ${estado.año}`;
+  // Título dinámico: rango del ciclo
+  var fpIni = fechaPartesDe(fechas[0]);
+  var fpFin = fechaPartesDe(fechas[fechas.length - 1]);
+  if(fpIni.m === fpFin.m){
+    titulo.textContent = MESES[fpIni.m - 1] + " " + fpIni.y;
+  } else {
+    titulo.textContent = MESES[fpIni.m - 1].substring(0,3) + " — " + MESES[fpFin.m - 1].substring(0,3) + " " + fpFin.y;
+  }
 
   grid.innerHTML = "";
   grid.className = "cal-grid";
 
-  //══════════════════════════════════
-  // NOMBRES DÍAS
-  //══════════════════════════════════
-
-  DIAS.forEach(nombre => {
-
-    const d =
-      document.createElement("div");
-
-    d.className =
-      "dname";
-
-    d.textContent =
-      nombre;
-
+  // Nombres de días
+  DIAS.forEach(function(nombre){
+    var d = document.createElement("div");
+    d.className = "dname";
+    d.textContent = nombre;
     grid.appendChild(d);
-
   });
 
-  //══════════════════════════════════
-  // DATOS MES
-  //══════════════════════════════════
-
-  const primerDia =
-    new Date(
-      estado.año,
-      estado.mes,
-      1
-    );
-
-  let offset =
-    primerDia.getDay();
-
-  offset =
-    offset === 0
-    ? 6
-    : offset - 1;
-
-  const diasMes =
-    new Date(
-      estado.año,
-      estado.mes + 1,
-      0
-    ).getDate();
-
-  //══════════════════════════════════
-  // VACÍOS
-  //══════════════════════════════════
-
-  for(let i=0;i<offset;i++){
-
-    const empty =
-      document.createElement("div");
-
-    empty.className =
-      "day empty";
-
-    grid.appendChild(empty);
-
-  }
-
-  //══════════════════════════════════
-  // DÍAS
-  //══════════════════════════════════
-
-  // limpiar selecciones que ahora están bloqueadas (por condicion u ocupacion)
+  // Limpiar selecciones bloqueadas
   estado.seleccionadas = estado.seleccionadas.filter(function(f){
     var d = estado.ocupacion[f];
     if(!d || !d.habilitado) return false;
     if(!estado.condicion) return true;
-    if(estado.condicion && (d.operativos||0) >= 2 && (d.maquinistas||0) >= 1) return false;
+    if((d.operativos||0) >= 2 && (d.maquinistas||0) >= 1) return false;
     return true;
   });
 
-  // determinar si todos los días están bloqueados para este usuario (según condicion)
+  // Determinar si todos los días están bloqueados para este usuario
   var todosLlenos = true;
   var esOp = estado.condicion !== null;
-  for(let dia=1; dia<=diasMes; dia++){
-    const fecha = crearFechaString(estado.año, estado.mes, dia);
-    const data = estado.ocupacion[fecha];
-    if(!data || !data.habilitado) continue;
+  for(var fi = 0; fi < fechas.length; fi++){
+    var dataF = estado.ocupacion[fechas[fi]];
+    if(!dataF || !dataF.habilitado) continue;
     var disponible = false;
-    if(!esOp) { disponible = true; }
+    if(!esOp){ disponible = true; }
     else {
-      if((data.operativos || 0) < 2) disponible = true;
-      if((data.maquinistas || 0) < 1) disponible = true;
+      if((dataF.operativos || 0) < 2) disponible = true;
+      if((dataF.maquinistas || 0) < 1) disponible = true;
     }
-    if (disponible) { todosLlenos = false; break; }
+    if(disponible){ todosLlenos = false; break; }
   }
   estado._todosLlenos = todosLlenos;
 
-  // En teléfono: calendario como lista/timeline (sin celdas mínimas ni zoom)
+  // En teléfono: lista/timeline
   if(window._MODO === "MOBILE"){ renderCalendarioLista(grid); return; }
 
-  for(let dia=1; dia<=diasMes; dia++){
+  //══════════════════════════════════
+  // GRID ESCRITORIO — rango completo del ciclo
+  //══════════════════════════════════
 
-    const fecha =
-      crearFechaString(
-        estado.año,
-        estado.mes,
-        dia
-      );
+  var mesActual = -1;
 
-    const data =
-      estado.ocupacion[fecha];
+  fechas.forEach(function(fecha){
+    var fp = fechaPartesDe(fecha);
+    if(!fp) return;
+    var mesIdx = fp.m - 1;
 
-    const celda =
-      document.createElement("div");
+    // Divisor de mes cuando el mes cambia
+    if(mesIdx !== mesActual){
+      mesActual = mesIdx;
+      var hdr = document.createElement("div");
+      hdr.style.cssText = "grid-column:1/-1;font-family:var(--mono);font-size:10px;letter-spacing:2px;color:#9a948c;text-transform:uppercase;padding:14px 0 4px;border-top:1px solid #e7e1d8;margin-top:6px;";
+      hdr.textContent = MESES[mesIdx] + " " + fp.y;
+      grid.appendChild(hdr);
 
-    celda.className =
-      obtenerClaseDia(data);
-
-    if(
-      estado.seleccionadas.includes(fecha)
-    ){
-      celda.classList.add("sel");
+      // Alinear el primer día del mes al día de semana correcto
+      var primerDiaMes = new Date(fp.y, mesIdx, 1);
+      var offset = primerDiaMes.getDay();
+      offset = offset === 0 ? 6 : offset - 1;
+      for(var ei = 0; ei < offset; ei++){
+        var empty = document.createElement("div");
+        empty.className = "day empty";
+        grid.appendChild(empty);
+      }
     }
 
-    celda.dataset.fecha =
-      fecha;
+    var data = estado.ocupacion[fecha];
+    var celda = document.createElement("div");
+    celda.className = obtenerClaseDia(data);
+    if(estado.seleccionadas.indexOf(fecha) !== -1) celda.classList.add("sel");
+    celda.dataset.fecha = fecha;
 
-    const estDia = estadoDe(data);
-    const opsDia = data.operativos || 0;
-    const maqDia = data.maquinistas || 0;
+    var estDia = estadoDe(data);
+    var opsDia = data.operativos || 0;
+    var maqDia = data.maquinistas || 0;
     celda.innerHTML =
       '<div class="day-top">' +
-        '<span class="day-n">' + dia + '</span>' +
+        '<span class="day-n">' + fp.d + '</span>' +
         '<span class="pill p-' + estDia.nivel + '">' + estDia.corto + '</span>' +
       '</div>' +
       '<div class="day-cuentas">' +
@@ -2426,11 +2387,13 @@ function renderCalendario(){
 
     celda.setAttribute("role", "button");
     celda.tabIndex = 0;
-    celda.setAttribute("aria-pressed", estado.seleccionadas.includes(fecha) ? "true" : "false");
-    var activarDia = function(){
-      toggleFecha(fecha);
-      mostrarDetalleDia(fecha);
-    };
+    celda.setAttribute("aria-pressed", estado.seleccionadas.indexOf(fecha) !== -1 ? "true" : "false");
+    var activarDia = (function(f){
+      return function(){
+        toggleFecha(f);
+        mostrarDetalleDia(f);
+      };
+    })(fecha);
     if(data.habilitado){
       celda.onclick = activarDia;
     }
@@ -2442,8 +2405,7 @@ function renderCalendario(){
     });
 
     grid.appendChild(celda);
-
-  }
+  });
 
 }
 
@@ -3782,29 +3744,39 @@ function renderCalendarioLista(grid){
   grid.setAttribute("role", "list");
   grid.innerHTML = "";
 
-  var diasMes = new Date(estado.año, estado.mes + 1, 0).getDate();
+  var fechas = Object.keys(estado.ocupacion).sort();
   var habilitados = 0;
+  var mesActual = -1;
 
-  for(var dia = 1; dia <= diasMes; dia++){
-    var fecha = crearFechaString(estado.año, estado.mes, dia);
+  fechas.forEach(function(fecha){
+    var fp = fechaPartesDe(fecha);
+    if(!fp) return;
+    var mesIdx = fp.m - 1;
     var data = estado.ocupacion[fecha];
-    if(!data || !data.habilitado) continue;
+    if(!data || !data.habilitado) return;
     habilitados++;
+
+    // Divisor de mes
+    if(mesIdx !== mesActual){
+      mesActual = mesIdx;
+      var mHdr = document.createElement("div");
+      mHdr.style.cssText = "grid-column:1/-1;font-family:var(--mono);font-size:10px;letter-spacing:2px;color:#9a948c;text-transform:uppercase;padding:14px 0 4px;border-top:1px solid #e7e1d8;";
+      mHdr.textContent = MESES[mesIdx] + " " + fp.y;
+      grid.appendChild(mHdr);
+    }
 
     var est = estadoDe(data);
     var sel = estado.seleccionadas.indexOf(fecha) !== -1;
+    var jsD = new Date(fp.y, fp.m - 1, fp.d);
+    var nombreDiaC = DIAS[(jsD.getDay() + 6) % 7].toUpperCase();
 
     var card = document.createElement("div");
     card.className = "dia-card" + (sel ? " sel" : "") + (est.nivel === "full" ? " llena" : "");
     card.setAttribute("role", "listitem");
 
-    var fpCard = fechaPartesDe(fecha);
-    var jsD = new Date(fpCard.y, fpCard.m - 1, fpCard.d);
-    var nombreDiaC = DIAS[(jsD.getDay() + 6) % 7].toUpperCase();
-
     var head = document.createElement("div");
     head.className = "dc-head";
-    head.innerHTML = '<span class="dc-dia">' + nombreDiaC + ' <b>' + fpCard.d + '</b></span>' +
+    head.innerHTML = '<span class="dc-dia">' + nombreDiaC + ' <b>' + fp.d + '</b></span>' +
                      '<span class="pill p-' + est.nivel + '">' + est.texto + '</span>';
 
     var body = document.createElement("div");
@@ -3828,10 +3800,10 @@ function renderCalendarioLista(grid){
     card.appendChild(btn);
 
     grid.appendChild(card);
-  }
+  });
 
   if(!habilitados){
-    grid.innerHTML = '<div class="vacio-suave">Este mes no tiene semanas de guardia habilitadas.<br>Usa los botones Ant / Sig para ver otro mes.</div>';
+    grid.innerHTML = '<div class="vacio-suave">No hay semanas de guardia habilitadas en este ciclo.<br>Verifica la configuración en la hoja Config.</div>';
   }
 }
 

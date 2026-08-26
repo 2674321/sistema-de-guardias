@@ -823,8 +823,8 @@ function obtenerCalendario(mes, año) {
       config.año = hoy.getFullYear();
       if (!Array.isArray(config.semanas) || !config.semanas.length) config.semanas = [0];
     }
-    if (mes == null) mes = config.mes;
-    if (año == null) año = config.año;
+    mes = config.mes;
+    año = config.año;
     diag.configMs = Date.now() - tConfig;
     diag.avisos = avisos;
 
@@ -905,12 +905,11 @@ function obtenerCalendario(mes, año) {
 function _semanaHabilitadaDe(fechaKey, config) {
   var fp = fechaPartesDe(fechaKey);
   if (!fp) return false;
-  if ((fp.m - 1) !== config.mes || fp.y !== config.año) return false;
   var iniRaw = config.inicio instanceof Date ? config.inicio : new Date(String(config.inicio).trim() + "T12:00:00");
   var inicio = new Date(iniRaw.getFullYear(), iniRaw.getMonth(), iniRaw.getDate(), 12);
   var f = new Date(fp.y, fp.m - 1, fp.d, 12);
   var diff = Math.floor((f - inicio) / 86400000);
-  if (diff < 0) return false;
+  if (diff < 0 || diff >= 28) return false;
   return config.semanas.indexOf(Math.floor(diff / 7)) !== -1;
 }
 
@@ -918,9 +917,12 @@ function _semanaHabilitadaDe(fechaKey, config) {
 // luego un solo pase de Asistencia cruzando por índice email→guardia.
 function _construirSnapshotCalendario(dataAll, asisData, config, mes, año) {
   var ocupacion = {};
-  var totalDias = new Date(año, mes + 1, 0).getDate();
-  for (var d = 1; d <= totalDias; d++) {
-    var fk = año + "-" + pad2(mes + 1) + "-" + pad2(d);
+  // Generar las 28 días del ciclo desde la fecha de inicio (no atado a un mes calendario)
+  var iniRaw = config.inicio instanceof Date ? config.inicio : new Date(String(config.inicio).trim() + "T12:00:00");
+  var inicio = new Date(iniRaw.getFullYear(), iniRaw.getMonth(), iniRaw.getDate(), 12);
+  for (var d = 0; d < 28; d++) {
+    var fd = new Date(inicio.getTime() + d * 86400000);
+    var fk = fd.getFullYear() + "-" + pad2(fd.getMonth() + 1) + "-" + pad2(fd.getDate());
     ocupacion[fk] = {
       voluntarios: 0, maquinistas: 0, operativos: 0, iniciales: 0,
       habilitado: false, cumplido: false, guardias: []
