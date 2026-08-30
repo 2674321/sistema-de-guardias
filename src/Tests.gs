@@ -134,10 +134,13 @@ function pruebasPuras() {
     if (!diaBloqueadoPara(c, "voluntario", true)) throw new Error("operativo debe bloquearse");
     if (diaBloqueadoPara(c, "voluntario", false)) throw new Error("inicial nunca se bloquea");
   });
-  h.t("Regla preservada: maquinista bloqueado por cupo propio aunque haya cupo operativo", function() {
-    var c = contarCupoDia([{ cargo: "maquinista", nivel: "OPERATIVO" }]);
-    h.eq(c.maquinistas, 1); h.eq(c.operativos, 1);
+  h.t("Maquinista O/P NO consume cupo operativo (cuenta solo como maquinista)", function() {
+    // Un conductor, sea Operativo o Profesional, cuenta únicamente como maquinista:
+    // no aporta al cupo de operativos necesarios para el despacho.
+    var c = contarCupoDia([{ cargo: "maquinista", nivel: "OPERATIVO" }, { cargo: "maquinista", nivel: "PROFESIONAL" }]);
+    h.eq(c.maquinistas, 2); h.eq(c.operativos, 0);
     if (!diaBloqueadoPara(c, "maquinista", true)) throw new Error("maquinista debe bloquearse con cupo M lleno");
+    if (diaBloqueadoPara(c, "voluntario", true)) throw new Error("sin voluntarios O/P aún, operativo no debe bloquearse");
   });
   h.t("Combinado: ambos cupos llenos bloquean todo", function() {
     var c = contarCupoDia([

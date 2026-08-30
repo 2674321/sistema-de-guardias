@@ -999,7 +999,7 @@ function _construirSnapshotCalendario(dataAll, asisData, config, mes, año) {
       });
       if (esMaq) dia.maquinistas++;
       if (esVol) dia.voluntarios++;
-      if (consumeOp) dia.operativos++;
+      if (esVol && consumeOp) dia.operativos++;
       if (nivel === "INICIAL") dia.iniciales++;
     }
   }
