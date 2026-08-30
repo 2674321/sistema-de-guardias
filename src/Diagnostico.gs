@@ -65,6 +65,32 @@ function diagnosticoOcupacion() {
   return r;
 }
 
+// ── Sonda 4: estructura REAL de la hoja Guardias (detecta desalineación) ──
+function diagnosticoEstructuraHoja() {
+  var t0 = Date.now();
+  var r = _diagBase();
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName(SHEET_NAME);
+    r.ok = !!sh;
+    if (!sh) return r;
+    var valores = sh.getRange(1, 1, Math.min(sh.getLastRow(), 8), sh.getLastColumn()).getValues();
+    r.filas = valores.map(function(fila) {
+      return fila.map(function(v) {
+        if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm");
+        if (v === null) return "‹null›";
+        return String(v);
+      });
+    });
+  } catch (e) {
+    r.ok = false;
+    r.error = e.message;
+  }
+  r.tiempoMs = Date.now() - t0;
+  Logger.log("[DIAG] diagnosticoEstructuraHoja: " + JSON.stringify(r));
+  return r;
+}
+
 // ── Sonda 3: serializabilidad de la respuesta completa ──
 function serializarRespuestaCalendario() {
   var t0 = Date.now();
