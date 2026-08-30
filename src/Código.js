@@ -7,6 +7,21 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+// Asegura el layout de la hoja Guardias (9 columnas A–I). Auto-reparación
+// idempotente: solo se dispara si la hoja quedó con columnas extra o el header
+// desalineado (el "Nivel" duplicado en J que causa datos corridos).
+var _layoutYaVerificado = false;
+function _autoRepararLayout(sheet) {
+  try {
+    if (!sheet || _layoutYaVerificado) return;
+    if (!_layoutRequiereReparacion(sheet)) { _layoutYaVerificado = true; return; }
+    repararLayoutGuardias();
+    _layoutYaVerificado = true;
+  } catch (e) {
+    Logger.log("_autoRepararLayout: " + e);
+  }
+}
+
 // Menú de administración: ver Admin.gs (onOpen → menuAdministrativo)
 
 //══════════════════════════════════════════
@@ -485,6 +500,7 @@ function eliminarGuardiasPorEmail(email, codigo) {
 function obtenerGuardiasDelDia(fechaStr) {
   try {
     var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
+    _autoRepararLayout(sheet);
     var data = sheet.getDataRange().getValues();
     var resultado = [];
 
@@ -849,6 +865,7 @@ function obtenerCalendario(mes, año) {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sheet = ss.getSheetByName(SHEET_NAME);
     if (!sheet) throw { errorCode: "HOJA_FALTANTE", message: "No existe la hoja Guardias." };
+    _autoRepararLayout(sheet);
     var dataAll;
     try {
       dataAll = sheet.getDataRange().getValues();
