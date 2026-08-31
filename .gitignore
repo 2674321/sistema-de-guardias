@@ -11,3 +11,6 @@ data/*.local.csv
 Thumbs.db
 *.log
 node_modules/
+
+# Binarios grandes accidentales
+*.deb
