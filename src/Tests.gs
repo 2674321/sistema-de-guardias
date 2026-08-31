@@ -433,6 +433,14 @@ function pruebasPuras() {
     h.eq(porDescanso["2026-09-27"], "Opc. Díaz", "receso 2 también asignable");
   });
 
+  h.t("Hoja: bordes cubren toda el área usada (like formato original)", function() {
+    var m = _modeloHojaGuardias(HM_GUARDIAS_GEN, {}, {}, {});
+    h.eq(m.areaBorde.r1, 1, "borde desde fila 1");
+    h.eq(m.areaBorde.c1, 1, "borde desde columna A");
+    h.eq(m.areaBorde.c2, 36, "hasta la última columna (36)");
+    h.eq(m.areaBorde.r2, m.valores.length, "hasta la última fila usada");
+  });
+
   h.t("Oficial: mapa de semana → día a día, una semana por vez", function() {
     var porDia = _porDiaDesdeOficialesSemana(HM_GUARDIAS_GEN, { "2026-09-14": "102" });
     h.eq(porDia["2026-09-14"], "102", "inicio de semana con oficial");
