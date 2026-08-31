@@ -76,6 +76,17 @@ function _ordenarGuardiasPorInicio(guardias) {
     return a.inicio < b.inicio ? -1 : a.inicio > b.inicio ? 1 : 0;
   });
 }
+// Conversión de unidades: el formato original (.xlsx) define los anchos en
+// "caracteres" de Excel; Google Sheets los espera en píxeles.
+// Fórmula estándar (fuente Calibri 11): px ≈ ancho × 7 + 5.
+function _pxDesdeAnchoXls(w) {
+  return Math.round(w * 7 + 5);
+}
+// Los altos del .xlsx vienen en puntos (openpyxl); Sheets espera píxeles.
+// px = pt × 96/72
+function _pxDesdePunto(pt) {
+  return Math.round(pt * 96 / 72);
+}
 function _tituloHojaDesde(guardias) {
   if (!guardias.length) return "";
   var inicio = guardias[0].inicio;
@@ -117,7 +128,7 @@ function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales) {
   var merges = [];
   var estilos = [];
   var indice = {};
-  var altoFilas = { 1: 22, 3: 15, 4: 15 };
+  var altoFilas = { 1: _pxDesdePunto(22), 3: _pxDesdePunto(15), 4: _pxDesdePunto(15) };
 
   function setVal(r, c, v) {
     if (!GRID[r - 1]) GRID[r - 1] = [];
@@ -131,7 +142,7 @@ function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales) {
   setVal(1, 1, _tituloHojaDesde(orden));
   addMerge(1, 1, 1, _TOTAL_COLS);
   addStyle({ r1: 1, c1: 1, r2: 1, c2: _TOTAL_COLS, bold: true, size: 13, align: "center", valign: "middle", wrap: true });
-  altoFilas[1] = 22;
+  altoFilas[1] = _pxDesdePunto(22);
 
   // ── Encabezado general (una sola vez), filas 3 y 4
   addMerge(3, 1, 4, 1);
@@ -151,16 +162,16 @@ function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales) {
     addStyle({ r1: 3, c1: base + 3, r2: 3, c2: base + 4, bold: true, size: 8, align: "center", valign: "middle" });
   }
 
-  // anchos de columna (etiqueta 11; por día 15 + 4 × 4,2)
+  // anchos de columna en PÍXELES (equivalente al .xlsx: etiqueta 11 · 15 · 4,2)
   var anchoColumnas = {};
-  anchoColumnas[_COL_LABEL] = 11;
+  anchoColumnas[_COL_LABEL] = _pxDesdeAnchoXls(11);
   for (var d2 = 0; d2 < _N_DIAS; d2++) {
     var b2 = baseDia(d2);
-    anchoColumnas[b2] = 15;
-    anchoColumnas[b2 + 1] = 4.2;
-    anchoColumnas[b2 + 2] = 4.2;
-    anchoColumnas[b2 + 3] = 4.2;
-    anchoColumnas[b2 + 4] = 4.2;
+    anchoColumnas[b2] = _pxDesdeAnchoXls(15);
+    anchoColumnas[b2 + 1] = _pxDesdeAnchoXls(4.2);
+    anchoColumnas[b2 + 2] = _pxDesdeAnchoXls(4.2);
+    anchoColumnas[b2 + 3] = _pxDesdeAnchoXls(4.2);
+    anchoColumnas[b2 + 4] = _pxDesdeAnchoXls(4.2);
   }
 
   function maqDe(dd) { return (personas[dd.key] || []).filter(function(p) { return p.esMaq; }); }
@@ -204,7 +215,7 @@ function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales) {
       setVal(rDia, base, dd.nombre + "\n" + dd.corta);
       addStyle({ r1: rDia, c1: base, r2: rDia, c2: base + _N_SUB - 1, bg: hdr, bold: true, size: 8, color: _C_BLANCO, align: "center", valign: "middle", wrap: true });
     });
-    altoFilas[rDia] = 26;
+    altoFilas[rDia] = _pxDesdePunto(20);
 
     var volRows = [];
     for (var v = 0; v < maxVol; v++) volRows.push(rVol0 + v);

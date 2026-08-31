@@ -560,6 +560,14 @@ function pruebasEntorno() {
     var mal = m.merges.some(function(x) { return x.r1 < m.freezeRows && x.r2 >= m.freezeRows; });
     h.eq(mal, false, "ningún merge cruza el borde de freeze inferior");
   });
+  h.t("Hoja: anchos de columna en píxeles (unidades del formato original)", function() {
+    var m = _modeloHojaGuardias(HM_GUARDIAS, {}, {});
+    h.eq(m.anchoColumnas[1], _pxDesdeAnchoXls(11), "etiqueta 11 → ~82 px");
+    h.eq(m.anchoColumnas[2], _pxDesdeAnchoXls(15), "Fecha 15 → ~110 px");
+    h.eq(m.anchoColumnas[3], _pxDesdeAnchoXls(4.2), "check 4.2 → ~34 px");
+    var total = m.anchoColumnas[1] + 7 * (m.anchoColumnas[2] + 4 * m.anchoColumnas[3]);
+    h.eq(total > 1700, true, "ancho total del formato original (~1800 px)");
+  });
 
   return h.resultados;
 }
