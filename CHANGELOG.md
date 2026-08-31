@@ -11,7 +11,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) ·
 - **Workflow** `.github/workflows/pages.yml` que publica `docs/` en GitHub Pages y valida que la demo no referencia el backend real.
 - **Calendario cívico** para el periodo de la demo (31/08/2026 → 27/09/2026).
 - **LICENSE** (MIT) y **CITATION.cff** añadidos; README reescrito (estructura, capturas, sección "Demo vs Producción", uso y despliegue).
-- Se incorpora `docs/img/guardias-hoja-generada.png`: previsualización de la hoja de guardias generada, renderizada con datos ficticios.
+- Se incorpora `docs/img/guardias-hoja-generada.png`: previsualización de la hoja de guardias generada, con datos ficticios.
+
+### Demo de alta fidelidad (rediseño)
+
+- **Demo rediseñada** (`docs/demo/`): ahora es la interfaz de producción **verbatim** (head/CSS + markup + JS de `src/Index.html`) con una capa de datos ficticios. Antes era una simplificación; ahora replica la experiencia real: inscripción, panel de baja, asistencia y calendario bimestral.
+- **Backend simulado** en la demo: sustituye la llamada `google.script.run` por un alias local (`D_RUN`) que responde con datos y retardos ficticios, con manejo correcto de peticiones en paralelo en el arranque. La demo **no contiene** referencia alguna a `google.script.run`, Sheets, Drive ni al backend real (lo valida el workflow de Pages).
+- **Imagen corregida**: `docs/img/guardias-hoja-generada.png` pasa a ser la **captura real** del formato de hoja de cálculo (1852×745) en lugar de la previsualización generada por el asistente.
 
 No hubo cambios funcionales en la aplicación de producción en esta iteración (Apps Script sigue en v58).
 
