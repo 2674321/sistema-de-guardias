@@ -267,7 +267,7 @@ function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales) {
     indice: indice,
     anchoColumnas: anchoColumnas,
     altoFilas: altoFilas,
-    freezeRows: 3,
+    freezeRows: 4,
     freezeCols: 1,
     areaBorde: { r1: 1, c1: 1, r2: totalFilas, c2: _TOTAL_COLS },
     notaOficial: notaOficial
@@ -406,8 +406,8 @@ function _aplicarModelo(sheet, m) {
   });
   Object.keys(m.anchoColumnas).forEach(function(c) { sheet.setColumnWidth(parseInt(c, 10), m.anchoColumnas[c]); });
   Object.keys(m.altoFilas).forEach(function(r) { sheet.setRowHeight(parseInt(r, 10), m.altoFilas[r]); });
-  sheet.setFrozenRows(m.freezeRows);
-  sheet.setFrozenColumns(m.freezeCols);
+  try { sheet.setFrozenRows(m.freezeRows); } catch (e) { Logger.log("freeze filas: " + e); }
+  try { sheet.setFrozenColumns(m.freezeCols); } catch (e) { Logger.log("freeze columnas: " + e); }
   _configurarImpresion(sheet);
 }
 

@@ -554,6 +554,12 @@ function pruebasEntorno() {
     h.eq(!!s07 && s07.bg === "#2E74B5", true, "descanso azul #2E74B5");
     h.eq(!!s14 && s14.bg === "#C00000", true, "guardia roja #C00000");
   });
+  h.t("Hoja: freeze de filas no corta merges del encabezado", function() {
+    var m = _modeloHojaGuardias(HM_GUARDIAS, {}, {});
+    h.eq(m.freezeRows, 4, "freezeRows 1-4 incluye merges 3-4 completos");
+    var mal = m.merges.some(function(x) { return x.r1 < m.freezeRows && x.r2 >= m.freezeRows; });
+    h.eq(mal, false, "ningún merge cruza el borde de freeze inferior");
+  });
 
   return h.resultados;
 }
