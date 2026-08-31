@@ -1489,6 +1489,26 @@
   </div>
 </div>
 
+<div id="hoja-opciones" style="display:none;position:fixed;inset:0;z-index:9001;background:rgba(0,0,0,.55);align-items:center;justify-content:center;" role="dialog" aria-modal="true">
+  <div style="background:#fff;border-radius:12px;max-width:420px;width:90%;padding:26px 24px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.35);font-family:'Helvetica Neue',Arial,sans-serif;">
+    <div style="font-size:16px;font-weight:700;color:#1c1c1c;margin-bottom:4px;">Generar calendario de guardias</div>
+    <div style="font-size:12px;color:#777;margin-bottom:18px;">¿Deseas incluir el oficial de semana?</div>
+    <button onclick="cargarFormularioOficiales()" style="display:block;width:100%;background:#9b1a1a;color:#fff;text-decoration:none;padding:12px 18px;border:none;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;">Agregar oficial de semana</button>
+    <button onclick="generarGuardiasRapido()" style="display:block;width:100%;margin-top:10px;background:#fff;border:1px solid #d4d0cc;color:#555;padding:11px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">⚡ Generar rápido (sin oficiales)</button>
+    <button onclick="cerrarModalHoja()" style="display:block;width:100%;margin-top:10px;background:none;border:1px solid #d4d0cc;color:#888;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:12px;">Cancelar</button>
+  </div>
+</div>
+
+<div id="hoja-oficiales" style="display:none;position:fixed;inset:0;z-index:9002;background:rgba(0,0,0,.55);align-items:center;justify-content:center;" role="dialog" aria-modal="true">
+  <div style="background:#fff;border-radius:12px;max-width:460px;width:92%;padding:24px 22px;box-shadow:0 12px 40px rgba(0,0,0,.35);font-family:'Helvetica Neue',Arial,sans-serif;">
+    <div style="font-size:16px;font-weight:700;color:#1c1c1c;margin-bottom:4px;text-align:center;">Oficial de semana</div>
+    <div style="font-size:12px;color:#777;margin-bottom:8px;text-align:center;">Asigna el oficial para cada semana de guardia (puedes dejar vacías).</div>
+    <div id="hoja-oficiales-form" style="max-height:42vh;overflow:auto;"></div>
+    <button onclick="generarGuardiasConOficiales()" style="display:block;width:100%;background:#9b1a1a;color:#fff;padding:12px 18px;border:none;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;">Generar calendario</button>
+    <button onclick="cerrarModalHoja()" style="display:block;width:100%;margin-top:10px;background:none;border:1px solid #d4d0cc;color:#888;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:12px;">Cancelar</button>
+  </div>
+</div>
+
 <div id="estado-conexion" class="ecx off" role="status" aria-live="polite">✕ Sin conexión</div>
 
 <nav class="chipnav" id="chipnav" aria-label="Secciones">
@@ -3364,18 +3384,74 @@ function ocultarMensajesEliminar(){
 //══════════════════════════════════════
 // GENERAR HOJA DE GUARDIAS (Google Sheet en Drive)
 
+function mostrarModal(id){
+  var el = document.getElementById(id);
+  if(el) el.style.display = "flex";
+}
+function ocultarModales(){
+  ["hoja-modal","hoja-opciones","hoja-oficiales"].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.style.display = "none";
+  });
+}
+
 function generarGuardias(){
+  mostrarModal("hoja-opciones");
+}
+
+function generarGuardiasRapido(){
+  _generarGuardiasHoja({});
+}
+
+function cargarFormularioOficiales(){
+  ocultarModales();
+  mostrarModal("hoja-oficiales");
+  document.getElementById("hoja-oficiales-form").innerHTML =
+    '<div style="color:#666;font-size:13px;padding:10px;">Cargando semanas…</div>';
+  google.script.run
+    .withSuccessHandler(resp => {
+      if(!resp || !resp.ok){
+        ocultarModales();
+        alert(resp && resp.error === "No existen guardias programadas para generar."
+          ? resp.error
+          : "No se pudo obtener las semanas de guardia.");
+        return;
+      }
+      document.getElementById("hoja-oficiales-form").innerHTML =
+        resp.semanas.map(function(s, i){
+          return '<label style="display:block;margin:12px 0 4px;font-size:12px;color:#555;font-weight:600;text-align:left;">Semana ' +
+            (i + 1) + ' · del ' + s.etiqueta + '</label>' +
+            '<input data-inicio="' + s.inicio + '" placeholder="Nombre del oficial…" maxlength="60" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #d4d0cc;border-radius:6px;font-size:14px;"/>';
+        }).join("");
+    })
+    .withFailureHandler(err => {
+      ocultarModales();
+      alert("No se pudo obtener las semanas de guardia.");
+      if(console) console.error("[Guardias] " + ((err && err.message) || err));
+    })
+    .obtenerOficialSemanas();
+}
+
+function generarGuardiasConOficiales(){
+  var oficiales = {};
+  var inputs = document.querySelectorAll("#hoja-oficiales-form input[data-inicio]");
+  inputs.forEach(function(inp){
+    var v = inp.value.trim();
+    if(v) oficiales[inp.getAttribute("data-inicio")] = v;
+  });
+  _generarGuardiasHoja(oficiales);
+}
+
+function _generarGuardiasHoja(oficiales){
   const btn = document.querySelector('.pdf-btn');
-  if(!btn) return;
-  const txt = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = "Generando...";
+  const txt = btn ? btn.textContent : "";
+  if(btn){ btn.disabled = true; btn.textContent = "Generando..."; }
+  ocultarModales();
   mostrarToast("Generando calendario de guardias...");
 
   google.script.run
     .withSuccessHandler(resp => {
-      btn.disabled = false;
-      btn.textContent = txt;
+      if(btn){ btn.disabled = false; btn.textContent = txt; }
       if(!resp || !resp.ok){
         if(resp && resp.error === "No existen guardias programadas para generar."){
           alert(resp.error);
@@ -3389,21 +3465,19 @@ function generarGuardias(){
       document.getElementById("hoja-modal-link").href = resp.url;
       document.getElementById("hoja-modal-name").textContent =
         (resp.nombre || "") + (resp.ubicacion ? " — " + resp.ubicacion : "");
-      document.getElementById("hoja-modal").style.display = "flex";
+      mostrarModal("hoja-modal");
       if(resp.notaOficial && console) console.log("[Guardias] " + resp.notaOficial);
     })
     .withFailureHandler(err => {
-      btn.disabled = false;
-      btn.textContent = txt;
+      if(btn){ btn.disabled = false; btn.textContent = txt; }
       alert("No se pudo generar el calendario de guardias.");
       if(console) console.error("[Guardias] " + ((err && err.message) || err));
     })
-    .generarHojaGuardias();
+    .generarHojaGuardias(oficiales);
 }
 
 function cerrarModalHoja(){
-  var m = document.getElementById("hoja-modal");
-  if(m) m.style.display = "none";
+  ocultarModales();
 }
 
 //══════════════════════════════════════

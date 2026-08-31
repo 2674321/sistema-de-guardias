@@ -28,6 +28,12 @@ function _crearHarness() {
 // PRUEBAS PURAS (sin dependencias de Apps Script)
 //────────────────────────────────────────────
 
+// Fixture genérica de guardias (mismo ciclo que producción: 31/08 y 14/09).
+var HM_GUARDIAS_GEN = [
+  { id: "g1", inicio: "2026-08-31", fin: "2026-09-06", activa: true },
+  { id: "g2", inicio: "2026-09-14", fin: "2026-09-20", activa: true }
+];
+
 function pruebasPuras() {
   var h = _crearHarness();
   var N = normalizarNivel;
@@ -407,6 +413,39 @@ function pruebasPuras() {
     h.eq(leg.guardias[1].activa, true);
   });
 
+  h.t("Calendario: bloques de 7 días (guardia / descanso)", function() {
+    var bloques = _bloquesCalendario(HM_GUARDIAS_GEN);
+    h.eq(bloques.length, 3, "31/08→20/09 → 3 bloques");
+    h.eq(bloques[0].inicio, "2026-08-31");
+    h.eq(bloques[0].fin, "2026-09-06");
+    h.eq(bloques[0].esGuardia, true);
+    h.eq(bloques[1].inicio, "2026-09-07");
+    h.eq(bloques[1].fin, "2026-09-13");
+    h.eq(bloques[1].esGuardia, false, "semana de descanso");
+    h.eq(bloques[2].inicio, "2026-09-14");
+    h.eq(bloques[2].fin, "2026-09-20");
+    h.eq(bloques[2].esGuardia, true);
+    var porDescanso = _porDiaDesdeOficialesSemana(bloques, { "2026-09-07": "Opc. Díaz" });
+    h.eq(porDescanso["2026-09-07"], "Opc. Díaz", "semana de descanso también asignable");
+    h.eq(porDescanso["2026-09-13"], "Opc. Díaz", "todo el bloque descanso");
+    h.eq(!!porDescanso["2026-08-31"], false, "no contamina la semana de guardia anterior");
+  });
+
+  h.t("Oficial: mapa de semana → día a día, una semana por vez", function() {
+    var porDia = _porDiaDesdeOficialesSemana(HM_GUARDIAS_GEN, { "2026-09-14": "102" });
+    h.eq(porDia["2026-09-14"], "102", "inicio de semana con oficial");
+    h.eq(porDia["2026-09-20"], "102", "fin de semana con oficial");
+    h.eq(!!porDia["2026-08-31"], false, "otras semanas no se tocan");
+    h.eq(Object.keys(_porDiaDesdeOficialesSemana(HM_GUARDIAS_GEN, {})).length, 0, "sin oficiales → porDia vacío");
+  });
+
+  h.t("Oficial: valor en blanco se ignora, texto se recorta", function() {
+    var conNombre = _porDiaDesdeOficialesSemana(HM_GUARDIAS_GEN, { "2026-08-31": "  Capitán Aliro  " });
+    h.eq(conNombre["2026-08-31"], "Capitán Aliro", "nombre recortado");
+    var sin = _porDiaDesdeOficialesSemana(HM_GUARDIAS_GEN, { "2026-08-31": "   " });
+    h.eq(!!sin["2026-08-31"], false, "solo espacios → no se asigna");
+  });
+
   return h.resultados;
 }
 
@@ -530,7 +569,7 @@ function pruebasEntorno() {
     var m = _modeloHojaGuardias(HM_GUARDIAS, {}, {});
     h.eq(m.notaOficial, "No existe fuente de datos suficiente para determinar el oficial.");
     var of = m.indice["2026-08-31"].oficial;
-    h.eq(m.valores[of - 1][0], "Oficial de", "etiqueta Oficial de");
+    h.eq(m.valores[of - 1][0], "Oficial de Semana:", "etiqueta Oficial de Semana");
     h.eq(m.valores[of - 1][1], "", "valor oficial en blanco");
   });
   h.t("Hoja: oficial leído desde fuente porDia cuando exista", function() {
