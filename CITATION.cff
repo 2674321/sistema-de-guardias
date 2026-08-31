@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "Si utilizas este sistema o sus ideas, por favor cita este repositorio."
+title: "Sistema de Guardias — 1ª Compañía de Bomberos del CBC"
+abstract: >-
+  Sistema web de gestión y programación de guardias para Bomberos: calendario
+  dinámico en Google Sheets, inscripción y disponibilidad por guardia, niveles
+  de bombero, baja protegida por código y generación del calendario mensual de
+  guardias en Google Sheets. Construido con Google Apps Script y JavaScript.
+authors:
+  - family-names: "Varela C."
+    given-names: "Patricio"
+    # Añade aquí tu ORCID si lo deseas, por ejemplo:
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+keywords:
+  - bomberos
+  - sistema-de-guardias
+  - google-apps-script
+  - google-sheets
+  - javascript
+  - web-app
+license: MIT
+repository-code: "https://github.com/2674321/sistema-de-guardias"
+url: "https://github.com/2674321/sistema-de-guardias"
+version: "v1.1.0"
+date-released: "2026-08-31"

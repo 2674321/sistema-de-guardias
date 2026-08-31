@@ -4,6 +4,17 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) ·
 
 ## [No publicado]
 
+### Cierre del proyecto (documentación / publicación)
+
+- **Demo pública** en GitHub Pages (`docs/demo/`) con datos ficticios, desacoplada del backend real (sin `google.script.run` ni accesos a Sheets).
+- **Landing** del proyecto en `docs/index.html`.
+- **Workflow** `.github/workflows/pages.yml` que publica `docs/` en GitHub Pages y valida que la demo no referencia el backend real.
+- **Calendario cívico** para el periodo de la demo (31/08/2026 → 27/09/2026).
+- **LICENSE** (MIT) y **CITATION.cff** añadidos; README reescrito (estructura, capturas, sección "Demo vs Producción", uso y despliegue).
+- Se incorpora `docs/img/guardias-hoja-generada.png`: previsualización de la hoja de guardias generada, renderizada con datos ficticios.
+
+No hubo cambios funcionales en la aplicación de producción en esta iteración (Apps Script sigue en v58).
+
 ### Fixed
 - Inscripciones con cargos mixtos (Voluntario + Maquinista) enviaban un correo por cada grupo: ahora llega **un solo resumen consolidado**.
 - El correo de código de seguridad fallaba en silencio: ahora los errores de envío se informan y el diseño es distintivo (asunto incluye el código).

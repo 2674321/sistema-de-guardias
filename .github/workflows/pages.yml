@@ -1,0 +1,42 @@
+name: GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Validación básica del demo (sin backend)
+        run: |
+          test -f docs/index.html
+          test -f docs/demo/index.html
+          if grep -rqE "google\.script\.run|SpreadsheetApp|script\.google\.com" docs/demo docs/index.html; then
+            echo "ERROR: el demo referencia backend real (google.script.run / SpreadsheetApp)." >&2
+            exit 1
+          fi
+
+      - name: Publicar artefacto
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy a GitHub Pages
+        uses: actions/deploy-pages@v4

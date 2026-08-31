@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Sistema de Guardias — 1ª Compañía de Bomberos del CBC</title>
+<style>
+  *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+  body{
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(1200px 600px at 50% -10%, #2a2a2a, #141414 60%);
+    color:#fff; font-family:'Helvetica Neue',Arial,sans-serif; text-align:center; padding:40px 20px;
+  }
+  .kicker{
+    font-family:ui-monospace,Menlo,monospace; font-size:10px; letter-spacing:4px; text-transform:uppercase;
+    color:#ffd700; margin-bottom:18px;
+  }
+  h1{ font-family:Georgia,serif; font-size:46px; font-weight:700; letter-spacing:1px; }
+  h1 small{ display:block; font-size:14px; letter-spacing:3px; text-transform:uppercase; color:rgba(255,255,255,.55); margin-top:8px; }
+  p.sub{ max-width:600px; margin:22px auto 30px; color:rgba(255,255,255,.8); line-height:1.7; font-size:15px; }
+  .actions{ display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+  .btn{
+    display:inline-block; padding:13px 26px; border-radius:999px; text-decoration:none; font-size:13px;
+    font-weight:600; letter-spacing:.5px; transition:.2s; border:1px solid transparent;
+  }
+  .btn.primary{ background:#9b1a1a; color:#fff; }
+  .btn.primary:hover{ background:#b32020; }
+  .btn.ghost{ border-color:rgba(255,255,255,.35); color:#fff; }
+  .btn.ghost:hover{ border-color:#fff; }
+  .demo-note{ margin-top:26px; font-family:ui-monospace,Menlo,monospace; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,.5); }
+  footer{ position:fixed; bottom:18px; width:100%; font-family:ui-monospace,Menlo,monospace; font-size:10px; letter-spacing:2px; color:rgba(255,255,255,.35); text-transform:uppercase; }
+</style>
+</head>
+<body>
+  <div class="kicker">Proyecto portafolio</div>
+  <h1>Sistema de Guardias
+    <small>1ª Compañía de Bomberos del CBC — Coquimbo</small>
+  </h1>
+  <p class="sub">
+    Sistema web de gestión y programación de guardias: calendario dinámico,
+    inscripción y disponibilidad, niveles de bombero, baja protegida por código y
+    generación del calendario mensual de guardias en Google Sheets.
+  </p>
+  <div class="actions">
+    <a class="btn primary" href="demo/">Abrir demo</a>
+    <a class="btn ghost" href="https://github.com/2674321/sistema-de-guardias">Ver repositorio</a>
+  </div>
+  <div class="demo-note">La demo usa datos ficticios y no accede a sistemas reales</div>
+  <footer>Sistema de Guardias · 1ª Cía CBC · Coquimbo</footer>
+</body>
+</html>
