@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;background:#f7f5f2;color:#0e0e0e;font-size:13px;}
+    .wrap{padding:14px;}
+    h2{margin:0 0 4px;font-size:16px;}
+    .sub{color:#666;font-size:11px;margin:0 0 12px;}
+    table{border-collapse:collapse;width:100%;background:#fff;}
+    th{background:#0e0e0e;color:#fff;padding:6px 8px;font-size:11px;text-align:left;}
+    td{padding:4px 6px;border-bottom:1px solid #e5e2dc;}
+    input[type=text],input[type=date],input[type=number]{width:100%;box-sizing:border-box;border:1px solid #c9c5bf;border-radius:4px;padding:4px 6px;}
+    .chk{text-align:center;}
+    input[type=checkbox]{transform:scale(1.3);}
+    .bar{margin-top:12px;display:flex;gap:8px;align-items:center;}
+    button{background:#9b1a1a;color:#fff;border:0;border-radius:5px;padding:8px 14px;font-weight:bold;font-size:12px;cursor:pointer;}
+    button.sec{background:#eee;color:#0e0e0e;border:1px solid #cfcbc4;font-weight:normal;}
+    .aviso{background:#fdecec;border:1px solid #e5b4b4;color:#9b1a1a;border-radius:6px;padding:8px 10px;margin:10px 0;font-size:12px;}
+    .info{background:#eef3fd;border:1px solid #b9cbea;color:#1a3a9b;border-radius:6px;padding:8px 10px;margin:10px 0;font-size:12px;}
+    .empty{color:#888;text-align:center;padding:18px;}
+    .badge{display:inline-block;border-radius:9px;padding:1px 8px;font-size:10px;font-weight:bold;}
+    .b-pgm{background:#e0ecff;color:#1a3a9b;}
+    .b-leg{background:#f7e3e3;color:#9b1a1a;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>&#128736 Guardias programadas</h2>
+    <p class="sub" id="sub"></p>
+    <div id="avisos"></div>
+    <table>
+      <thead><tr>
+        <th>ID</th><th>INICIO (aaaa-mm-dd)</th><th>DURACIÓN</th><th>ACTIVA</th><th>Período</th>
+      </tr></thead>
+      <tbody id="cuerpo"></tbody>
+    </table>
+    <div class="bar">
+      <button onclick="agregarFila()">+ Añadir guardia</button>
+      <button class="sec" onclick="derivar()">&#128260 Derivar desde Config</button>
+      <span style="flex:1"></span>
+      <button class="sec" onclick="google.script.host.close()">Cerrar</button>
+      <button onclick="guardar()">&#128190 Guardar</button>
+    </div>
+  </div>
+
+  <script>
+    var H = {};
+
+    function mesLargo(ini){
+      try{
+        var f = new Date(ini + "T12:00:00");
+        var m = ["enero","febrero","marzo","abril","mayo","junio","julio",
+          "agosto","septiembre","octubre","noviembre","diciembre"];
+        return f.getDate() + " de " + m[f.getMonth()] + " del " + f.getFullYear();
+      }catch(e){ return ini; }
+    }
+
+    function finDe(g){
+      var f = new Date(g.inicio + "T12:00:00");
+      f = new Date(f.getTime() + (g.duracion - 1) * 86400000);
+      return f.getFullYear() + "-" + pad(f.getMonth() + 1) + "-" + pad(f.getDate());
+    }
+
+    function pad(n){ return n < 10 ? "0" + n : "" + n; }
+
+    function esc(s){
+      return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    function render(rows){
+      var tb = document.getElementById("cuerpo");
+      tb.innerHTML = "";
+      if(!rows || !rows.length){
+        tb.innerHTML = '<tr><td colspan="5" class="empty">Sin guardias. Pulsa “🔄 Derivar desde Config” para generarlas desde la configuración actual.</td></tr>';
+        return;
+      }
+      rows.forEach(function(g){
+        var tr = document.createElement("tr");
+        tr.innerHTML =
+          '<td><input type="text" value="' + esc(g.id) + '"></td>' +
+          '<td><input type="date" value="' + g.inicio + '"></td>' +
+          '<td><input type="number" min="1" step="1" value="' + g.duracion + '"></td>' +
+          '<td class="chk"><input type="checkbox" ' + (g.activa ? "checked" : "") + '></td>' +
+          '<td class="per">' + mesLargo(g.inicio) + (g.duracion ? (" — " + mesLargo(finDe(g))) : "") + '</td>';
+        tb.appendChild(tr);
+      });
+    }
+
+    function recolectar(){
+      var filas = [];
+      document.querySelectorAll("#cuerpo tr").forEach(function(tr){
+        var inps = tr.querySelectorAll("input");
+        if(!inps.length) return;
+        var obj = { id: inps[0].value, inicio: inps[1].value, duracion: inps[2].value, activa: inps[3].checked };
+        if(obj.inicio) filas.push(obj);
+      });
+      return filas;
+    }
+
+    function agregarFila(){
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td><input type="text" placeholder="Guardia N"></td>' +
+        '<td><input type="date"></td>' +
+        '<td><input type="number" min="1" step="1" value="7"></td>' +
+        '<td class="chk"><input type="checkbox" checked></td>' +
+        '<td class="per">—</td>';
+      document.getElementById("cuerpo").appendChild(tr);
+    }
+
+    function mostrarAv(lista, r){
+      var d = document.getElementById("avisos");
+      d.innerHTML = "";
+      if(r && r.total !== undefined) d.innerHTML = '<div class="info">✔ Guardado: ' + r.total + ' guardia(s).</div>';
+      (lista || []).forEach(function(a){
+        d.innerHTML += '<div class="aviso">⚠️ ' + esc(a) + '</div>';
+      });
+    }
+
+    function guardar(){
+      document.getElementById("avisos").innerHTML = '<div class="info">Guardando…</div>';
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(!r.ok){ mostrarAv([r.error || "Error al guardar"]); return; }
+          mostrarAv(r.avisos || [], r);
+          google.script.run.withSuccessHandler(cargar).listarGuardiasAdmin();
+        })
+        .guardarGuardiasAdmin(recolectar());
+    }
+
+    function derivar(){
+      if(!confirm("Reemplazará las guardias actuales por las de la configuración (Config). ¿Continuar?")) return;
+      document.getElementById("avisos").innerHTML = '<div class="info">Derivando…</div>';
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(!r.ok){ mostrarAv([r.error || "Error"]); return; }
+          mostrarAv(r.avisos || [], r);
+          google.script.run.withSuccessHandler(cargar).listarGuardiasAdmin();
+        })
+        .derivarGuardiasDesdeConfig();
+    }
+
+    function cargar(o){
+      if(!o || !o.ok){
+        document.getElementById("avisos").innerHTML =
+          '<div class="aviso">⚠️ ' + esc((o && o.error) || "No se pudo leer la hoja") + '</div>';
+        return;
+      }
+      document.getElementById("sub").innerHTML =
+        'Fuente: <span class="badge ' + (o.fuente === "programadas" ? "b-pgm" : "b-leg") + '">' +
+        (o.fuente === "programadas" ? "guardias programadas (hoja)" : "legado (Config)") + '</span>' +
+        ' · Total: ' + o.total;
+      var d = document.getElementById("avisos");
+      d.innerHTML = "";
+      (o.avisos || []).forEach(function(a){
+        d.innerHTML += '<div class="aviso">⚠️ ' + esc(a) + '</div>';
+      });
+      render(o.guardias);
+    }
+
+    google.script.run.withSuccessHandler(cargar).listarGuardiasAdmin();
+  </script>
+</body>
+</html>

@@ -56,6 +56,7 @@ function construirMenuAdmin() {
       ["👁 Mostrar/ocultar hojas técnicas", "alternarHojasTecnicas"]
     ]},
     { titulo: "👨‍🚒 Guardias", items: [
+      ["🗓 Guardias programadas…", "gestionarGuardiasProgramadas"],
       ["📊 Actualizar estadísticas", "actualizarEstadisticasMenu"],
       ["🔎 Diagnóstico de guardias", "diagnosticoGuardias"],
       ["📅 Diagnóstico de calendario", "diagnosticoCalendarioUI"]
@@ -609,6 +610,15 @@ function alternarHojasTecnicas() {
 //────────────────────────────────────────────
 // 👨‍🚒 GUARDIAS
 //────────────────────────────────────────────
+
+// Panel de Guardias Programadas (fuente única de fechas).
+// Lectura/validación/escritura viven en Guardias.gs:
+//   listarGuardiasAdmin() · guardarGuardiasAdmin(rows) · derivarGuardiasDesdeConfig()
+function gestionarGuardiasProgramadas() {
+  var html = HtmlService.createHtmlOutputFromFile("AdminGuardias")
+    .setWidth(760).setHeight(560);
+  SpreadsheetApp.getUi().showModalDialog(html, "🗓 Guardias programadas — fuente única");
+}
 
 function actualizarEstadisticasMenu() {
   generarEstadisticasBasicas();

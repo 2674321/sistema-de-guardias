@@ -317,6 +317,96 @@ function pruebasPuras() {
     h.eq(esContratoCalendarioValido(r), false);
   });
 
+  // ── FECHA CIVIL (inmune a DST: causa raíz del bug septiembre 2026) ──
+  h.t("fechaStrCivil: Date y 'YYYY-MM-DD' y 'DD/MM/YYYY'", function() {
+    h.eq(fechaStrCivil(new Date(2026, 7, 31)), "2026-08-31");
+    h.eq(fechaStrCivil("2026-08-31"), "2026-08-31");
+    h.eq(fechaStrCivil("31/08/2026"), "2026-08-31");
+    h.eq(fechaStrCivil("basura"), null);
+  });
+  h.t("diasEntreCiviles: 31/08→07/09 = 7 y 31/08→14/09 = 14 (cruza DST)", function() {
+    h.eq(diasEntreCiviles("2026-08-31", "2026-09-07"), 7);
+    h.eq(diasEntreCiviles("2026-08-31", "2026-09-14"), 14);
+    h.eq(diasEntreCiviles("2026-09-06", "2026-09-07"), 1);
+  });
+  h.t("sumarDiasCivil: fin de guardia = inicio + 6 días exactos", function() {
+    h.eq(sumarDiasCivil("2026-08-31", 6), "2026-09-06");
+    h.eq(sumarDiasCivil("2026-09-14", 6), "2026-09-20");
+    h.eq(sumarDiasCivil("2026-12-31", 1), "2027-01-01");
+  });
+  h.t("diasDeCicloDesde: 28 días cívicos desde el inicio", function() {
+    var cic = diasDeCicloDesde("2026-08-31", 28);
+    h.eq(cic.length, 28);
+    h.eq(cic[0], "2026-08-31");
+    h.eq(cic[27], "2026-09-27");
+    h.eq(cic.indexOf("2026-09-07") !== -1, true);
+    h.eq(cic.indexOf("2026-09-14") !== -1, true);
+  });
+
+  // ── GUARDIAS EXPLÍCITAS (fuente única → pertenencia por rango) ──
+  var G = normalizarGuardias([
+    { id: "G1", inicio: "2026-08-31", duracion: 7, activa: true },
+    { id: "G2", inicio: "2026-09-14", duracion: 7, activa: true }
+  ]).guardias;
+  h.t("esDiaGuardiaEn: regresión DST (14/09 es guardia, no 15/09; sin colados)", function() {
+    h.eq(esDiaGuardiaEn(G, "2026-08-31"), true);   // D0 guardia
+    h.eq(esDiaGuardiaEn(G, "2026-09-06"), true);   // D6 guardia
+    h.eq(esDiaGuardiaEn(G, "2026-09-07"), false);  // D7 descanso (descarta el 07 colado)
+    h.eq(esDiaGuardiaEn(G, "2026-09-13"), false);  // D13 descanso
+    h.eq(esDiaGuardiaEn(G, "2026-09-14"), true);   // D14 GUARDIA (corrige el bug)
+    h.eq(esDiaGuardiaEn(G, "2026-09-15"), true);   // D15 guardia
+    h.eq(esDiaGuardiaEn(G, "2026-09-20"), true);   // D20 guardia
+    h.eq(esDiaGuardiaEn(G, "2026-09-21"), false);  // D21 descanso (sin 21 colado)
+  });
+  h.t("esDiaGuardiaEn: guardias inactivas no habilitan", function() {
+    var Gi = [{ id: "G1", inicio: "2026-09-14", duracion: 7, activa: false }];
+    h.eq(esDiaGuardiaEn(Gi, "2026-09-14"), false);
+  });
+  h.t("guardiaDesdePartes: valores y validaciones", function() {
+    h.eq(guardiaDesdePartes("x", "basura", "", 7), null);
+    var g = guardiaDesdePartes("G1", new Date(2026, 7, 31), "", 7);
+    h.eq(g.inicio, "2026-08-31");
+    var g2 = guardiaDesdePartes("G1", "31/08/2026", "SI", 7);
+    h.eq(g2.fin, "2026-09-06");
+    var gi = guardiaDesdePartes("A", "2026-09-14", "NO", 7);
+    h.eq(gi.activa, false);
+    var gd = guardiaDesdePartes("A", "2026-09-14", true, "x");
+    h.eq(gd.duracion, 7);
+  });
+  h.t("normalizarGuardias: básicos sin avisos", function() {
+    var n = normalizarGuardias(G);
+    h.eq(n.total, 2);
+    h.eq(n.avisos, []);
+    h.eq(n.guardias[0].inicio, "2026-08-31");
+    h.eq(n.guardias[1].fin, "2026-09-20");
+  });
+  h.t("normalizarGuardias: duración ≠ 7 → aviso + normaliza a 7", function() {
+    var c = normalizarGuardias([{ id: "X", inicio: "2026-08-31", duracion: 6 }]);
+    h.eq(c.guardias[0].duracion, 7);
+    h.eq(c.avisos.length, 1);
+  });
+  h.t("normalizarGuardias: inicio inválido → aviso y descarte", function() {
+    var v = normalizarGuardias([{ id: "Y", inicio: "nada" }]);
+    h.eq(v.total, 0);
+    h.eq(v.avisos.length, 1);
+  });
+  h.t("normalizarGuardias: solapamiento detectado", function() {
+    var s = normalizarGuardias([
+      { id: "A", inicio: "2026-08-31", duracion: 7, activa: true },
+      { id: "B", inicio: "2026-09-05", duracion: 7, activa: true }
+    ]);
+    h.eq(s.avisos.some(function(a){ return a.indexOf("solapamiento") !== -1; }), true);
+  });
+  h.t("guardiasDesdeLegacy: puente desde Config C3+C4", function() {
+    var leg = guardiasDesdeLegacy(new Date(2026, 7, 31), [0, 2]);
+    h.eq(leg.total, 2);
+    h.eq(leg.guardias[0].inicio, "2026-08-31");
+    h.eq(leg.guardias[0].fin, "2026-09-06");
+    h.eq(leg.guardias[1].inicio, "2026-09-14");
+    h.eq(leg.guardias[1].fin, "2026-09-20");
+    h.eq(leg.guardias[1].activa, true);
+  });
+
   return h.resultados;
 }
 
@@ -345,6 +435,124 @@ function pruebasEntorno() {
     var d = _diagnosticoMigracion();
     h.eq(d.total > 0, true, "hay filas");
     h.eq(d.desconocidos.length, 0, "sin valores desconocidos en producción");
+  });
+
+  //────────────────────────────────────────────
+  // HOJA DE GUARDIAS (modelo puro, sin spreadsheets)
+  //────────────────────────────────────────────
+
+  var G_P1 = { id: "g1", inicio: "2026-08-31", fin: "2026-09-06", activa: true };
+  var G_P2 = { id: "g2", inicio: "2026-09-14", fin: "2026-09-20", activa: true };
+  var HM_GUARDIAS = [G_P1, G_P2];
+  var HM_PERSONAS = {
+    "2026-08-31": [
+      { nombre: "Cristian Silva", email: "cs@x.cl", nivel: "OPERATIVO", esMaq: true, esVol: false },
+      { nombre: "Aymara Segura", email: "as@x.cl", nivel: "PROFESIONAL", esMaq: false, esVol: true }
+    ],
+    "2026-09-14": [
+      { nombre: "Matias Nuñez", email: "mn@x.cl", nivel: "OPERATIVO", esMaq: true, esVol: false }
+    ]
+  };
+  var HM_ASIS = { "as@x.cl|2026-08-31": "C", "mn@x.cl|2026-09-14": "R" };
+
+  function hayMerge(merges, r1, c1, r2, c2) {
+    return merges.some(function(x) {
+      return x.r1 === r1 && x.c1 === c1 && x.r2 === r2 && x.c2 === c2;
+    });
+  }
+  function findStyle(m, r, c) {
+    for (var i = 0; i < m.estilos.length; i++) {
+      if (m.estilos[i].r1 === r && m.estilos[i].c1 === c) return m.estilos[i];
+    }
+    return null;
+  }
+
+  h.t("Hoja: título dinámico (31 de Agosto al 20 de septiembre del 2026)", function() {
+    h.eq(_tituloHojaDesde(HM_GUARDIAS), "Guardia Nocturna (31 de Agosto al 20 de septiembre del 2026)");
+  });
+  h.t("Hoja: nombre de archivo dinámico desde las fechas", function() {
+    h.eq(_nombreArchivoGuardias(HM_GUARDIAS), "Calendario de Guardias - 31-08-26 a 20-09-26");
+  });
+  h.t("Hoja: sin guardias → error claro, no crea hoja", function() {
+    var m = _modeloHojaGuardias([], {}, {});
+    h.eq(m.ok, false, "ok false");
+    h.eq(m.error, "No existen guardias programadas para generar.");
+  });
+  h.t("Hoja: sin presentes, solo períodos (31/08 y 14/09, sin DST)", function() {
+    var m = _modeloHojaGuardias(HM_GUARDIAS, {}, {});
+    h.eq(m.ok, true, "modelo ok");
+    var i31 = m.indice["2026-08-31"];
+    h.eq(!!i31, true, "índice 31/08");
+    h.eq(m.valores[i31.dia - 1][1], "LUNES\n31-08-26", "fila día 31/08");
+    h.eq(i31.roja, true, "31/08..06/09 = GUARDIA (roja)");
+    h.eq(i31.inicio, "2026-08-31", "bloque inicia 31/08");
+    var i07 = m.indice["2026-09-07"];
+    h.eq(!!i07, true, "07/09 presente");
+    h.eq(i07.roja, false, "07/09..13/09 = DESCANSO (azul)");
+    h.eq(i07.inicio, "2026-09-07", "bloque descanso inicia 07/09");
+    var i14 = m.indice["2026-09-14"];
+    h.eq(i14.roja, true, "14/09..20/09 = GUARDIA (roja)");
+    h.eq(i14.inicio, "2026-09-14", "bloque guardia inicia 14/09 (nunca 15/09)");
+    h.eq(m.indice["2026-09-21"] ? true : false, false, "21/09 fuera del rango");
+    var v15 = m.indice["2026-09-15"];
+    h.eq(v15 && v15.inicio === "2026-09-15", false, "15/09 no inicia ningún bloque");
+  });
+  h.t("Hoja: encabezado Fecha Guardia / Cumple / Cubre", function() {
+    var m = _modeloHojaGuardias(HM_GUARDIAS, {}, {});
+    var f3 = m.valores[2], f4 = m.valores[3];
+    h.eq(f3[1], "Fecha\nGuardia", "col2 Fecha Guardia");
+    h.eq(f3[2], "Cumple", "col3 Cumple");
+    h.eq(f3[4], "Cubre", "col5 Cubre");
+    h.eq(f4[2], "Si", "Fila2 col3 Si");
+    h.eq(f4[3], "No", "Fila2 col4 No");
+  });
+  h.t("Hoja: merges esperados (título, Oficial de, VOLUNTARIOS)", function() {
+    var m = _modeloHojaGuardias(HM_GUARDIAS, HM_PERSONAS, {});
+    h.eq(hayMerge(m.merges, 1, 1, 1, 36), true, "título abarca 36 columnas");
+    var of = m.indice["2026-08-31"].oficial;
+    h.eq(hayMerge(m.merges, of, 2, of, 36), true, "fila Oficial de col 2..36");
+    var vol = m.indice["2026-08-31"].vol;
+    h.eq(hayMerge(m.merges, vol[0], 1, vol[vol.length - 1], 1), true, "etiqueta VOLUNTARIOS vertical");
+  });
+  h.t("Hoja: asistencia C→X(Si), R→X(Cubre); nombres reales", function() {
+    var m = _modeloHojaGuardias(HM_GUARDIAS, HM_PERSONAS, HM_ASIS);
+    var i31 = m.indice["2026-08-31"];
+    h.eq(m.valores[i31.maq - 1][1], "Cristian Silva", "maquinista 31/08");
+    h.eq(m.valores[i31.maq - 1][2], "", "maquinista sin asistencia");
+    h.eq(m.valores[i31.vol[0] - 1][1], "Aymara Segura", "voluntaria 31/08");
+    h.eq(m.valores[i31.vol[0] - 1][2], "X", "C → X en Si");
+    h.eq(m.valores[i31.vol[0] - 1][3], "", "No vacío");
+    var i14 = m.indice["2026-09-14"];
+    h.eq(m.valores[i14.maq - 1][1], "Matias Nuñez", "maquinista 14/09");
+    h.eq(m.valores[i14.maq - 1][4], "X", "R → X en primer Cubre");
+  });
+  h.t("Hoja: oficiales sin fuente → en blanco + nota informativa", function() {
+    var m = _modeloHojaGuardias(HM_GUARDIAS, {}, {});
+    h.eq(m.notaOficial, "No existe fuente de datos suficiente para determinar el oficial.");
+    var of = m.indice["2026-08-31"].oficial;
+    h.eq(m.valores[of - 1][0], "Oficial de", "etiqueta Oficial de");
+    h.eq(m.valores[of - 1][1], "", "valor oficial en blanco");
+  });
+  h.t("Hoja: oficial leído desde fuente porDia cuando exista", function() {
+    var m = _modeloHojaGuardias(HM_GUARDIAS, {}, {},
+      { porDia: { "2026-09-14": "102" }, nota: "" });
+    var of = m.indice["2026-09-14"].oficial;
+    h.eq(m.valores[of - 1][1], "102", "oficial de segunda semana");
+  });
+  h.t("Hoja: consistencia Web App ↔ hoja (misma fuente esDiaGuardiaEn)", function() {
+    var m = _modeloHojaGuardias(HM_GUARDIAS, {}, {});
+    for (var k = "2026-08-31"; k <= "2026-09-20"; k = sumarDiasCivil(k, 1)) {
+      h.eq(m.indice[k].roja, esDiaGuardiaEn(HM_GUARDIAS, k), "día " + k);
+    }
+  });
+  h.t("Hoja: esquema de colores referencia (roja/azul) en fila de día", function() {
+    var m = _modeloHojaGuardias(HM_GUARDIAS, {}, {});
+    var s31 = findStyle(m, m.indice["2026-08-31"].dia, 2);
+    var s07 = findStyle(m, m.indice["2026-09-07"].dia, 2);
+    var s14 = findStyle(m, m.indice["2026-09-14"].dia, 2);
+    h.eq(!!s31 && s31.bg === "#C00000", true, "guardia roja #C00000");
+    h.eq(!!s07 && s07.bg === "#2E74B5", true, "descanso azul #2E74B5");
+    h.eq(!!s14 && s14.bg === "#C00000", true, "guardia roja #C00000");
   });
 
   return h.resultados;
