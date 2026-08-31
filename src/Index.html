@@ -3380,12 +3380,15 @@ function generarGuardias(){
         if(resp && resp.error === "No existen guardias programadas para generar."){
           alert(resp.error);
         } else {
-          alert("No se pudo generar el calendario de guardias.");
+          alert("No se pudo generar el calendario de guardias."
+            + (resp && resp.detalle ? "\n\n[DEV] " + resp.detalle : ""));
+          if(resp && console) console.error("[Guardias] falló:", resp);
         }
         return;
       }
       document.getElementById("hoja-modal-link").href = resp.url;
-      document.getElementById("hoja-modal-name").textContent = resp.nombre || "";
+      document.getElementById("hoja-modal-name").textContent =
+        (resp.nombre || "") + (resp.ubicacion ? " — " + resp.ubicacion : "");
       document.getElementById("hoja-modal").style.display = "flex";
       if(resp.notaOficial && console) console.log("[Guardias] " + resp.notaOficial);
     })
