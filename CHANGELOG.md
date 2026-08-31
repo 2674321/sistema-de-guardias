@@ -22,6 +22,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) ·
 ### Demo: realce visual del flujo
 
 - El panel de **Inscripción** se pre-rellena al cargar con un ejemplo ficticio (nombre, correo y 2 días con cargo) y el calendario resalta esas fechas como seleccionadas. Así cualquier visitante entiende el flujo de registro sin escribir nada.
+- **Logo de la Compañía restaurado** en la demo: se incorpora `docs/img/logo-1cia.png` (copia local, transparente) y el masthead pasa de un emoji 🚒 a la imagen real, sin depender de Google Drive.
 - Todo es **solo visual** (capa de datos ficticios de la demo): no persiste ni toca producción.
 
 No hubo cambios funcionales en la aplicación de producción en esta iteración (Apps Script sigue en v58).
