@@ -1963,11 +1963,13 @@ function _reubicarDetalleDia(){
   var det = document.getElementById("detalle-dia");
   if(!det) return;
   if(window._MODO === "MOBILE"){
-    // En móvil: el bloque "personas anotadas" va como bloque aparte, justo
-    // debajo de la sección "Registrar guardias" (panel-inscripcion).
-    var previa = document.getElementById("panel-inscripcion");
-    if(previa && det.parentNode !== previa.parentNode){
-      previa.insertAdjacentElement("afterend", det);
+    // En móvil: el bloque "personas anotadas" va como bloque aparte (con borde)
+    // dentro del flujo IZQUIERDO, justo debajo del botón "Registrar guardias".
+    // Así llena el espacio libre bajo el formulario sin desplazar el calendario
+    // (que ocupa la columna derecha en layout 50/50).
+    var btn = document.getElementById("btnEnviar");
+    if(btn && det.parentNode !== btn.parentNode){
+      btn.insertAdjacentElement("afterend", det);
     }
   } else {
     // Al volver a escritorio/tablet se restaura su posición original (tras la leyenda).
