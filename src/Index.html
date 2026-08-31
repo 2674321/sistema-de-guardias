@@ -1963,8 +1963,9 @@ function _reubicarDetalleDia(){
   var det = document.getElementById("detalle-dia");
   if(!det) return;
   if(window._MODO === "MOBILE"){
-    // En móvil: el bloque "personas anotadas" corre debajo del registro (panel-asistencia).
-    var previa = document.getElementById("panel-asistencia");
+    // En móvil: el bloque "personas anotadas" va como bloque aparte, justo
+    // debajo de la sección "Registrar guardias" (panel-inscripcion).
+    var previa = document.getElementById("panel-inscripcion");
     if(previa && det.parentNode !== previa.parentNode){
       previa.insertAdjacentElement("afterend", det);
     }
