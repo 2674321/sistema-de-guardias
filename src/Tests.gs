@@ -456,6 +456,66 @@ function pruebasPuras() {
     h.eq(!!sin["2026-08-31"], false, "solo espacios → no se asigna");
   });
 
+  h.t("Período: una fila estable por período (calendario_guardias_AÑO_MES)", function() {
+    var A = _periodoClave(HM_GUARDIAS_GEN);
+    var oct = _periodoClave([{ id: "x", inicio: "2026-10-05", fin: "2026-10-11", activa: true }]);
+    h.eq(A, "CALENDARIO_GUARDIAS_2026_09", "31/08→27/09 termina en septiembre (cubre el receso)");
+    h.eq(_periodoClave(HM_GUARDIAS_GEN), A, "mismo período → misma clave");
+    h.eq(oct, "CALENDARIO_GUARDIAS_2026_10", "período de octubre → clave distinta");
+    h.eq(oct !== A, true, "meses distintos → claves distintas");
+    h.eq(_periodoClave([]), "", "sin guardias → clave vacía");
+  });
+
+  h.t("Actualización: misma clave y la hoja refleja los NUEVOS oficiales", function() {
+    var bloques = _bloquesCalendario(HM_GUARDIAS_GEN);
+    function oficialEn(m, inicio) {
+      var idx = 0;
+      bloques.forEach(function(x, i) { if (x.inicio === inicio) idx = i; });
+      var seen = 0;
+      for (var rr = 0; rr < m.valores.length; rr++) {
+        if ((m.valores[rr][0] || "") === "Oficial de Semana:") {
+          if (seen === idx) return String(m.valores[rr][1] || "");
+          seen++;
+        }
+      }
+      return "";
+    }
+    var m1 = _modeloHojaGuardias(HM_GUARDIAS_GEN, {}, {}, { porDia: _porDiaDesdeOficialesSemana(HM_GUARDIAS_GEN, { "2026-09-14": "Cb. Pérez" }), nota: "" });
+    var m2 = _modeloHojaGuardias(HM_GUARDIAS_GEN, {}, {}, { porDia: _porDiaDesdeOficialesSemana(HM_GUARDIAS_GEN, { "2026-09-14": "Cb. Díaz" }), nota: "" });
+    var claveRegenerada = _periodoClave(HM_GUARDIAS_GEN);
+    h.eq(claveRegenerada, "CALENDARIO_GUARDIAS_2026_09", "regenerar el mismo período no cambia la clave");
+    h.eq(oficialEn(m1, "2026-09-14"), "Cb. Pérez", "generación 1 → nombre A");
+    h.eq(oficialEn(m2, "2026-09-14"), "Cb. Díaz", "regenerar el mismo período → el nombre cambia (última generación manda)");
+  });
+
+  h.t("Oficiales: 4 semanas → 4 asignadas; 3 → semana 4 vacía; sin inputs → hoja válida", function() {
+    var bloques = _bloquesCalendario(HM_GUARDIAS_GEN);
+    var of4 = _porDiaDesdeOficialesSemana(bloques, { "2026-08-31": "A", "2026-09-07": "B", "2026-09-14": "C", "2026-09-21": "D" });
+    h.eq(of4["2026-09-27"], "D", "semana 4 (receso) asignable");
+    var of3 = _porDiaDesdeOficialesSemana(bloques, { "2026-08-31": "A", "2026-09-07": "B", "2026-09-14": "C" });
+    h.eq(Object.keys(of3).length, 21, "3 semanas → 21 días");
+    h.eq("2026-09-21" in of3, false, "semana 4 queda vacía (sin null/undefined)");
+    var of0 = _porDiaDesdeOficialesSemana(HM_GUARDIAS_GEN, {});
+    h.eq(Object.keys(of0).length, 0, "sin inputs → mapa vacío");
+    var m = _modeloHojaGuardias(HM_GUARDIAS_GEN, {}, {}, { porDia: of0, nota: "Sin oficial" });
+    var conNombre = 0;
+    m.valores.forEach(function(r) { if ((r[0] || "") === "Oficial de Semana:" && r[1]) conNombre++; });
+    h.eq(conNombre, 0, "hoja válida con celdas de oficial en blanco");
+  });
+
+  h.t("Consistencia: la Web App y la hoja usan la misma fuente (esDiaGuardiaEn)", function() {
+    var dias = _diasCalendario(HM_GUARDIAS_GEN);
+    var mal = dias.filter(function(d) { return d.esGuardia !== esDiaGuardiaEn(HM_GUARDIAS_GEN, d.key); });
+    h.eq(mal.length, 0, "día a día coincide (inmunes a DST)");
+    h.eq(esDiaGuardiaEn(HM_GUARDIAS_GEN, "2026-08-31"), true, "D0 guardia");
+    h.eq(esDiaGuardiaEn(HM_GUARDIAS_GEN, "2026-09-06"), true, "D6 guardia");
+    h.eq(esDiaGuardiaEn(HM_GUARDIAS_GEN, "2026-09-07"), false, "07/09 receso");
+    h.eq(esDiaGuardiaEn(HM_GUARDIAS_GEN, "2026-09-14"), true, "regresión: 14/09 es guardia");
+    h.eq(esDiaGuardiaEn(HM_GUARDIAS_GEN, "2026-09-15"), true, "15/09 dentro del período de guardia");
+    h.eq(esDiaGuardiaEn(HM_GUARDIAS_GEN, "2026-09-21"), false, "21/09 receso");
+    h.eq(esDiaGuardiaEn(HM_GUARDIAS_GEN, "2026-10-05"), false, "fuera del período");
+  });
+
   return h.resultados;
 }
 

@@ -27,6 +27,8 @@
 
 var _CARPETA_CALENDARIOS = "Calendario de Guardias";
 var _HOJA_NOMBRE = "Calendario Guardia";
+var _HOJA_META = "__calendario_meta__";
+var _PROP_PREFIJO = "CAL_GUARDIA_ARCHIVO_";
 
 var _COL_LABEL = 1;
 var _N_DIAS = 7;
@@ -124,6 +126,21 @@ function _finCalendario(guardias) {
   var dias = _diasCalendario(guardias);
   if (!dias.length) return "";
   return dias[dias.length - 1].key;
+}
+
+// "YYYY_MM" del mes al que pertenece una fecha cívica (key YYYY-MM-DD).
+function _claveAñoMes(fechaKey) {
+  var fp = fechaPartesDe(fechaKey);
+  return fp ? (fp.y + "_" + pad2(fp.m)) : "????_??";
+}
+
+// Identificador ESTABLE del período: mes en que termina el calendario cubierto.
+// Ej.: 31/08→27/09 → "CALENDARIO_GUARDIAS_2026_09". Es la llave que permite
+// reutilizar el mismo archivo al regenerar el mismo período y separar meses.
+function _periodoClave(guardias) {
+  var orden = _ordenarGuardiasPorInicio(guardias);
+  if (!orden.length) return "";
+  return "CALENDARIO_GUARDIAS_" + _claveAñoMes(_finCalendario(orden));
 }
 
 // Bloques de 7 días (guardia / descanso) tal como se pintan en la hoja.
@@ -413,10 +430,31 @@ function generarHojaGuardias(oficialesSemana) {
     var modelo = _modeloHojaGuardias(guardias, personas, asisEstado, oficiales);
     if (!modelo.ok) return { ok: false, error: modelo.error };
 
-    var archivo = SpreadsheetApp.create(modelo.nombre);
-    var sheet = archivo.getSheets()[0];
-    sheet.setName(_HOJA_NOMBRE);
-    _aplicarModelo(sheet, modelo);
+    var clave = _periodoClave(guardias);
+    var archivo = _buscarCalendario(clave, modelo.nombre);
+
+    var estado;
+    if (archivo) {
+      // Reutiliza el MISMO documento del período; la última generación siempre manda.
+      _reconstruirCalendario(archivo, modelo.nombre, modelo);
+      _metaGuardar(archivo, clave);
+      _propGuardar(clave, archivo.getId());
+      estado = "actualizado";
+    } else {
+      archivo = SpreadsheetApp.create(modelo.nombre);
+      var sheet = archivo.getSheets()[0];
+      try {
+        sheet.setName(_HOJA_NOMBRE);
+        _aplicarModelo(sheet, modelo);
+        _metaGuardar(archivo, clave);
+        _propGuardar(clave, archivo.getId());
+      } catch (eCreate) {
+        // Evitar archivos huérfanos a medio construir.
+        try { DriveApp.getFileById(archivo.getId()).setTrashed(true); } catch (eTrash) {}
+        throw eCreate;
+      }
+      estado = "creado";
+    }
 
     var ubicacion = "Raíz de Google Drive";
     try {
@@ -427,7 +465,7 @@ function generarHojaGuardias(oficialesSemana) {
       ubicacion = "Raíz de Google Drive (carpeta \"" + _CARPETA_CALENDARIOS + "\" no disponible: " + e2 + ")";
     }
 
-    return { ok: true, url: archivo.getUrl(), nombre: modelo.nombre, titulo: modelo.titulo, ubicacion: ubicacion, notaOficial: modelo.notaOficial };
+    return { ok: true, url: archivo.getUrl(), nombre: modelo.nombre, titulo: modelo.titulo, ubicacion: ubicacion, notaOficial: modelo.notaOficial, clave: clave, estado: estado };
   } catch (e) {
     Logger.log("generarHojaGuardias: " + e);
     return { ok: false, error: "No se pudo generar el calendario de guardias.", detalle: String(e) };
@@ -499,6 +537,83 @@ function _moverACarpetaCalendarios(archivo) {
   else carpeta = DriveApp.createFolder(_CARPETA_CALENDARIOS);
   var archivoDrive = DriveApp.getFileById(archivo.getId());
   archivoDrive.moveTo(carpeta);
+}
+
+//────────────────────────────────────────────
+// CONTROL DEL DOCUMENTO GENERADO (una hoja por período)
+//────────────────────────────────────────────
+
+// Escribe la clave del período dentro del propio documento (hoja oculta).
+function _metaGuardar(ss, clave) {
+  try {
+    var sh = ss.getSheetByName(_HOJA_META);
+    if (!sh) sh = ss.insertSheet(_HOJA_META, ss.getSheets().length);
+    sh.hideSheet();
+    sh.getRange("A1").setValue(clave);
+    sh.getRange("B1").setValue(String(new Date().toISOString()));
+  } catch (e) { Logger.log("meta guardar: " + e); }
+}
+
+function _metaLeer(ss) {
+  try {
+    var sh = ss.getSheetByName(_HOJA_META);
+    if (!sh) return "";
+    return String(sh.getRange("A1").getValue() || "").trim();
+  } catch (e) { return ""; }
+}
+
+function _propGuardar(clave, id) {
+  try { PropertiesService.getScriptProperties().setProperty(_PROP_PREFIJO + clave, id); } catch (e) {}
+}
+function _propLeer(clave) {
+  try { return PropertiesService.getScriptProperties().getProperty(_PROP_PREFIJO + clave) || ""; } catch (e) { return ""; }
+}
+
+// Busca el archivo del período: primero por referencia guardada, luego en la
+// carpeta Drive (por nombre exacto + metadato interno). Devuelve null si no existe.
+function _buscarCalendario(clave, nombre) {
+  var id = _propLeer(clave);
+  if (id) {
+    try {
+      var ss = SpreadsheetApp.openById(id);
+      if (_metaLeer(ss) === clave) return ss;
+    } catch (e) { Logger.log("buscar: referencia inválida, se ignora"); }
+  }
+  try {
+    var it = DriveApp.getFoldersByName(_CARPETA_CALENDARIOS);
+    if (!it.hasNext()) return null;
+    var carpeta = it.next();
+    var archivos = carpeta.getFilesByName(nombre);
+    while (archivos.hasNext()) {
+      var f = archivos.next();
+      try {
+        var ss2 = SpreadsheetApp.openById(f.getId());
+        var meta = _metaLeer(ss2);
+        // Metadato coincide, o archivo nuestro aún sin metadato (versión previa a meta).
+        if (meta === clave || (meta === "" && f.getName() === nombre)) {
+          _propGuardar(clave, f.getId());
+          return ss2;
+        }
+      } catch (e2) { continue; }
+    }
+  } catch (e) { Logger.log("buscar: carpeta no disponible"); }
+  return null;
+}
+
+// Actualiza el archivo existente para que represente exactamente la última
+// generación (sin datos/merges/estilos viejos ni filas sobrantes).
+function _reconstruirCalendario(ss, nombre, modelo) {
+  var objetivo = null;
+  ss.getSheets().forEach(function(h) {
+    if (h.getSheetName() === _HOJA_META) return;
+    if (!objetivo) { objetivo = h; } else { try { ss.deleteSheet(h); } catch (e2) { Logger.log("hoja sobrante: " + e2); } }
+  });
+  if (!objetivo) objetivo = ss.insertSheet(_HOJA_NOMBRE, 0);
+  objetivo.activate();
+  objetivo.clear();
+  try { objetivo.setFrozenRows(0); objetivo.setFrozenColumns(0); } catch (e3) {}
+  objetivo.setName(_HOJA_NOMBRE);
+  _aplicarModelo(objetivo, modelo);
 }
 
 function _configurarImpresion(sheet) {
