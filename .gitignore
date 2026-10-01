@@ -1,16 +1,37 @@
 # Datos locales con información real (el repo incluye solo demo anónima)
 data/registro_guardias-real.csv
 data/*.local.csv
+/data/real/
+/data/private/
+/backups/
+/exports/
+*.xlsx
+*.xls
+*.ods
+*.tsv
 
-# Credenciales / entorno
+# Credenciales / entorno / Apps Script
+.clasp.json
 .clasprc.json
 .env
+.env.*
+*.credentials.json
+*.token.json
+credentials.json
+token.json
 
 # Sistema / editor
 .DS_Store
 Thumbs.db
 *.log
+*.tmp
+*.bak
 node_modules/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # Binarios grandes accidentales
 *.deb
