@@ -10,6 +10,9 @@ data/*.local.csv
 *.ods
 *.tsv
 
+# Documentos operativos/institucionales reales
+/ODD INTERNA*.pdf
+
 # Credenciales / entorno / Apps Script
 .clasp.json
 .clasprc.json
