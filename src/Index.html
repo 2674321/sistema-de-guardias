@@ -1183,6 +1183,9 @@
       body[data-modo="MOBILE"] .page-body{ padding-bottom: calc(44px + env(safe-area-inset-bottom, 0px)); }
     }
 
+    /* "Personas anotadas" se reubica bajo el registro en móvil: fila completa */
+    body[data-modo="MOBILE"] #detalle-dia{ grid-column: 1 / -1; width: 100%; }
+
     /* ── Teléfonos angostos ── */
     @media (max-width: 480px){
       .pill{ font-size: 8px; padding: 2px 7px; }
@@ -1939,6 +1942,7 @@ function _detectarModo(){
   document.body.setAttribute("data-apuntador", apuntador);
   window._MODO = modo;
   window._ORIENT = orientacion;
+  _reubicarDetalleDia();
   return { modo: modo, orientacion: orientacion };
 }
 
@@ -1953,6 +1957,25 @@ function _initModo(){
       if(antes !== ahora.modo + "|" + ahora.orientacion) renderCalendario();
     }, 180);
   });
+}
+
+function _reubicarDetalleDia(){
+  var det = document.getElementById("detalle-dia");
+  if(!det) return;
+  if(window._MODO === "MOBILE"){
+    // En móvil: el bloque "personas anotadas" corre debajo del registro (panel-asistencia).
+    var previa = document.getElementById("panel-asistencia");
+    if(previa && det.parentNode !== previa.parentNode){
+      previa.insertAdjacentElement("afterend", det);
+    }
+  } else {
+    // Al volver a escritorio/tablet se restaura su posición original (tras la leyenda).
+    var legend = document.getElementById("legend");
+    var contenedor = (legend && legend.parentNode) ? legend.parentNode : null;
+    if(contenedor && legend && det.parentNode !== contenedor){
+      legend.insertAdjacentElement("afterend", det);
+    }
+  }
 }
 
 function irA(destino){
@@ -3463,6 +3486,10 @@ function _generarGuardiasHoja(oficiales){
         return;
       }
       document.getElementById("hoja-modal-link").href = resp.url;
+      document.getElementById("hoja-modal-title").textContent =
+        (resp.estado === "actualizado")
+          ? "Calendario del período actualizado."
+          : "Calendario de guardias generado.";
       document.getElementById("hoja-modal-name").textContent =
         (resp.nombre || "") + (resp.ubicacion ? " — " + resp.ubicacion : "");
       mostrarModal("hoja-modal");
