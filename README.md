@@ -1,5 +1,8 @@
 # Sistema de Guardias — 1ª Compañía de Bomberos del CBC
 
+<p align="center"><img src="docs/branding/app-icon.svg" width="150" alt="Icono minimalista del Sistema de Guardias"></p>
+
+
 **Autor:** [Patricio Varela C.](https://github.com/2674321) · **ORCID:** [0009-0002-1087-9445](https://orcid.org/0009-0002-1087-9445) · **Licencia:** [MIT](LICENSE) · **Citación:** [CITATION.cff](CITATION.cff)
 
 Sistema de calendarización y gestión de guardias para la 1ª Compañía del Cuerpo de Bomberos de Coquimbo. Construido sobre **Google Apps Script** (backend + web app) con **Google Sheets** como base de datos.
