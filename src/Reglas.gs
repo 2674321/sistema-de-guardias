@@ -152,8 +152,14 @@ function contarCupoDia(filas) {
   var r = { maquinistas: 0, operativos: 0 };
   (filas || []).forEach(function(f) {
     var cargo = String(f.cargo || "").trim().toLowerCase();
-    if (cargo.indexOf("maquinista") !== -1) r.maquinistas++;
-    if (consumeCupoOperativo(f.nivel)) r.operativos++;
+    if (cargo.indexOf("maquinista") !== -1) {
+      // Conductor: cuenta SOLO como maquinista, sin importar su nivel.
+      // Al ser el encargado del carro, no aporta al cupo de operativos.
+      r.maquinistas++;
+    } else if (consumeCupoOperativo(f.nivel)) {
+      // Operativos/Profesionales que son VOLUNTARIOS.
+      r.operativos++;
+    }
   });
   return r;
 }
