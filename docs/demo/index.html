@@ -2075,6 +2075,43 @@ var DEMO_SEMANAS_OFICIALES = [
   // La plantilla de producción lo renombra a D_RUN para garantizar
   // que en el demo no quede rastro de backend real.
   window.D_RUN = proxy;
+
+  // ── SOLO DEMO · visual ─────────────────────────────────────────────
+  // Pre-rellena el panel de inscripción con un ejemplo ficticio al cargar,
+  // para que cualquier visitante entienda el flujo sin escribir nada.
+  // No toca producción ni persiste nada.
+  window.addEventListener("load", function(){
+    try {
+      var carg = function(){ return !!document.getElementById("cal-grid").querySelector(".day"); };
+      var t0 = Date.now(), timer = setInterval(function(){
+        // esperar a que el calendario (y el arranque de producción) estén listos
+        if(!carg()){
+          if(Date.now() - t0 > 8000){ clearInterval(timer); }
+          return;
+        }
+        clearInterval(timer);
+        var setTxt = function(id, v){ var e = document.getElementById(id); if(e) e.value = v; };
+
+        // ejemplo: 2 días disponibles con cargo
+        setTxt("nombre", "Carlos Pérez");
+        setTxt("email", "carlos@demo.cl");
+        if(window.seleccionarNumDias) window.seleccionarNumDias(2);
+
+        setTxt("fecha1", "2026-09-07");
+        setTxt("fecha2", "2026-09-21");
+        var f1 = document.getElementById("fecha1");
+        var f2 = document.getElementById("fecha2");
+        if(f1 && f2){
+          f1.dataset.cargo = "voluntario";
+          f2.dataset.cargo = "maquinista";
+        }
+        if(window.actualizarCal) window.actualizarCal();
+        if(window.actualizarInputs) window.actualizarInputs();
+      }, 300);
+    } catch(e){
+      // ignorar: es solo un realce visual del demo
+    }
+  });
 })();
 
 </script>

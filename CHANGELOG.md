@@ -19,6 +19,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) ·
 - **Backend simulado** en la demo: sustituye la llamada `google.script.run` por un alias local (`D_RUN`) que responde con datos y retardos ficticios, con manejo correcto de peticiones en paralelo en el arranque. La demo **no contiene** referencia alguna a `google.script.run`, Sheets, Drive ni al backend real (lo valida el workflow de Pages).
 - **Imagen corregida**: `docs/img/guardias-hoja-generada.png` pasa a ser la **captura real** del formato de hoja de cálculo (1852×745) en lugar de la previsualización generada por el asistente.
 
+### Demo: realce visual del flujo
+
+- El panel de **Inscripción** se pre-rellena al cargar con un ejemplo ficticio (nombre, correo y 2 días con cargo) y el calendario resalta esas fechas como seleccionadas. Así cualquier visitante entiende el flujo de registro sin escribir nada.
+- Todo es **solo visual** (capa de datos ficticios de la demo): no persiste ni toca producción.
+
 No hubo cambios funcionales en la aplicación de producción en esta iteración (Apps Script sigue en v58).
 
 ### Fixed
