@@ -170,6 +170,21 @@ function _respaldarColumnaNivel(diag) {
   bk.getRange(bk.getLastRow() + 1, 1, filas.length, 4).setValues(filas);
 }
 
+// Detecta si la hoja Guardias tiene columnas extra o un header desalineado
+// (Índice: J "Nivel" duplicado / >9 columnas con contenido). Barato: solo lee la fila 1.
+function _layoutRequiereReparacion(sh) {
+  try {
+    if (!sh) return false;
+    var cols = sh.getLastColumn();
+    if (cols > 9) return true;
+    var h = sh.getRange(1, 1, 1, cols).getValues()[0];
+    for (var i = 0; i < h.length; i++) {
+      if (i >= 9 && String(h[i]).trim()) return true;
+    }
+    return false;
+  } catch (e) { return false; }
+}
+
 //══════════════════════════════════════════
 // REPARACIÓN DE LAYOUT GUARDIAS (columna extra / datos corridos)
 // Idempotente: normaliza header a 9 columnas (A:I) y reubica filas

@@ -2390,8 +2390,8 @@ function renderCalendario(){
     celda.setAttribute("aria-pressed", estado.seleccionadas.indexOf(fecha) !== -1 ? "true" : "false");
     var activarDia = (function(f){
       return function(){
-        toggleFecha(f);
         mostrarDetalleDia(f);
+        toggleFecha(f);
       };
     })(fecha);
     if(data.habilitado){
@@ -3792,10 +3792,10 @@ function renderCalendarioLista(grid){
     btn.type = "button";
     btn.className = "dc-btn";
     btn.setAttribute("aria-pressed", sel ? "true" : "false");
-    btn.textContent = sel ? "✓ SELECCIONADA" : (est.nivel === "full" ? "COMPLETA" : "SELECCIONAR");
-    if(est.nivel === "full") btn.disabled = true;
+    btn.textContent = sel ? "✓ SELECCIONADA" : (est.nivel === "full" ? "COMPLETA · VER" : "SELECCIONAR");
+    // Un día completo sigue permitiendo consultar quién está inscrito
     btn.addEventListener("click", function(f){
-      return function(){ toggleFecha(f); mostrarDetalleDia(f); };
+      return function(){ mostrarDetalleDia(f); toggleFecha(f); };
     }(fecha));
     card.appendChild(btn);
 
