@@ -304,3 +304,180 @@ function parseSemanas(valor) {
     .map(function(x){ return parseInt(x.trim(), 10); })
     .filter(function(n){ return !isNaN(n); });
 }
+
+//══════════════════════════════════════════
+// FECHA CIVIL + GUARDIAS PROGRAMADAS — núcleo puro (testeable en Node)
+//
+// Algoritmo que sustituye el cálculo por milisegundos (`+ d*86400000`,
+// `Math.floor(diff / 86400000)`) que falla al cruzar un cambio de hora
+// (DST): en Chile el paso UTC-4→UTC-3 hace que una "semana" mida 6h·23h+24h
+// y el día 14 quede computado como día 13 (el bug 15/09→21/09).
+//
+// Toda aritmética se hace sobre partes cívicas (Y/M/D) vía Date.UTC, que no
+// conoce zonas horarias ni DST: los resultados son exactos e invariantes.
+//══════════════════════════════════════════
+
+// Interpreta un valor como fecha cívica → {y, m, d} (m:1-12) o null.
+// Acepta Date (partes locales), "YYYY-MM-DD" (con/sin ceros), "DD/MM/YYYY"
+// y un objeto de partes {y, m, d} (uso interno). Devuelve null ante
+// cualquier valor ininteligible: NUNCA se silencia.
+function fechaCivilDe(valor) {
+  if (valor === null || valor === undefined) return null;
+  if (Object.prototype.toString.call(valor) === "[object Date]") {
+    if (isNaN(valor.getTime())) return null;
+    return { y: valor.getFullYear(), m: valor.getMonth() + 1, d: valor.getDate() };
+  }
+  if (typeof valor === "object") {
+    var yy = Number(valor.y), mo = Number(valor.m), dd = Number(valor.d);
+    if (isFinite(yy) && isFinite(mo) && isFinite(dd) && mo >= 1 && mo <= 12 && dd >= 1 && dd <= 31) {
+      return { y: yy, m: mo, d: dd };
+    }
+  }
+  var st = String(valor).trim();
+  if (!st) return null;
+  var m = st.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) {
+    var y1 = parseInt(m[1], 10), mo1 = parseInt(m[2], 10), d1 = parseInt(m[3], 10);
+    if (mo1 >= 1 && mo1 <= 12 && d1 >= 1 && d1 <= 31) return { y: y1, m: mo1, d: d1 };
+  }
+  m = st.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) {
+    var mo2 = parseInt(m[2], 10), d2 = parseInt(m[1], 10), y2 = parseInt(m[3], 10);
+    if (mo2 >= 1 && mo2 <= 12 && d2 >= 1 && d2 <= 31) return { y: y2, m: mo2, d: d2 };
+  }
+  return null;
+}
+
+// Normaliza una fecha cívica a "YYYY-MM-DD" o null.
+function fechaStrCivil(valor) {
+  var p = fechaCivilDe(valor);
+  if (!p) return null;
+  return pad2(p.y) + "-" + pad2(p.m) + "-" + pad2(p.d);
+}
+
+// Días naturales entre dos fechas cívicas (negativo si b es anterior).
+// Fecha seguro frente a DST: opera sobre partes Y/M/D vía Date.UTC.
+function diasEntreCiviles(a, b) {
+  var pa = fechaCivilDe(a), pb = fechaCivilDe(b);
+  if (!pa || !pb) return NaN;
+  return Math.round((Date.UTC(pb.y, pb.m - 1, pb.d) - Date.UTC(pa.y, pa.m - 1, pa.d)) / 86400000);
+}
+
+// Suma n días cívicos a una fecha → "YYYY-MM-DD" o null.
+function sumarDiasCivil(valor, n) {
+  var p = fechaCivilDe(valor);
+  if (!p) return null;
+  var t = new Date(Date.UTC(p.y, p.m - 1, p.d + n));
+  return t.getUTCFullYear() + "-" + pad2(t.getUTCMonth() + 1) + "-" + pad2(t.getUTCDate());
+}
+
+// Genera una lista de fechas cívicas consecutivas desde inicioVal.
+function diasDeCicloDesde(inicioVal, totalDias) {
+  var p = fechaCivilDe(inicioVal);
+  if (!p) return [];
+  var out = [];
+  for (var i = 0; i < (totalDias || 28); i++) {
+    var f = sumarDiasCivil(p, i);
+    if (f) out.push(f);
+  }
+  return out;
+}
+
+// Normaliza UNA guardia desde sus partes crudas → {id, inicio, duracion, fin, activa}.
+//   id:      etiqueta libre (p.ej. "Guardia 1")
+//   inicio:  fecha cívica (Date | "YYYY-MM-DD" | "DD/MM/YYYY")
+//   duracion: días (por defecto 7; NUNCA se calcula desde msegs)
+//   activa:  "SI"/1/true → activa · "NO"/0/"FALSE" → inactiva · vacío → activa
+// fin = inicio + duración − 1 (derivado; nunca se almacena como fuente).
+function guardiaDesdePartes(id, inicioVal, activaVal, durVal) {
+  var p = fechaCivilDe(inicioVal);
+  if (!p) return null;
+  var inicio = fechaStrCivil(p);
+  var dur = parseInt(durVal === null || durVal === undefined || durVal === "" ? 7 : durVal, 10);
+  if (isNaN(dur) || dur < 1) dur = 7;
+  var a = String(activaVal === null || activaVal === undefined ? "" : activaVal).trim().toUpperCase();
+  var activa = !(a === "NO" || a === "0" || a === "FALSE");
+  var fin = sumarDiasCivil(inicio, dur - 1);
+  if (!fin) return null;
+  return {
+    id: String(id === null || id === undefined ? "" : id).trim(),
+    inicio: inicio,
+    duracion: dur,
+    fin: fin,
+    activa: activa
+  };
+}
+
+// Valida y ordena una lista de guardias crudas.
+// Devuelve { guardias: [...], avisos: [...], total } sin lanzar excepciones:
+//   inicio inválido → guardia descartada + aviso
+//   duración ≠ 7    → aviso + se normaliza a 7
+//   inicios duplicados / solapamientos → avisos (+ ambas guardias se conservan
+//   ordenadas; la validación no borra datos, solo informa)
+function normalizarGuardias(listaRaw) {
+  var guardias = [], avisos = [];
+  (listaRaw || []).forEach(function(f, i) {
+    var g = guardiaDesdePartes(f && f.id, f && f.inicio, f && f.activa, f && f.duracion);
+    if (!g) {
+      avisos.push("Fila " + (i + 1) + ": inicio inválido (\"" + String(f && f.inicio) + "\").");
+      return;
+    }
+    if (g.duracion !== 7) {
+      avisos.push(g.id + ": duración " + g.duracion + " ≠ 7; se normaliza a 7 días.");
+      g.duracion = 7;
+      g.fin = sumarDiasCivil(g.inicio, 6);
+    }
+    guardias.push(g);
+  });
+  guardias.sort(function(a, b) { return a.inicio < b.inicio ? -1 : a.inicio > b.inicio ? 1 : 0; });
+  for (var x = 0; x < guardias.length; x++) {
+    for (var y = x + 1; y < guardias.length; y++) {
+      if (guardias[x].inicio === guardias[y].inicio) {
+        avisos.push(guardias[y].id + ": inicio duplicado con " + guardias[x].id + " (" + guardias[x].inicio + ").");
+      }
+    }
+  }
+  for (var z = 0; z + 1 < guardias.length; z++) {
+    if (diasEntreCiviles(guardias[z].inicio, guardias[z + 1].inicio) < 7) {
+      avisos.push(guardias[z + 1].id + ": empieza antes de que termine " + guardias[z].id + " (solapamiento).");
+    }
+  }
+  return { guardias: guardias, avisos: avisos, total: guardias.length };
+}
+
+// ¿fechaStr está dentro del rango de alguna guardia ACTIVA?
+// Comparación de cadenas "YYYY-MM-DD" (orden lexicográfico = orden cronológico).
+function esDiaGuardiaEn(guardias, fechaStr) {
+  var f = fechaStrCivil(fechaStr);
+  if (!f) return false;
+  for (var i = 0; i < (guardias || []).length; i++) {
+    var g = guardias[i];
+    if (!g.activa) continue;
+    if (f >= g.inicio && f <= g.fin) return true;
+  }
+  return false;
+}
+
+// Equivalencia del modelo ANTERIOR (Config C3 + C4) → guardias semanales
+// explícitas. Se usa como puente de migración: una sola vez se escribe la
+// hoja GuardiasProgramadas y el modelo legado puede quedar obsoleto.
+function guardiasDesdeLegacy(inicioVal, semanas) {
+  var p = fechaCivilDe(inicioVal);
+  if (!p) return { guardias: [], avisos: ["Fecha de inicio inválida para derivar guardias."], total: 0 };
+  var base = fechaStrCivil(p);
+  var guardias = [];
+  (semanas || []).forEach(function(s, idx) {
+    var ini = sumarDiasCivil(base, s * 7);
+    if (!ini) return;
+    guardias.push({
+      id: "Guardia " + (s + 1),
+      inicio: ini,
+      duracion: 7,
+      fin: sumarDiasCivil(ini, 6),
+      activa: true,
+      legada: true
+    });
+  });
+  guardias.sort(function(a, b) { return a.inicio < b.inicio ? -1 : a.inicio > b.inicio ? 1 : 0; });
+  return { guardias: guardias, avisos: [], total: guardias.length };
+}

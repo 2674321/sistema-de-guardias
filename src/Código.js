@@ -66,18 +66,20 @@ function registrarGuardia(datos) {
     // Leer datos una sola vez (optimización)
     var dataAll = sheet.getDataRange().getValues();
 
-    // BUSCAR DUPLICADOS DENTRO DEL CICLO (28 días desde config.inicio)
+    // BUSCAR DUPLICADOS DENTRO DEL CICLO (28 días desde la primera guardia;
+    // aritmética cívica: inmune a cambios de hora/DST)
     var emailBuscado = String(email).trim().toLowerCase();
-    var configCiclo = obtenerConfigGeneral();
-    var iniCiclo = configCiclo.inicio instanceof Date
-      ? configCiclo.inicio
-      : new Date(String(configCiclo.inicio).trim() + "T12:00:00");
-    iniCiclo = new Date(iniCiclo.getFullYear(), iniCiclo.getMonth(), iniCiclo.getDate(), 12);
+    var _diasCiclo = (function() {
+      try {
+        var oc = obtenerGuardias();
+        if (oc.guardias.length) return diasDeCicloDesde(oc.guardias[0].inicio, 28);
+      } catch (e) {}
+      var _cfg = obtenerConfigGeneral();
+      var _iniStr = fechaStrCivil(_cfg.inicio);
+      return _iniStr ? diasDeCicloDesde(_iniStr, 28) : [];
+    })();
     var _fechasCicloSet = {};
-    for (var _dc = 0; _dc < 28; _dc++) {
-      var _fd = new Date(iniCiclo.getTime() + _dc * 86400000);
-      _fechasCicloSet[_fd.getFullYear() + "-" + String(_fd.getMonth() + 1).padStart(2, "0") + "-" + String(_fd.getDate()).padStart(2, "0")] = true;
-    }
+    _diasCiclo.forEach(function(fk) { _fechasCicloSet[fk] = true; });
 
     var filaExistenteIdx = null;
     var fechasExistentes = [];
@@ -157,9 +159,8 @@ function registrarGuardia(datos) {
     var consumoCupoOp = consumeCupoOperativo(nivel);
 
     var todosLlenos = true;
-    for (var _dc2 = 0; _dc2 < 28; _dc2++) {
-      var _fd2 = new Date(iniCiclo.getTime() + _dc2 * 86400000);
-      var fd = _fd2.getFullYear() + "-" + String(_fd2.getMonth() + 1).padStart(2, "0") + "-" + String(_fd2.getDate()).padStart(2, "0");
+    for (var _di2 = 0; _di2 < _diasCiclo.length; _di2++) {
+      var fd = _diasCiclo[_di2];
       if (!esSemanaHabilitada(fd)) continue;
       var cuentaDia = contarCupoDiaFilas(dataAll, fd);
       var disponible = false;
@@ -934,33 +935,36 @@ function obtenerCalendario(mes, año) {
   }
 }
 
-// Semana habilitada pura (usa config explícita, no el caché global)
+// ¿fechaKey es día de guardia? — pertenencia al rango de las guardias
+// explícitas (fuente única). Aritmética cívica: inmune a DST.
+// Mantiene la firma anterior (config) por compatibilidad; config no se usa.
 function _semanaHabilitadaDe(fechaKey, config) {
-  var fp = fechaPartesDe(fechaKey);
-  if (!fp) return false;
-  var iniRaw = config.inicio instanceof Date ? config.inicio : new Date(String(config.inicio).trim() + "T12:00:00");
-  var inicio = new Date(iniRaw.getFullYear(), iniRaw.getMonth(), iniRaw.getDate(), 12);
-  var f = new Date(fp.y, fp.m - 1, fp.d, 12);
-  var diff = Math.floor((f - inicio) / 86400000);
-  if (diff < 0 || diff >= 28) return false;
-  return config.semanas.indexOf(Math.floor(diff / 7)) !== -1;
+  try {
+    return esDiaGuardiaEn(obtenerGuardias().guardias, fechaKey);
+  } catch (e) {
+    Logger.log("_semanaHabilitadaDe: " + e);
+    return false;
+  }
 }
 
 // Índice por fecha construido EN UNA PASADA sobre Guardias,
 // luego un solo pase de Asistencia cruzando por índice email→guardia.
 function _construirSnapshotCalendario(dataAll, asisData, config, mes, año) {
   var ocupacion = {};
-  // Generar las 28 días del ciclo desde la fecha de inicio (no atado a un mes calendario)
-  var iniRaw = config.inicio instanceof Date ? config.inicio : new Date(String(config.inicio).trim() + "T12:00:00");
-  var inicio = new Date(iniRaw.getFullYear(), iniRaw.getMonth(), iniRaw.getDate(), 12);
-  for (var d = 0; d < 28; d++) {
-    var fd = new Date(inicio.getTime() + d * 86400000);
-    var fk = fd.getFullYear() + "-" + pad2(fd.getMonth() + 1) + "-" + pad2(fd.getDate());
+  // Días del ciclo: 28 días CÍVICOS desde el inicio de la primera guardia
+  // (o desde config.inicio si aún no hay guardias programadas). Nunca se
+  // suman milisegundos de 24h: eso deriva la fecha al cruzar un cambio de
+  // hora (DST).
+  var guardias = obtenerGuardias().guardias;
+  var anchorStr = (guardias.length ? guardias[0].inicio : null) || fechaStrCivil(config.inicio);
+  if (!anchorStr) return { ocupacion: {}, mes: mes, año: año };
+
+  diasDeCicloDesde(anchorStr, 28).forEach(function(fk) {
     ocupacion[fk] = {
       voluntarios: 0, maquinistas: 0, operativos: 0, iniciales: 0,
       habilitado: false, cumplido: false, guardias: []
     };
-  }
+  });
 
   var indiceFechas = {}; // email -> [fechaStr ×4]
 
@@ -1006,7 +1010,7 @@ function _construirSnapshotCalendario(dataAll, asisData, config, mes, año) {
 
   Object.keys(ocupacion).forEach(function(k) {
     var dia = ocupacion[k];
-    dia.habilitado = _semanaHabilitadaDe(k, config);
+    dia.habilitado = esDiaGuardiaEn(guardias, k);
     dia.cumplido = dia.maquinistas >= REGLAS.cupoMaquinistaPorDia &&
                    dia.operativos >= REGLAS.cupoOperativoPorDia;
   });

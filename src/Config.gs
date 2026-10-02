@@ -25,7 +25,7 @@ const CONFIG = {
   webAppUrl: "https://script.google.com/macros/s/AKfycbxZyIlFLu7kj0kJlJsksV9D9Zy4tATlTtCQW-zYTqvYLeL1mmGK4jAx_2VWzfEmDfZ0/exec",
 
   // Hojas técnicas: se mantienen ocultas y protegidas por el formateador
-  hojasTecnicas: ["LogEliminaciones", "_BackupMigracionNiveles"],
+  hojasTecnicas: ["GuardiasProgramadas", "LogEliminaciones", "_BackupMigracionNiveles"],
 
   // Direcciones de la hoja Config.
   // Nuevo layout por secciones (columna VALOR en C) con compatibilidad
@@ -143,7 +143,8 @@ function obtenerConfigGeneral() {
 
 function invalidarCacheConfig() {
   _configCache = null;
-  // Un cambio de configuración afecta el snapshot del calendario:
+  // Un cambio de configuración afecta el snapshot del calendario y las guardias:
+  if (typeof invalidarCacheGuardias === "function") invalidarCacheGuardias();
   if (typeof invalidarCacheCalendario === "function") invalidarCacheCalendario();
 }
 
@@ -211,15 +212,18 @@ function _autoInstalarTriggerMenu() {
   }
 }
 
+// ¿La fecha pertenece a una semana de guardia?
+// Antes: diff por milisegundos / 7 sobre la semana del inico (fallaba con DST →
+//   el día 14 se computaba como 13 y se habilitaba 15/09→21/09 en vez de 14/09→20/09).
+// Ahora: pertenencia al rango de las guardias explícitas (fuente única,
+//   GuardiasProgramadas + migración desde C3/C4). Aritmética cívica pura.
 function esSemanaHabilitada(fechaStr) {
-  var fecha = new Date(fechaStr + "T12:00:00");
-  var config = obtenerConfigGeneral();
-  var iniRaw = config.inicio instanceof Date ? config.inicio : new Date(String(config.inicio).trim() + "T12:00:00");
-  var inicio = new Date(iniRaw.getFullYear(), iniRaw.getMonth(), iniRaw.getDate(), 12);
-  var diffDias = Math.floor((fecha - inicio) / (1000 * 60 * 60 * 24));
-  if (diffDias < 0 || diffDias >= 28) return false;
-  var semana = Math.floor(diffDias / 7);
-  return config.semanas.indexOf(semana) !== -1;
+  try {
+    return esDiaDeGuardia(fechaStr);
+  } catch (e) {
+    Logger.log("esSemanaHabilitada: " + e);
+    return false;
+  }
 }
 
 //══════════════════════════════════════════

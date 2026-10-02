@@ -1,343 +1,423 @@
-function generarPDF() {
-  try {
-    var ss = SpreadsheetApp.openById(SHEET_ID)
-    var sh = ss.getSheetByName(SHEET_NAME)
-    var datos = sh.getDataRange().getValues()
-    var config = obtenerConfigGeneral()
-    var meses = ["enero","febrero","marzo","abril","mayo","junio",
-                 "julio","agosto","septiembre","octubre","noviembre","diciembre"]
-    var mes = meses[config.mes]
-    var año = config.año
+//════════════════════════════════════════════════════════════════
+// EXPORTAR CALENDARIO → GOOGLE SHEET (no PDF)
+//
+// Replica la estructura y el estilo visual de
+// Formato_calendario_guardia_xlsx.py (formato de referencia):
+//   • Título: "Guardia Nocturna (dd de MES al dd de MES del YYYY)"
+//     — desde el inicio de la primera guardia hasta el fin de la última.
+//   • Encabezado de 2 filas, 5 subcolumnas por día:
+//       Fecha Guardia | Cumple (Si | No) | Cubre (x2)
+//   • Bloques semanales de 7 días cívicos:
+//       semana de GUARDIA → fila de día roja  (#C00000 / fondo #F8CBAD)
+//       semana de DESCANSO → fila de día azul (#2E74B5 / fondo #DDEBF7)
+//       por bloque: OBAC · Maquinista · VOLUNTARIOS · Oficial de
+//   • Asistencia precargada por persona/fecha:
+//       C → "X" en Si · NC → "X" en No · R → "X" en primer Cubre · P → "P" en Si
+//   • Fechas SIEMPRE cívicas (Date.UTC): inmunes a cambios de hora/DST.
+//
+// Separación DATOS vs PRESENTACIÓN:
+//   _modeloHojaGuardias() y los helpers _* son PURAS (testeables en Node).
+//   generarHojaGuardias() solo orquesta servicios de Apps Script:
+//   leer datos → SpreadsheetApp.create() → aplicar modelo → carpeta Drive.
+//
+// OBAC y Oficial de quedan vacíos: no existen en el modelo de datos
+// (cargos `voluntario`/`maquinista`). La estructura queda preparada para
+// incorporarlos vía _oficialesPosibles() cuando exista la fuente.
+//════════════════════════════════════════════════════════════════
 
-    var totalDias = new Date(año, config.mes + 1, 0).getDate()
-    var primerDia = new Date(año, config.mes, 1).getDay()
-    primerDia = primerDia === 0 ? 6 : primerDia - 1
+var _CARPETA_CALENDARIOS = "Calendario de Guardias";
+var _HOJA_NOMBRE = "Calendario Guardia";
 
-    var diasSemana = ["LUN", "MAR", "MI\u00C9", "JUE", "VIE", "S\u00C1B", "DOM"]
+var _COL_LABEL = 1;
+var _N_DIAS = 7;
+var _N_SUB = 5; // Fecha Guardia | Cumple-Si | Cumple-No | Cubre | Cubre
+var _TOTAL_COLS = _COL_LABEL + _N_DIAS * _N_SUB; // 36
 
-    var mapa = {}
-    for (var d = 1; d <= totalDias; d++) {
-      var key = año + "-" + (config.mes + 1) + "-" + d
-      mapa[key] = { voluntarios: [], voluntariosEmail: [], maquinistas: [], maquinistasEmail: [], operativos: [], operativosNivel: {} }
-    }
+var _MESES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
+                 "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+var _DIAS_ES = ["DOMINGO", "LUNES", "MARTES", "MI\u00C9RCOLES", "JUEVES", "VIERNES", "S\u00C1BADO"];
 
-    var emailsVol = {}, emailsMaq = {}
+var _C_ROJO_HDR = "#C00000";
+var _C_ROJO_BG = "#F8CBAD";
+var _C_AZUL_HDR = "#2E74B5";
+var _C_AZUL_BG = "#DDEBF7";
+var _C_AMARILLO = "#FFFF00";
+var _C_BLANCO = "#FFFFFF";
+var _C_NEGRO = "#000000";
+var _FONT = "Calibri";
 
-    for (var i = 1; i < datos.length; i++) {
-      if (!datos[i][2]) continue
-      var nivelFila = normalizarNivel(datos[i][8])
-      for (var c = 4; c <= 7; c++) {
-        if (!datos[i][c]) continue
-        var fpx = fechaPartesDe(datos[i][c])
-        if (!fpx || (fpx.m - 1) !== config.mes || fpx.y !== año) continue
-        var fechaStr = año + "-" + (config.mes + 1) + "-" + fpx.d
-        var nombre = datos[i][1] || ""
-        var email = String(datos[i][2] || "").trim().toLowerCase()
-        var cargo = String(datos[i][3] || "").trim().toLowerCase()
-        var esMaq = cargo.includes("maquinista")
-        var esVol = cargo.includes("voluntario")
-        if (esMaq) {
-          if (mapa[fechaStr]) { mapa[fechaStr].maquinistas.push(nombre); mapa[fechaStr].maquinistasEmail.push(email) }
-          emailsMaq[email] = true
-        }
-        if (esVol) {
-          if (mapa[fechaStr]) { mapa[fechaStr].voluntarios.push(nombre); mapa[fechaStr].voluntariosEmail.push(email) }
-          emailsVol[email] = true
-        }
-        if (consumeCupoOperativo(nivelFila) && mapa[fechaStr]) {
-          if (!mapa[fechaStr].operativos.includes(nombre)) mapa[fechaStr].operativos.push(nombre)
-          mapa[fechaStr].operativosNivel[nombre] = nivelFila
-        }
-      }
-    }
-    var totalVol = Object.keys(emailsVol).length
-    var totalMaq = Object.keys(emailsMaq).length
+//────────────────────────────────────────────
+// HELPERS CÍVICOS (puros)
+//────────────────────────────────────────────
 
-    function fechaCeldaAStr(val) {
-      if (Object.prototype.toString.call(val) === '[object Date]' && !isNaN(val.getTime())) {
-        return Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-M-d")
-      }
-      var s = String(val || "").trim()
-      return s.replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, "$1-$2-$3")
-    }
+function _formatFechaLarga(key) {
+  var fp = fechaPartesDe(key);
+  if (!fp) return key;
+  var cap = _MESES_ES[fp.m - 1];
+  return fp.d + " de " + cap.charAt(0).toUpperCase() + cap.slice(1);
+}
+function _formatFechaLargaCorto(key) {
+  var fp = fechaPartesDe(key);
+  if (!fp) return key;
+  return fp.d + " de " + _MESES_ES[fp.m - 1];
+}
+function _formatFechaCorta(key) {
+  var fp = fechaPartesDe(key);
+  if (!fp) return key;
+  return pad2(fp.d) + "-" + pad2(fp.m) + "-" + pad2(fp.y % 100);
+}
+function _diaSemana(key) {
+  var fp = fechaPartesDe(key);
+  if (!fp) return "";
+  return _DIAS_ES[new Date(Date.UTC(fp.y, fp.m - 1, fp.d)).getUTCDay()];
+}
+function _ordenarGuardiasPorInicio(guardias) {
+  return guardias.slice().sort(function(a, b) {
+    return a.inicio < b.inicio ? -1 : a.inicio > b.inicio ? 1 : 0;
+  });
+}
+function _tituloHojaDesde(guardias) {
+  if (!guardias.length) return "";
+  var inicio = guardias[0].inicio;
+  var fin = guardias[guardias.length - 1].fin;
+  return "Guardia Nocturna (" + _formatFechaLarga(inicio) + " al " +
+         _formatFechaLargaCorto(fin) + " del " + fechaPartesDe(fin).y + ")";
+}
+function _nombreArchivoGuardias(guardias) {
+  if (!guardias.length) return "Calendario de Guardias";
+  return "Calendario de Guardias - " + _formatFechaCorta(guardias[0].inicio) +
+         " a " + _formatFechaCorta(guardias[guardias.length - 1].fin);
+}
 
-    var asistenciaMap = {}
-    try {
-      var asisSh = ss.getSheetByName("Asistencia")
-      if (asisSh) {
-        var asisData = asisSh.getDataRange().getValues()
-        for (var i = 1; i < asisData.length; i++) {
-          var email = String(asisData[i][0] || "").trim().toLowerCase()
-          if (!email) continue
-          // Find this volunteer's Guardias row to map guardia index → fecha
-          for (var di = 1; di < datos.length; di++) {
-            if (String(datos[di][2] || "").trim().toLowerCase() !== email) continue
-            for (var gi = 0; gi < 4; gi++) {
-              if (!datos[di][4 + gi]) continue
-              var f = datos[di][4 + gi] instanceof Date
-                ? Utilities.formatDate(datos[di][4 + gi], Session.getScriptTimeZone(), "yyyy-M-d")
-                : String(datos[di][4 + gi]).trim()
-              f = fechaCeldaAStr(f)
-              if (!f || !mapa[f]) continue
-              if (!asistenciaMap[f]) asistenciaMap[f] = {}
-              asistenciaMap[f][email] = {
-                estado: asisData[i][3 + gi * 3] || "",
-                reemplazoNombre: asisData[i][4 + gi * 3] || ""
-              }
-            }
-            break
-          }
-        }
-      }
-    } catch(e) {}
+//────────────────────────────────────────────
+// MODELO PURA DE LA HOJA (testeable en Node)
+//────────────────────────────────────────────
 
-    function esc(t) { return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") }
-    function abreviar(n){
-      var p = n.trim().split(/\s+/);
-      if(p.length < 2) return p[0] || "";
-      return p[0] + " " + p[1].charAt(0) + ".";
-    }
-
-    // ═════════ GENERAR CELDAS ═════════
-    var celdas = ""
-    for (var i = 0; i < primerDia; i++) {
-      celdas += "<td class='cel empty'></td>"
-    }
-
-    var MIN_FILAS = 7
-    var totalGuardias = 0
-
-    for (var d = 1; d <= totalDias; d++) {
-      var fechaKey = año + "-" + (config.mes + 1) + "-" + d
-      var info = mapa[fechaKey]
-      var totalDia = (info ? info.voluntarios.length + info.maquinistas.length : 0)
-      totalGuardias += totalDia
-
-      // Combinar todas las personas en un array (sin duplicar)
-      var personas = []
-      var seen = {}
-      if (info) {
-        info.voluntarios.forEach(function(n, idx) {
-          var email = info.voluntariosEmail[idx] || ""
-          if (seen[email]) {
-            seen[email].tipo = "m+v"
-            return
-          }
-          seen[email] = {nombre: n, email: email, tipo: "v", operativo: info.operativos.indexOf(n) !== -1, nivel: info.operativosNivel[n] || "INICIAL"}
-          personas.push(seen[email])
-        })
-        info.maquinistas.forEach(function(n, idx) {
-          var email = info.maquinistasEmail[idx] || ""
-          if (seen[email]) {
-            seen[email].tipo = "m+v"
-            return
-          }
-          seen[email] = {nombre: n, email: email, tipo: "m", operativo: info.operativos.indexOf(n) !== -1, nivel: info.operativosNivel[n] || "INICIAL"}
-          personas.push(seen[email])
-        })
-      }
-
-      var filas = Math.max(personas.length, MIN_FILAS)
-      var rowsHtml = ""
-      var reempTexts = []
-      for (var r = 0; r < filas; r++) {
-        if (r < personas.length) {
-          var p = personas[r]
-          var cls = p.tipo === "m" ? "m" : (p.tipo === "m+v" ? "m+v" : "v")
-          var estG = "", estC = "", estNC = "", estR = ""
-          if (p.email && asistenciaMap[fechaKey] && asistenciaMap[fechaKey][p.email]) {
-            var est = asistenciaMap[fechaKey][p.email]
-            if (est.estado === "C") estC = "C"
-            else if (est.estado === "P") estG = "P"
-            else if (est.estado === "NC") estNC = "NC"
-            else if (est.estado === "R") {
-              estR = "R"
-              if (est.reemplazoNombre) reempTexts.push(est.reemplazoNombre)
-            }
-          }
-          var niv = p.nivel || "INICIAL"
-          var letraN = niv === "PROFESIONAL" ? "P" : (niv === "OPERATIVO" ? "O" : "I")
-          var claseN = niv === "PROFESIONAL" ? "lv-p" : (niv === "OPERATIVO" ? "lv-o" : "lv-i")
-          rowsHtml += "<tr class='pr'><td class='" + cls + "'><span class='lv " + claseN + "' title='" + niv + "'>" + letraN + "</span>" + esc(abreviar(p.nombre)) + "</td>" +
-            "<td class='asis-cell'>" + estC + "</td>" +
-            "<td class='asis-cell'>" + estG + "</td>" +
-            "<td class='asis-cell'>" + estNC + "</td>" +
-            "<td class='asis-cell'>" + estR + "</td></tr>"
-        } else {
-          rowsHtml += "<tr class='pr'><td></td><td class='asis-cell'></td><td class='asis-cell'></td><td class='asis-cell'></td><td class='asis-cell'></td></tr>"
-        }
-      }
-
-      var reempHtml = ""
-      if (reempTexts.length) {
-        reempHtml = '<div class="reemp-info">' + reempTexts.map(function(n){
-          return esc(n) + " REEMPLAZA"
-        }).join("<br>") + '</div>'
-      }
-
-      var countClass = ""
-      if (totalDia > 0) countClass = " has-guardias"
-      var colIdx = (primerDia + d - 1) % 7
-      if (colIdx >= 5) countClass += " finde"
-
-      celdas += "<td class='cel" + countClass + "'>" +
-        "<div class='cel-head'><span class='dia-n'>" + d + "</span>" +
-        (totalDia > 0 ? "<span class='dia-count'>" + totalDia + "</span>" : "") +
-        "</div>" +
-        "<table class='itbl'><thead><tr><th></th><th>C</th><th>P</th><th>NC</th><th>R</th></tr></thead><tbody>" +
-        rowsHtml + "</tbody></table>" + reempHtml + "</td>"
-
-      if ((primerDia + d) % 7 === 0 && d < totalDias) celdas += "</tr><tr>"
-    }
-
-    var ultimo = (primerDia + totalDias) % 7
-    if (ultimo !== 0) {
-      for (var i = ultimo; i < 7; i++) celdas += "<td class='cel empty'></td>"
-    }
-
-    // ═════════ HTML FINAL ═════════
-    var html = "<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>" +
-      "<title>Guardias \u2014 1ra Compa\u00F1\u00EDa CBC \u2014 " + mes.charAt(0).toUpperCase() + mes.slice(1) + " " + año + "</title>" +
-      "<style>" +
-      "@page{margin:12mm 4mm;size:A4}" +
-      "*{box-sizing:border-box;margin:0;padding:0}" +
-      "body{font-family:Georgia,'Times New Roman',serif;font-size:10pt;color:#222;line-height:1.5;padding:4px 4px;max-width:100%;overflow-x:auto}" +
-      ".wrapper{width:100%;margin:0 auto;padding:0}" +
-
-      // ═══ HEADER ═══
-      ".hdr{display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:2px solid #9b1a1a;margin-bottom:12px}" +
-      ".hdr-logo{width:36px;height:36px;border-radius:50%;border:2px solid #9b1a1a;object-fit:cover}" +
-      ".hdr-l{flex:1}" +
-      ".hdr-tit{font-size:13pt;font-weight:700;color:#0e0e0e;letter-spacing:-0.2px}" +
-      ".hdr-sub{font-size:6.5pt;letter-spacing:2px;text-transform:uppercase;color:#9b1a1a;font-weight:600;margin-top:1px}" +
-      ".hdr-r{text-align:right}" +
-      ".hdr-r .hdr-mes{font-size:11pt;font-weight:600;color:#0e0e0e}" +
-
-      // ═══ ESTADÍSTICAS ═══
-      ".stats{display:flex;justify-content:center;gap:24px;margin:0 0 14px}" +
-      ".stat{text-align:center;min-width:100px}" +
-      ".stat-num{font-size:16pt;font-weight:700;display:block;color:#0e0e0e}" +
-      ".stat-label{font-size:7pt;letter-spacing:2px;text-transform:uppercase;color:#999;margin-top:1px}" +
-      ".stat-bar{display:block;width:28px;height:2px;margin:3px auto 0}" +
-      ".stat-bar.red{background:#9b1a1a}" +
-      ".stat-bar.blue{background:#1a3a9b}" +
-      ".stat-bar.black{background:#0e0e0e}" +
-      ".stat-bar.gray{background:#bbb}" +
-
-      // ═══ TABLA ═══
-      "table{border-collapse:collapse;width:100%;table-layout:fixed}" +
-      "thead th{background:#0e0e0e;color:#fff;padding:6px 4px;font-size:7.5pt;letter-spacing:2px;text-align:center;font-weight:600;font-family:'Helvetica Neue',Arial,sans-serif}" +
-      "tbody td{border:1px solid #d4d0cc;padding:4px 4px;min-height:80px;height:auto;width:14.28%;vertical-align:top}" +
-      "td.empty{border:none;background:transparent;height:auto}" +
-
-      // ═══ CELDA ═══
-      ".cel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1px}" +
-      ".dia-n{font-size:10pt;font-weight:700;color:#999}" +
-      ".has-guardias .dia-n{color:#0e0e0e}" +
-      ".dia-count{font-size:7pt;font-weight:600;color:#9b1a1a;background:#f5f0ee;padding:1px 6px;border-radius:8px;letter-spacing:0.3px}" +
-
-      // ═══ MINI-TABLA INTERNA ═══
-      ".itbl{width:100%;border-collapse:collapse;table-layout:fixed}" +
-      ".itbl thead th{background:none;color:#999;padding:2px 3px;font-size:6pt;letter-spacing:1px;text-align:center;font-weight:600;font-family:'Helvetica Neue',Arial,sans-serif;border:none;border-bottom:1px solid #bbb}" +
-      ".itbl thead th:first-child{width:44%;text-align:left}" +
-      ".itbl thead th:nth-child(2){width:14%}" +
-      ".itbl thead th:nth-child(3){width:14%}" +
-      ".itbl thead th:nth-child(4){width:14%}" +
-      ".itbl thead th:nth-child(5){width:14%}" +
-      ".itbl td{padding:0;border:none;height:20px;font-size:6.5pt;line-height:20px;font-family:'Helvetica Neue',Arial,sans-serif;vertical-align:middle}" +
-      ".itbl .pr td{border-bottom:1px solid #e0ddd9;padding:0 2px}" +
-      ".itbl .pr td:first-child{padding-left:4px;border-left:3px solid transparent;font-size:6pt}" +
-      ".itbl .pr td.v{border-left-color:#9b1a1a;color:#333;font-weight:500}" +
-      ".itbl .pr td.m{border-left-color:#1a3a9b;color:#555}" +
-      ".itbl .pr td.m\\+v{border-left-color:transparent;background:linear-gradient(135deg,#1a3a9b,#6b2fa0);color:#333;font-weight:700}" +
-      ".op-badge{display:inline-block;background:#f0c040;color:#333;font-size:5pt;font-weight:700;padding:0 3px;border-radius:2px;margin-right:3px;letter-spacing:0.5px;line-height:12px;vertical-align:middle}" +
-
-      ".lv{display:inline-block;min-width:12px;padding:0 3px;border-radius:2px;font-size:5pt;font-weight:700;line-height:12px;text-align:center;margin-right:3px;vertical-align:middle}" +
-      ".lv-i{background:#e3edfb;color:#1a56b0}" +
-      ".lv-o{background:#e2f3e8;color:#1a6b3a}" +
-      ".lv-p{background:#efe6fa;color:#6b2fa0}" +
-      "td.cel.finde{background:#faf7f1}" +
-      ".leyenda-nivel{display:flex;justify-content:center;align-items:center;gap:16px;font-size:6.5pt;color:#888;margin:-8px 0 12px;font-family:'Helvetica Neue',Arial,sans-serif}" +
-      ".leyenda-nivel .lv{margin-right:2px}" +
-      ".reemp-info{font-size:5.5pt;color:#1a3a9b;font-family:'Helvetica Neue',Arial,sans-serif;line-height:1.5;padding:4px 2px 0;border-top:1px dashed #bbb;margin-top:3px}" +
-      ".itbl .pr td:not(:first-child){text-align:center}" +
-      ".asis-cell{font-weight:600;font-size:6.5pt;color:#444}" +
-
-      // ═══ INSTRUCCIÓN (solo en pantalla) ═══
-      ".topbar{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#f9f6f4 0%,#fff 100%);border:1px solid #e0ddd9;border-left:4px solid #9b1a1a;padding:8px 14px;margin-bottom:12px;border-radius:4px;font-family:'Helvetica Neue',Arial,sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.06)}" +
-      ".topbar .hint{flex:1;font-size:9pt;color:#666;line-height:1.5}" +
-      ".topbar .hint kbd{display:inline-block;background:#f0eeeb;border:1px solid #d4d0cc;padding:1px 5px;font-size:8pt;border-radius:3px;font-family:monospace;color:#555}" +
-      ".topbar .btn-pdf{background:#9b1a1a;color:#fff;border:none;padding:7px 14px;font-size:9pt;border-radius:3px;cursor:pointer;font-weight:600;letter-spacing:0.3px;white-space:nowrap}" +
-      ".topbar .btn-pdf:hover{background:#7a1313}" +
-      ".topbar .btn-pdf:active{transform:scale(0.97)}" +
-      ".topbar .btn-close{background:none;border:1px solid #d4d0cc;color:#888;padding:7px 12px;font-size:9pt;border-radius:3px;cursor:pointer;white-space:nowrap}" +
-      ".topbar .btn-close:hover{background:#f0eeeb;color:#555}" +
-      ".topbar .btn-close:active{transform:scale(0.97)}" +
-      "@media print{.topbar{display:none}}" +
-
-      // ═══ FOOTER ═══
-      ".ftr{display:flex;justify-content:space-between;align-items:center;padding-top:6px;margin-top:10px;border-top:1px solid #d4d0cc;font-size:6.5pt;color:#999;font-family:'Helvetica Neue',Arial,sans-serif}" +
-      ".ftr .f-l{text-align:left}" +
-      ".ftr .f-c{text-align:center}" +
-      ".ftr .f-r{text-align:right}" +
-      "@media print{" +
-      "body{padding:0;overflow:visible}" +
-      ".wrapper{max-width:100%;padding:0}" +
-      "td.cel{min-height:50px;height:auto;padding:2px 3px}" +
-      ".dia-n{font-size:9pt}" +
-      ".itbl td{height:18px;font-size:6pt;line-height:18px}}" +
-
-      "</style></head><body>" +
-      "<div class='wrapper'>" +
-
-      "<div class='topbar'>" +
-        "<span class='hint'>\u2B07 Presion\u00E1 <kbd>Ctrl+P</kbd> o hac\u00E9 clic en <strong>Descargar</strong> — luego eleg\u00ED <strong>Guardar como PDF</strong> en el di\u00E1logo.</span>" +
-        "<button class='btn-pdf' onclick='window.print()'>\u2B07 Descargar PDF</button>" +
-        "<button class='btn-close' onclick='window.close()'>\u2715 Cerrar</button>" +
-      "</div>" +
-
-      // ═══ HEADER ═══
-      "<div class='hdr'>" +
-        "<img class='hdr-logo' src='https://drive.google.com/thumbnail?id=1KGkEIbJWCCy8qYYWf-bjmTE7PC5UznAI&sz=w200' alt=''>" +
-        "<div class='hdr-l'>" +
-          "<div class='hdr-tit'>Calendario de Guardias</div>" +
-          "<div class='hdr-sub'>1ra C\u00EDa de Bomberos del CBC</div>" +
-        "</div>" +
-        "<div class='hdr-r'>" +
-          "<div class='hdr-mes'>" + mes.charAt(0).toUpperCase() + mes.slice(1) + " " + año + "</div>" +
-        "</div>" +
-      "</div>" +
-
-      // ═══ ESTADÍSTICAS ═══
-      "<div class='stats'>" +
-        "<div class='stat'><span class='stat-num'>" + totalVol + "</span><span class='stat-label'>Voluntarios</span><span class='stat-bar red'></span></div>" +
-        "<div class='stat'><span class='stat-num'>" + totalMaq + "</span><span class='stat-label'>Maquinistas</span><span class='stat-bar blue'></span></div>" +
-        "<div class='stat'><span class='stat-num'>" + (totalVol + totalMaq) + "</span><span class='stat-label'>Personal</span><span class='stat-bar black'></span></div>" +
-        "<div class='stat'><span class='stat-num'>" + totalGuardias + "</span><span class='stat-label'>Guardias</span><span class='stat-bar gray'></span></div>" +
-      "</div>" +
-
-      "<div class='leyenda-nivel'>" +
-        "<span>Niveles:</span>" +
-        "<span><span class='lv lv-i'>I</span> Inicial</span>" +
-        "<span><span class='lv lv-o'>O</span> Operativo</span>" +
-        "<span><span class='lv lv-p'>P</span> Profesional</span>" +
-      "</div>" +
-
-      // ═══ TABLA ═══
-      "<table><thead><tr>" +
-      diasSemana.map(function(d) { return "<th>" + d + "</th>" }).join("") +
-      "</tr></thead><tbody><tr>" + celdas + "</tr></tbody></table>" +
-
-      // ═══ FOOTER ═══
-      "<div class='ftr'>" +
-        "<span class='f-l'>1ra Compa\u00F1\u00EDa de Bomberos del CBC</span>" +
-        "<span class='f-r'>Generado: " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm") + "</span>" +
-      "</div>" +
-      "</div>" +
-      "</body></html>"
-
-    return { ok: true, html: html, mesLabel: mes.charAt(0).toUpperCase() + mes.slice(1), año: año }
-  } catch (e) {
-    return { ok: false, error: e.toString() }
+function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales) {
+  if (!guardias || !guardias.length) {
+    return { ok: false, error: "No existen guardias programadas para generar." };
   }
+  var orden = _ordenarGuardiasPorInicio(guardias);
+  var inicio = orden[0].inicio;
+  var fin = orden[orden.length - 1].fin;
+
+  var dias = [];
+  for (var k = inicio; k <= fin; k = sumarDiasCivil(k, 1)) {
+    dias.push({ key: k, nombre: _diaSemana(k), corta: _formatFechaCorta(k), esGuardia: esDiaGuardiaEn(orden, k) });
+  }
+  if (!dias.length) return { ok: false, error: "No existen guardias programadas para generar." };
+
+  var bloques = [];
+  for (var b = 0; b < dias.length; b += _N_DIAS) bloques.push(dias.slice(b, b + _N_DIAS));
+
+  var porDia = (oficiales && oficiales.porDia) || {};
+  var notaOficial = (oficiales && oficiales.nota) || "No existe fuente de datos suficiente para determinar el oficial.";
+
+  var GRID = [];
+  var merges = [];
+  var estilos = [];
+  var indice = {};
+  var altoFilas = { 1: 22, 3: 15, 4: 15 };
+
+  function setVal(r, c, v) {
+    if (!GRID[r - 1]) GRID[r - 1] = [];
+    GRID[r - 1][c - 1] = v;
+  }
+  function addMerge(r1, c1, r2, c2) { merges.push({ r1: r1, c1: c1, r2: r2, c2: c2 }); }
+  function addStyle(s) { estilos.push(s); }
+  function baseDia(i) { return _COL_LABEL + 1 + i * _N_SUB; }
+
+  // ── Título
+  setVal(1, 1, _tituloHojaDesde(orden));
+  addMerge(1, 1, 1, _TOTAL_COLS);
+  addStyle({ r1: 1, c1: 1, r2: 1, c2: _TOTAL_COLS, bold: true, size: 13, align: "center", valign: "middle", wrap: true });
+  altoFilas[1] = 22;
+
+  // ── Encabezado general (una sola vez), filas 3 y 4
+  addMerge(3, 1, 4, 1);
+  for (var d = 0; d < _N_DIAS; d++) {
+    var base = baseDia(d);
+    addMerge(3, base, 4, base);
+    setVal(3, base, "Fecha\nGuardia");
+    addStyle({ r1: 3, c1: base, r2: 4, c2: base, bold: true, size: 8, align: "center", valign: "middle", wrap: true });
+    addMerge(3, base + 1, 3, base + 2);
+    setVal(3, base + 1, "Cumple");
+    addStyle({ r1: 3, c1: base + 1, r2: 3, c2: base + 2, bold: true, size: 8, align: "center", valign: "middle" });
+    setVal(4, base + 1, "Si");
+    setVal(4, base + 2, "No");
+    addStyle({ r1: 4, c1: base + 1, r2: 4, c2: base + 2, bold: true, size: 8, align: "center", valign: "middle" });
+    addMerge(3, base + 3, 3, base + 4);
+    setVal(3, base + 3, "Cubre");
+    addStyle({ r1: 3, c1: base + 3, r2: 3, c2: base + 4, bold: true, size: 8, align: "center", valign: "middle" });
+  }
+
+  // anchos de columna (etiqueta 11; por día 15 + 4 × 4,2)
+  var anchoColumnas = {};
+  anchoColumnas[_COL_LABEL] = 11;
+  for (var d2 = 0; d2 < _N_DIAS; d2++) {
+    var b2 = baseDia(d2);
+    anchoColumnas[b2] = 15;
+    anchoColumnas[b2 + 1] = 4.2;
+    anchoColumnas[b2 + 2] = 4.2;
+    anchoColumnas[b2 + 3] = 4.2;
+    anchoColumnas[b2 + 4] = 4.2;
+  }
+
+  function maqDe(dd) { return (personas[dd.key] || []).filter(function(p) { return p.esMaq; }); }
+  function volsDe(dd) { return (personas[dd.key] || []).filter(function(p) { return !p.esMaq; }); }
+
+  function filaDatosPersona(r, i, dd, lista, bg) {
+    var base = baseDia(i);
+    addStyle({ r1: r, c1: base, r2: r, c2: base, bg: bg, size: 8, align: "center", valign: "middle", wrap: true });
+    addStyle({ r1: r, c1: base + 1, r2: r, c2: base + _N_SUB - 1, bg: bg, size: 8, align: "center", valign: "middle", bold: true });
+    var Si = "", No = "", Cubre1 = "", Cubre2 = "";
+    lista.forEach(function(p) {
+      var est = asisEstado[p.email + "|" + dd.key];
+      if (est === "C") Si = "X";
+      else if (est === "NC") No = "X";
+      else if (est === "R") Cubre1 = "X";
+      else if (est === "P") Si = "P";
+    });
+    setVal(r, base, lista.map(function(p) { return p.nombre; }).join(", ") || "");
+    setVal(r, base + 1, Si);
+    setVal(r, base + 2, No);
+    setVal(r, base + 3, Cubre1);
+    setVal(r, base + 4, Cubre2);
+  }
+
+  // ── Bloques semanales
+  var row = 5;
+  bloques.forEach(function(bloque) {
+    var roja = !!bloque[0].esGuardia;
+    var hdr = roja ? _C_ROJO_HDR : _C_AZUL_HDR;
+    var bg = roja ? _C_ROJO_BG : _C_AZUL_BG;
+    var maxVol = 1;
+    bloque.forEach(function(dd) { var v = volsDe(dd); if (v.length > maxVol) maxVol = v.length; });
+
+    var rDia = row, rObac = row + 1, rMaq = row + 2, rVol0 = row + 3;
+    var rOf = row + 3 + maxVol;
+
+    // fila de día
+    bloque.forEach(function(dd, i) {
+      var base = baseDia(i);
+      addMerge(rDia, base, rDia, base + _N_SUB - 1);
+      setVal(rDia, base, dd.nombre + "\n" + dd.corta);
+      addStyle({ r1: rDia, c1: base, r2: rDia, c2: base + _N_SUB - 1, bg: hdr, bold: true, size: 8, color: _C_BLANCO, align: "center", valign: "middle", wrap: true });
+    });
+    altoFilas[rDia] = 26;
+
+    var volRows = [];
+    for (var v = 0; v < maxVol; v++) volRows.push(rVol0 + v);
+
+    bloque.forEach(function(dd, i) { indice[dd.key] = { dia: rDia, obac: rObac, maq: rMaq, vol: volRows, oficial: rOf, roja: roja, inicio: bloque[0].key }; });
+
+    // OBAC (sin dato en el modelo → vacío)
+    setVal(rObac, _COL_LABEL, "OBAC");
+    addStyle({ r1: rObac, c1: _COL_LABEL, r2: rObac, c2: _COL_LABEL, bold: true, size: 8, align: "left", valign: "middle" });
+    for (var i2 = 0; i2 < _N_DIAS; i2++) {
+      var b3 = baseDia(i2);
+      setVal(rObac, b3, "");
+      addStyle({ r1: rObac, c1: b3, r2: rObac, c2: b3 + _N_SUB - 1, bg: bg, size: 8, align: "center", valign: "middle", wrap: true });
+    }
+
+    // Maquinista
+    setVal(rMaq, _COL_LABEL, "Maquinista");
+    addStyle({ r1: rMaq, c1: _COL_LABEL, r2: rMaq, c2: _COL_LABEL, bold: true, size: 8, align: "left", valign: "middle" });
+    bloque.forEach(function(dd, i) { filaDatosPersona(rMaq, i, dd, maqDe(dd), bg); });
+
+    // Voluntarios (etiqueta vertical; 1 fila por voluntario máximo del bloque)
+    addMerge(rVol0, _COL_LABEL, rVol0 + maxVol - 1, _COL_LABEL);
+    setVal(rVol0, _COL_LABEL, "VOLUNTARIOS");
+    addStyle({ r1: rVol0, c1: _COL_LABEL, r2: rVol0 + maxVol - 1, c2: _COL_LABEL, bold: true, size: 8, align: "center", valign: "middle", rotate: 90, wrap: true });
+    for (var v2 = 0; v2 < maxVol; v2++) {
+      var rv = rVol0 + v2;
+      bloque.forEach(function(dd, i) {
+        var lista2 = volsDe(dd);
+        filaDatosPersona(rv, i, dd, lista2[v2] ? [lista2[v2]] : [], bg);
+      });
+    }
+
+    // Oficial de (dato del bloque; hoy sin fuente → en blanco)
+    setVal(rOf, _COL_LABEL, "Oficial de");
+    addStyle({ r1: rOf, c1: _COL_LABEL, r2: rOf, c2: _COL_LABEL, bold: true, size: 8, align: "left", valign: "middle", bg: _C_AMARILLO });
+    var nombreOf = "";
+    bloque.forEach(function(dd) { if (!nombreOf && porDia[dd.key]) nombreOf = porDia[dd.key]; });
+    addMerge(rOf, _COL_LABEL + 1, rOf, _TOTAL_COLS);
+    setVal(rOf, _COL_LABEL + 1, nombreOf);
+    addStyle({ r1: rOf, c1: _COL_LABEL + 1, r2: rOf, c2: _TOTAL_COLS, bold: true, size: 9, align: "left", valign: "middle", bg: _C_AMARILLO });
+
+    row = rOf + 1;
+  });
+
+  var totalFilas = GRID.length;
+  for (var ir = 1; ir <= totalFilas; ir++) {
+    if (!GRID[ir - 1]) GRID[ir - 1] = [];
+    for (var ic = 1; ic <= _TOTAL_COLS; ic++) {
+      if (GRID[ir - 1][ic - 1] === undefined) GRID[ir - 1][ic - 1] = "";
+    }
+  }
+
+  return {
+    ok: true,
+    nombre: _nombreArchivoGuardias(orden),
+    titulo: _tituloHojaDesde(orden),
+    valores: GRID,
+    merges: merges,
+    estilos: estilos,
+    indice: indice,
+    anchoColumnas: anchoColumnas,
+    altoFilas: altoFilas,
+    freezeRows: 3,
+    freezeCols: 1,
+    areaBorde: { r1: 1, c1: 1, r2: totalFilas, c2: _TOTAL_COLS },
+    notaOficial: notaOficial
+  };
+}
+
+// Oficial de guardia a partir de registros con cargo "oficial".
+// Hoy no existe ese cargo → porDia vacío y nota informativa.
+function _oficialesPosibles(guardias, registros) {
+  var porDia = {};
+  (registros || []).forEach(function(r) {
+    var cargo = String(r.cargo || "").toLowerCase();
+    if (cargo.indexOf("oficial") === -1) return;
+    (r.fechas || []).forEach(function(fecha) {
+      var fp = fechaPartesDe(fecha);
+      if (!fp) return;
+      porDia[fp.y + "-" + pad2(fp.m) + "-" + pad2(fp.d)] = r.nombre;
+    });
+  });
+  return {
+    porDia: porDia,
+    nota: Object.keys(porDia).length ? "" : "No existe fuente de datos suficiente para determinar el oficial."
+  };
+}
+
+//────────────────────────────────────────────
+// ORQUESTADOR SERVER (Apps Script)
+//────────────────────────────────────────────
+
+function generarHojaGuardias() {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var guardias = _ordenarGuardiasPorInicio(obtenerGuardias().guardias);
+    if (!guardias.length) {
+      return { ok: false, error: "No existen guardias programadas para generar." };
+    }
+    var inicio = guardias[0].inicio;
+    var fin = guardias[guardias.length - 1].fin;
+
+    var registros = leerFilasGuardias();
+    var personas = {};
+    registros.forEach(function(f) {
+      var esMaq = String(f.cargo || "").toLowerCase().indexOf("maquinista") !== -1;
+      var esVol = String(f.cargo || "").toLowerCase().indexOf("voluntario") !== -1;
+      if (!esMaq && !esVol) return;
+      (f.fechas || []).forEach(function(fecha) {
+        var fp = fechaPartesDe(fecha);
+        if (!fp) return;
+        var keyF = fp.y + "-" + pad2(fp.m) + "-" + pad2(fp.d);
+        if (keyF < inicio || keyF > fin) return;
+        if (!personas[keyF]) personas[keyF] = [];
+        var ya = personas[keyF].some(function(p) { return p.email === f.email; });
+        if (ya) return;
+        personas[keyF].push({ nombre: f.nombre, email: f.email, nivel: f.nivel || "INICIAL", esMaq: esMaq, esVol: esVol });
+      });
+    });
+
+    // Asistencia: email|fecha → estado (C/P/NC/R)
+    var asisEstado = {};
+    try {
+      var asisSh = ss.getSheetByName("Asistencia");
+      if (asisSh) {
+        var asisData = asisSh.getDataRange().getValues();
+        var asisByEmail = {};
+        for (var i = 1; i < asisData.length; i++) {
+          var em = String(asisData[i][0] || "").trim().toLowerCase();
+          if (em) asisByEmail[em] = asisData[i];
+        }
+        registros.forEach(function(f) {
+          var rowA = asisByEmail[f.email];
+          if (!rowA) return;
+          (f.fechas || []).forEach(function(fecha, gi) {
+            var fp = fechaPartesDe(fecha);
+            if (!fp) return;
+            var keyF = fp.y + "-" + pad2(fp.m) + "-" + pad2(fp.d);
+            if (keyF < inicio || keyF > fin) return;
+            var est = String(rowA[3 + gi * 3] || "").trim();
+            if (est) asisEstado[f.email + "|" + keyF] = est;
+          });
+        });
+      }
+    } catch (e) { Logger.log("generarHojaGuardias/asistencia: " + e); }
+
+    var oficiales = _oficialesPosibles(guardias, registros);
+    var modelo = _modeloHojaGuardias(guardias, personas, asisEstado, oficiales);
+    if (!modelo.ok) return { ok: false, error: modelo.error };
+
+    var archivo = SpreadsheetApp.create(modelo.nombre);
+    var sheet = archivo.getSheets()[0];
+    sheet.setName(_HOJA_NOMBRE);
+    _aplicarModelo(sheet, modelo);
+    _moverACarpetaCalendarios(archivo);
+
+    return { ok: true, url: archivo.getUrl(), nombre: modelo.nombre, titulo: modelo.titulo, notaOficial: modelo.notaOficial };
+  } catch (e) {
+    Logger.log("generarHojaGuardias: " + e);
+    return { ok: false, error: "No se pudo generar el calendario de guardias." };
+  }
+}
+
+function _aplicarModelo(sheet, m) {
+  var nf = m.valores.length;
+  if (nf && m.valores[0] && m.valores[0].length) {
+    sheet.getRange(1, 1, nf, m.valores[0].length).setValues(m.valores);
+  }
+  m.merges.forEach(function(me) {
+    try { sheet.getRange(me.r1, me.c1, me.r2 - me.r1 + 1, me.c2 - me.c1 + 1).merge(); } catch (e) { Logger.log("merge: " + e); }
+  });
+  try {
+    sheet.getRange(m.areaBorde.r1, m.areaBorde.c1, m.areaBorde.r2 - m.areaBorde.r1 + 1, m.areaBorde.c2 - m.areaBorde.c1 + 1)
+        .setBorder(true, true, true, true, false, false, _C_NEGRO, SpreadsheetApp.BorderStyle.SOLID);
+  } catch (e) { Logger.log("bordes: " + e); }
+  m.estilos.forEach(function(s) {
+    try {
+      var rng = sheet.getRange(s.r1, s.c1, s.r2 - s.r1 + 1, s.c2 - s.c1 + 1);
+      if (s.bg) rng.setBackground(s.bg);
+      var f = SpreadsheetApp.newTextStyle();
+      if (s.bold) f.setBold(true);
+      f.setFontFamily(_FONT);
+      f.setFontSize(s.size || 8);
+      if (s.color) f.setForegroundColor(s.color);
+      rng.setTextStyle(f.build());
+      rng.setVerticalAlignment(s.valign || "middle");
+      rng.setHorizontalAlignment(s.align || "center");
+      if (s.wrap) rng.setWrap(true);
+      if (s.rotate) rng.setTextRotation(s.rotate);
+    } catch (e) { Logger.log("estilo: " + e); }
+  });
+  Object.keys(m.anchoColumnas).forEach(function(c) { sheet.setColumnWidth(parseInt(c, 10), m.anchoColumnas[c]); });
+  Object.keys(m.altoFilas).forEach(function(r) { sheet.setRowHeight(parseInt(r, 10), m.altoFilas[r]); });
+  sheet.setFrozenRows(m.freezeRows);
+  sheet.setFrozenColumns(m.freezeCols);
+  _configurarImpresion(sheet);
+}
+
+function _moverACarpetaCalendarios(archivo) {
+  var carpeta = null;
+  var it = DriveApp.getFoldersByName(_CARPETA_CALENDARIOS);
+  if (it.hasNext()) carpeta = it.next();
+  else carpeta = DriveApp.createFolder(_CARPETA_CALENDARIOS);
+  var archivoDrive = DriveApp.getFileById(archivo.getId());
+  archivoDrive.moveTo(carpeta);
+}
+
+function _configurarImpresion(sheet) {
+  // Configuración razonable si luego se imprime la hoja (sin generar PDF).
+  try {
+    var ps = sheet.getPageSetup();
+    try { ps.setOrientation(SpreadsheetApp.PageOrientation.LANDSCAPE); } catch (e2) {}
+    try { ps.setFitToWidth(1); ps.setFitToHeight(0); } catch (e3) {}
+    try { ps.setMarginTop(0.3); ps.setMarginBottom(0.3); ps.setMarginLeft(0.3); ps.setMarginRight(0.3); } catch (e4) {}
+  } catch (e) { Logger.log("configurarImpresion: " + e); }
 }

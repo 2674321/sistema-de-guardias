@@ -9,7 +9,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const src = (f) => readFileSync(join(root, "src", f), "utf-8");
 
 // Cargar módulos portables en este contexto
-new Function(src("Reglas.gs") + "\n" + src("Tests.gs") + "\n; return { pruebasPuras };")()
+new Function(src("Reglas.gs") + "\n" + src("Exportar.js") + "\n" + src("Tests.gs") + "\n; return { pruebasPuras };")()
   .pruebasPuras()
   .forEach((r) => {
     console.log((r.ok ? "  ✓ " : "  ✗ ") + r.nombre + (r.ok ? "" : " — " + r.error));

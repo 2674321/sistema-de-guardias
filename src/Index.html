@@ -1475,9 +1475,19 @@
     <div class="masthead-right">
       <a href="mailto:ayudantec1@bomberosdecoquimbo.cl">✉ ayudantec1@bomberosdecoquimbo.cl</a>
     </div>
-    <button class="pdf-btn" onclick="exportarPDF()">PDF</button>
+    <button class="pdf-btn" onclick="generarGuardias()">Guardias</button>
   </div>
 </header>
+
+<div id="hoja-modal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;" role="dialog" aria-modal="true" aria-labelledby="hoja-modal-title">
+  <div style="background:#fff;border-radius:12px;max-width:420px;width:90%;padding:26px 24px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.35);font-family:'Helvetica Neue',Arial,sans-serif;">
+    <div style="font-size:34px;line-height:1;">✔</div>
+    <div id="hoja-modal-title" style="font-size:16px;font-weight:700;color:#1c1c1c;margin:10px 0 4px;">Calendario generado correctamente.</div>
+    <div id="hoja-modal-name" style="font-size:12px;color:#777;margin-bottom:16px;"></div>
+    <a id="hoja-modal-link" href="#" target="_blank" rel="noopener" style="display:block;background:#9b1a1a;color:#fff;text-decoration:none;padding:11px 18px;border-radius:8px;font-weight:600;font-size:14px;">Abrir hoja</a>
+    <button onclick="cerrarModalHoja()" style="display:block;margin:10px auto 0;background:none;border:1px solid #d4d0cc;color:#888;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:12px;">Cerrar</button>
+  </div>
+</div>
 
 <div id="estado-conexion" class="ecx off" role="status" aria-live="polite">✕ Sin conexión</div>
 
@@ -3352,37 +3362,45 @@ function ocultarMensajesEliminar(){
 }
 
 //══════════════════════════════════════
-// EXPORTAR PDF
+// GENERAR HOJA DE GUARDIAS (Google Sheet en Drive)
 
-function exportarPDF(){
+function generarGuardias(){
   const btn = document.querySelector('.pdf-btn');
+  if(!btn) return;
   const txt = btn.textContent;
   btn.disabled = true;
-  btn.textContent = "...";
+  btn.textContent = "Generando...";
+  mostrarToast("Generando calendario de guardias...");
 
   google.script.run
     .withSuccessHandler(resp => {
       btn.disabled = false;
       btn.textContent = txt;
-      if(!resp.ok){
-        alert("Error: "+(resp.error||"desconocido"));
+      if(!resp || !resp.ok){
+        if(resp && resp.error === "No existen guardias programadas para generar."){
+          alert(resp.error);
+        } else {
+          alert("No se pudo generar el calendario de guardias.");
+        }
         return;
       }
-      var blob = new Blob([resp.html], { type: 'text/html' });
-      var url = URL.createObjectURL(blob);
-      var w = window.open(url, '_blank');
-      if(!w || w.closed){
-        alert("Permití ventanas emergentes para descargar el PDF.");
-        return;
-      }
-      URL.revokeObjectURL(url);
+      document.getElementById("hoja-modal-link").href = resp.url;
+      document.getElementById("hoja-modal-name").textContent = resp.nombre || "";
+      document.getElementById("hoja-modal").style.display = "flex";
+      if(resp.notaOficial && console) console.log("[Guardias] " + resp.notaOficial);
     })
-    .withFailureHandler(function(err){
+    .withFailureHandler(err => {
       btn.disabled = false;
       btn.textContent = txt;
-      alert("Error: "+(err.message||err));
+      alert("No se pudo generar el calendario de guardias.");
+      if(console) console.error("[Guardias] " + ((err && err.message) || err));
     })
-    .generarPDF();
+    .generarHojaGuardias();
+}
+
+function cerrarModalHoja(){
+  var m = document.getElementById("hoja-modal");
+  if(m) m.style.display = "none";
 }
 
 //══════════════════════════════════════
