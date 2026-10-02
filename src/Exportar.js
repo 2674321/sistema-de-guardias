@@ -359,12 +359,20 @@ function generarHojaGuardias() {
     var sheet = archivo.getSheets()[0];
     sheet.setName(_HOJA_NOMBRE);
     _aplicarModelo(sheet, modelo);
-    _moverACarpetaCalendarios(archivo);
 
-    return { ok: true, url: archivo.getUrl(), nombre: modelo.nombre, titulo: modelo.titulo, notaOficial: modelo.notaOficial };
+    var ubicacion = "Raíz de Google Drive";
+    try {
+      _moverACarpetaCalendarios(archivo);
+      ubicacion = "Carpeta Drive \"" + _CARPETA_CALENDARIOS + "\"";
+    } catch (e2) {
+      Logger.log("generarHojaGuardias/carpeta (best-effort): " + e2);
+      ubicacion = "Raíz de Google Drive (carpeta \"" + _CARPETA_CALENDARIOS + "\" no disponible: " + e2 + ")";
+    }
+
+    return { ok: true, url: archivo.getUrl(), nombre: modelo.nombre, titulo: modelo.titulo, ubicacion: ubicacion, notaOficial: modelo.notaOficial };
   } catch (e) {
     Logger.log("generarHojaGuardias: " + e);
-    return { ok: false, error: "No se pudo generar el calendario de guardias." };
+    return { ok: false, error: "No se pudo generar el calendario de guardias.", detalle: String(e) };
   }
 }
 
