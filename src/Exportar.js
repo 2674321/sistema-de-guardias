@@ -104,18 +104,35 @@ function _nombreArchivoGuardias(guardias) {
 // MODELO PURA DE LA HOJA (testeable en Node)
 //────────────────────────────────────────────
 
+// Días del calendario (primer inicio → último fin), con marca de guardia.
+function _diasCalendario(guardias) {
+  var orden = _ordenarGuardiasPorInicio(guardias);
+  var dias = [];
+  if (!orden.length) return dias;
+  for (var k = orden[0].inicio; k <= orden[orden.length - 1].fin; k = sumarDiasCivil(k, 1)) {
+    dias.push({ key: k, nombre: _diaSemana(k), corta: _formatFechaCorta(k), esGuardia: esDiaGuardiaEn(orden, k) });
+  }
+  return dias;
+}
+
+// Bloques de 7 días (guardia / descanso) tal como se pintan en la hoja.
+function _bloquesCalendario(guardias) {
+  var dias = _diasCalendario(guardias);
+  var bloques = [];
+  for (var b = 0; b < dias.length; b += _N_DIAS) {
+    var bloque = dias.slice(b, b + _N_DIAS);
+    if (!bloque.length) continue;
+    bloques.push({ inicio: bloque[0].key, fin: bloque[bloque.length - 1].key, esGuardia: bloque[0].esGuardia });
+  }
+  return bloques;
+}
+
 function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales) {
   if (!guardias || !guardias.length) {
     return { ok: false, error: "No existen guardias programadas para generar." };
   }
   var orden = _ordenarGuardiasPorInicio(guardias);
-  var inicio = orden[0].inicio;
-  var fin = orden[orden.length - 1].fin;
-
-  var dias = [];
-  for (var k = inicio; k <= fin; k = sumarDiasCivil(k, 1)) {
-    dias.push({ key: k, nombre: _diaSemana(k), corta: _formatFechaCorta(k), esGuardia: esDiaGuardiaEn(orden, k) });
-  }
+  var dias = _diasCalendario(orden);
   if (!dias.length) return { ok: false, error: "No existen guardias programadas para generar." };
 
   var bloques = [];
@@ -249,7 +266,7 @@ function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales) {
     }
 
     // Oficial de (dato del bloque; hoy sin fuente → en blanco)
-    setVal(rOf, _COL_LABEL, "Oficial de");
+    setVal(rOf, _COL_LABEL, "Oficial de Semana:");
     addStyle({ r1: rOf, c1: _COL_LABEL, r2: rOf, c2: _COL_LABEL, bold: true, size: 8, align: "left", valign: "middle", bg: _C_AMARILLO });
     var nombreOf = "";
     bloque.forEach(function(dd) { if (!nombreOf && porDia[dd.key]) nombreOf = porDia[dd.key]; });
@@ -285,6 +302,19 @@ function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales) {
   };
 }
 
+// Expande el mapa de oficiales por SEMANA (lunes de inicio) a día a día del bloque.
+// Ej.: { "2026-09-14": "102" } → 14..20/09 quedan asignados a "102".
+function _porDiaDesdeOficialesSemana(guardias, oficialesSemana) {
+  var porDia = {};
+  if (!oficialesSemana) return porDia;
+  (guardias || []).forEach(function(g) {
+    var nombre = String(oficialesSemana[g.inicio] || "").trim();
+    if (!nombre) return;
+    for (var k = g.inicio; k <= g.fin; k = sumarDiasCivil(k, 1)) porDia[k] = nombre;
+  });
+  return porDia;
+}
+
 // Oficial de guardia a partir de registros con cargo "oficial".
 // Hoy no existe ese cargo → porDia vacío y nota informativa.
 function _oficialesPosibles(guardias, registros) {
@@ -308,7 +338,7 @@ function _oficialesPosibles(guardias, registros) {
 // ORQUESTADOR SERVER (Apps Script)
 //────────────────────────────────────────────
 
-function generarHojaGuardias() {
+function generarHojaGuardias(oficialesSemana) {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var guardias = _ordenarGuardiasPorInicio(obtenerGuardias().guardias);
@@ -362,7 +392,13 @@ function generarHojaGuardias() {
       }
     } catch (e) { Logger.log("generarHojaGuardias/asistencia: " + e); }
 
-    var oficiales = _oficialesPosibles(guardias, registros);
+    var porDia = _porDiaDesdeOficialesSemana(_bloquesCalendario(guardias), oficialesSemana);
+    var porDiaAuto = _oficialesPosibles(guardias, registros).porDia;
+    Object.keys(porDiaAuto).forEach(function(k) { if (!porDia[k]) porDia[k] = porDiaAuto[k]; });
+    var oficiales = {
+      porDia: porDia,
+      nota: Object.keys(porDia).length ? "" : "No existe fuente de datos suficiente para determinar el oficial."
+    };
     var modelo = _modeloHojaGuardias(guardias, personas, asisEstado, oficiales);
     if (!modelo.ok) return { ok: false, error: modelo.error };
 
@@ -384,6 +420,29 @@ function generarHojaGuardias() {
   } catch (e) {
     Logger.log("generarHojaGuardias: " + e);
     return { ok: false, error: "No se pudo generar el calendario de guardias.", detalle: String(e) };
+  }
+}
+
+// Semanas (bloques de 7 días) para el formulario "Agregar oficial de semana".
+function obtenerOficialSemanas() {
+  try {
+    var bloques = _bloquesCalendario(obtenerGuardias().guardias);
+    if (!bloques.length) {
+      return { ok: false, error: "No existen guardias programadas para generar." };
+    }
+    var semanas = bloques.map(function(b) {
+      return {
+        inicio: b.inicio,
+        fin: b.fin,
+        esGuardia: b.esGuardia,
+        etiqueta: _formatFechaCorta(b.inicio) + " \u2013 " + _formatFechaCorta(b.fin) +
+                   (b.esGuardia ? "" : " (descanso)")
+      };
+    });
+    return { ok: true, semanas: semanas };
+  } catch (e) {
+    Logger.log("obtenerOficialSemanas: " + e);
+    return { ok: false, error: String(e) };
   }
 }
 
