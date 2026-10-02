@@ -90,29 +90,40 @@ function _pxDesdePunto(pt) {
 function _tituloHojaDesde(guardias) {
   if (!guardias.length) return "";
   var inicio = guardias[0].inicio;
-  var fin = guardias[guardias.length - 1].fin;
+  var fin = _finCalendario(guardias);
   return "Guardia Nocturna (" + _formatFechaLarga(inicio) + " al " +
          _formatFechaLargaCorto(fin) + " del " + fechaPartesDe(fin).y + ")";
 }
 function _nombreArchivoGuardias(guardias) {
   if (!guardias.length) return "Calendario de Guardias";
   return "Calendario de Guardias - " + _formatFechaCorta(guardias[0].inicio) +
-         " a " + _formatFechaCorta(guardias[guardias.length - 1].fin);
+         " a " + _formatFechaCorta(_finCalendario(guardias));
 }
 
 //────────────────────────────────────────────
 // MODELO PURA DE LA HOJA (testeable en Node)
 //────────────────────────────────────────────
 
-// Días del calendario (primer inicio → último fin), con marca de guardia.
+// Días del calendario: primer inicio → último fin + la semana de receso que
+// sigue a la última guardia (patrón G-D-G-D del formato de referencia, p. ej.
+// 31/08 al 27/09). Cada 7 días cierra un bloque semanal completo.
 function _diasCalendario(guardias) {
   var orden = _ordenarGuardiasPorInicio(guardias);
   var dias = [];
   if (!orden.length) return dias;
-  for (var k = orden[0].inicio; k <= orden[orden.length - 1].fin; k = sumarDiasCivil(k, 1)) {
+  var inicio = orden[0].inicio;
+  var fin = sumarDiasCivil(orden[orden.length - 1].fin, _N_DIAS);
+  for (var k = inicio; k <= fin; k = sumarDiasCivil(k, 1)) {
     dias.push({ key: k, nombre: _diaSemana(k), corta: _formatFechaCorta(k), esGuardia: esDiaGuardiaEn(orden, k) });
   }
   return dias;
+}
+
+// Última fecha cubierta por la hoja (calendario con semanas completas).
+function _finCalendario(guardias) {
+  var dias = _diasCalendario(guardias);
+  if (!dias.length) return "";
+  return dias[dias.length - 1].key;
 }
 
 // Bloques de 7 días (guardia / descanso) tal como se pintan en la hoja.

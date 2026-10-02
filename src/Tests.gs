@@ -415,20 +415,22 @@ function pruebasPuras() {
 
   h.t("Calendario: bloques de 7 días (guardia / descanso)", function() {
     var bloques = _bloquesCalendario(HM_GUARDIAS_GEN);
-    h.eq(bloques.length, 3, "31/08→20/09 → 3 bloques");
+    h.eq(bloques.length, 4, "31/08→27/09 → 4 bloques (G-D-G-D)");
     h.eq(bloques[0].inicio, "2026-08-31");
     h.eq(bloques[0].fin, "2026-09-06");
     h.eq(bloques[0].esGuardia, true);
     h.eq(bloques[1].inicio, "2026-09-07");
     h.eq(bloques[1].fin, "2026-09-13");
-    h.eq(bloques[1].esGuardia, false, "semana de descanso");
+    h.eq(bloques[1].esGuardia, false, "1ra semana de receso");
     h.eq(bloques[2].inicio, "2026-09-14");
     h.eq(bloques[2].fin, "2026-09-20");
     h.eq(bloques[2].esGuardia, true);
-    var porDescanso = _porDiaDesdeOficialesSemana(bloques, { "2026-09-07": "Opc. Díaz" });
-    h.eq(porDescanso["2026-09-07"], "Opc. Díaz", "semana de descanso también asignable");
-    h.eq(porDescanso["2026-09-13"], "Opc. Díaz", "todo el bloque descanso");
-    h.eq(!!porDescanso["2026-08-31"], false, "no contamina la semana de guardia anterior");
+    h.eq(bloques[3].inicio, "2026-09-21");
+    h.eq(bloques[3].fin, "2026-09-27");
+    h.eq(bloques[3].esGuardia, false, "2da semana de receso (la 4ta semana)");
+    h.eq(_finCalendario(HM_GUARDIAS_GEN), "2026-09-27", "la hoja llega hasta el receso 2");
+    var porDescanso = _porDiaDesdeOficialesSemana(bloques, { "2026-09-21": "Opc. Díaz" });
+    h.eq(porDescanso["2026-09-27"], "Opc. Díaz", "receso 2 también asignable");
   });
 
   h.t("Oficial: mapa de semana → día a día, una semana por vez", function() {
@@ -506,11 +508,11 @@ function pruebasEntorno() {
     return null;
   }
 
-  h.t("Hoja: título dinámico (31 de Agosto al 20 de septiembre del 2026)", function() {
-    h.eq(_tituloHojaDesde(HM_GUARDIAS), "Guardia Nocturna (31 de Agosto al 20 de septiembre del 2026)");
+  h.t("Hoja: título dinámico (31 de Agosto al 27 de septiembre del 2026)", function() {
+    h.eq(_tituloHojaDesde(HM_GUARDIAS), "Guardia Nocturna (31 de Agosto al 27 de septiembre del 2026)");
   });
   h.t("Hoja: nombre de archivo dinámico desde las fechas", function() {
-    h.eq(_nombreArchivoGuardias(HM_GUARDIAS), "Calendario de Guardias - 31-08-26 a 20-09-26");
+    h.eq(_nombreArchivoGuardias(HM_GUARDIAS), "Calendario de Guardias - 31-08-26 a 27-09-26");
   });
   h.t("Hoja: sin guardias → error claro, no crea hoja", function() {
     var m = _modeloHojaGuardias([], {}, {});
