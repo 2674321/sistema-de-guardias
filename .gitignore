@@ -14,3 +14,9 @@ node_modules/
 
 # Binarios grandes accidentales
 *.deb
+
+# Generación de calendario: salidas del script Python (referencia de formato)
+python-formato-calendario-de-guardias/*.xlsx
+
+# Artefactos locales del demo/portafolio
+docs/demo/*.tmp

@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Guardias · 1ra Compañía Coquimbo — DEMO</title>
+<style>
+  :root{
+    --paper:#f0ede8; --card:#ffffff; --rule:#e2ded7; --rule-strong:#c9c4bc;
+    --ink:#1c1c1c; --ink-soft:#6b6b6b; --ink-faint:#9c9a96;
+    --red:#9b1a1a; --blue:#2f55a0; --amber:#b8860b;
+    --ok:#1a6b3a; --ok-bg:#e6f7e8; --warn:#9a7a00; --warn-bg:#fef9e0;
+    --bad:#b91c1c; --bad-bg:#fee2e2;
+    --display:Georgia,'Times New Roman',serif;
+    --sans:'Helvetica Neue',Arial,sans-serif;
+    --mono:'DM Mono',ui-monospace,Menlo,monospace;
+  }
+  *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+  html{ scroll-behavior:smooth; }
+  body{
+    font-family:var(--sans); color:var(--ink); background:var(--paper);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .demo-banner{
+    background:#1a1a1a; color:#fff; text-align:center;
+    padding:7px 14px; font-family:var(--mono); font-size:10px;
+    letter-spacing:2px; text-transform:uppercase;
+  }
+  .demo-banner b{ color:#ffd700; }
+
+  header{
+    position:sticky; top:0; z-index:900; background:#141414; color:#fff;
+    border-bottom:3px solid var(--red);
+  }
+  .header-inner{
+    max-width:1280px; margin:0 auto; padding:16px 24px;
+    display:flex; align-items:flex-end; justify-content:space-between; gap:14px; flex-wrap:wrap;
+  }
+  .brand-mark{
+    font-family:var(--display); font-size:24px; letter-spacing:1px; font-weight:700;
+  }
+  .brand-mark small{
+    display:block; font-family:var(--mono); font-size:9px; letter-spacing:3px;
+    text-transform:uppercase; color:rgba(255,255,255,.6); font-weight:400; margin-top:2px;
+  }
+  .header-cta a{
+    font-family:var(--mono); font-size:11px; letter-spacing:1.5px; text-transform:uppercase;
+    color:#fff; text-decoration:none; border:1px solid rgba(255,255,255,.35);
+    padding:9px 16px; border-radius:999px; transition:.2s;
+  }
+  .header-cta a:hover{ border-color:#fff; }
+
+  .page-body{ max-width:1280px; margin:0 auto; padding:24px; display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+
+  .panel{ background:var(--card); border:1px solid var(--rule); border-radius:10px; overflow:hidden; }
+  .panel-head{
+    display:flex; align-items:center; gap:10px; padding:14px 18px;
+    border-bottom:1px solid var(--rule); background:#faf9f6;
+  }
+  .panel-head-num{ font-family:var(--mono); font-size:10px; color:#fff; background:var(--ink); padding:3px 8px; border-radius:4px; letter-spacing:1px; }
+  .panel-head-title{ font-size:14px; font-weight:700; letter-spacing:.5px; }
+  .panel-body{ padding:18px; }
+  .panel-full{ grid-column:1 / -1; margin-top:6px; }
+
+  .field-label{ display:block; font-family:var(--mono); font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-soft); margin:14px 0 6px; }
+  .seg{ display:flex; gap:8px; }
+  .seg button{ flex:1; padding:9px 0; border:1px solid var(--rule-strong); background:#fff; border-radius:6px; font-size:13px; cursor:pointer; }
+  .seg button.on{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .date-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .date-cell{ margin-top:10px; }
+  .date-cell input{ width:100%; padding:8px 9px; border:1px solid var(--rule-strong); border-radius:6px; font-size:13px; }
+  .cargo-tog{ display:flex; gap:6px; margin-top:6px; }
+  .ctog-btn{ flex:1; font-size:11px; padding:6px 0; border-radius:6px; border:1px solid var(--rule-strong); background:#fff; cursor:pointer; color:var(--ink-soft); }
+  .ctog-btn.on-v{ background:#fdeaec; border-color:var(--red); color:var(--red); }
+  .ctog-btn.on-m{ background:#e8eefb; border-color:var(--blue); color:var(--blue); }
+  .sel-count{ margin-top:14px; font-family:var(--mono); font-size:11px; color:var(--ink-soft); letter-spacing:1px; }
+  .submit-btn{
+    display:block; width:100%; margin-top:16px; padding:13px 0; border:none; border-radius:8px;
+    background:var(--red); color:#fff; font-size:14px; font-weight:600; cursor:pointer;
+  }
+  .submit-btn:hover{ filter:brightness(1.06); }
+
+  .op-banner{
+    margin:0 0 12px; padding:9px 12px; border-left:3px solid var(--blue);
+    background:#f2f5fb; font-family:var(--mono); font-size:10px; color:var(--ink-soft); letter-spacing:.5px;
+  }
+
+  .cal-scroll{ overflow:visible; }
+  .dname-row{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:6px; }
+  .dname{ font-family:var(--mono); font-size:9px; text-align:center; color:var(--ink-faint); text-transform:uppercase; letter-spacing:1px; }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+
+  .day{
+    border-radius:7px; padding:7px 6px; min-height:58px; cursor:pointer;
+    border:1px solid var(--rule); position:relative; transition:.15s; background:#fff;
+  }
+  .day:hover{ transform:translateY(-1px); }
+  .day.sel{ outline:2px solid var(--ink); outline-offset:1px; }
+  .day.g0{ background:var(--ok-bg); border-color:#9dd4a0; }
+  .day.g1,.day.g2{ background:var(--warn-bg); border-color:#e8cf6a; }
+  .day.g3{ background:#e0ecff; border-color:#7aa9f5; }
+  .day.g4{ background:var(--bad-bg); border-color:#f87171; }
+  .day .dnum{ font-family:var(--mono); font-size:11px; font-weight:700; }
+  .day .dcount{ margin-top:3px; font-family:var(--mono); font-size:9px; color:var(--ink-soft); line-height:1.35; }
+  .day .dcount b{ color:var(--ink); }
+  .day .dflag{ position:absolute; top:6px; right:6px; font-family:var(--mono); font-size:8px; letter-spacing:.5px; }
+  .block-label{ grid-column:1 / -1; font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; margin:4px 0 2px; color:var(--ink-faint); }
+  .block-label.g{ color:var(--red); }
+
+  .legend{ display:flex; flex-wrap:wrap; gap:12px; margin-top:14px; }
+  .legend-item{ display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:9px; color:var(--ink-soft); letter-spacing:.5px; }
+  .legend-swatch{ width:12px; height:12px; border-radius:3px; border:1px solid var(--rule-strong); display:inline-block; }
+
+  .sec-oficiales{ margin-top:14px; border-top:1px dashed var(--rule); padding-top:10px; }
+  .sec-oficiales h4{ font-family:var(--mono); font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-soft); margin-bottom:6px; }
+  .ofic-row{ display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:5px 8px; border-radius:5px; background:#fff8e1; border:1px solid #f0e0a8; margin-bottom:4px; }
+  .ofic-row .kw{ font-family:var(--mono); font-size:9px; color:var(--warn); letter-spacing:1px; text-transform:uppercase; }
+  .ofic-row.vacio{ background:#fff; border-style:dashed; color:var(--ink-faint); }
+
+  #detalle-dia{ margin-top:16px; padding:14px 16px; background:var(--card); border:1px solid var(--rule); border-radius:10px; border-left:3px solid var(--blue); }
+  #detalle-dia .det-hd{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
+  #detalle-dia .det-fecha{ font-family:var(--display); font-size:14px; font-weight:700; }
+  #detalle-dia .det-cerrar{ font-family:var(--mono); font-size:10px; color:var(--ink-faint); cursor:pointer; letter-spacing:1px; }
+  .det-count{ margin-bottom:10px; font-family:var(--mono); font-size:10px; color:var(--ink-soft); letter-spacing:1px; }
+  .persona{ display:flex; align-items:center; gap:8px; padding:6px 12px; margin-bottom:4px; border-radius:8px; background:var(--red); color:#fff; font-size:13px; font-weight:500; }
+  .persona.mq{ background:var(--blue); }
+  .persona.mv{ background:linear-gradient(135deg,var(--blue),var(--red)); }
+  .persona .badge{ font-family:var(--mono); font-size:9px; letter-spacing:1px; text-transform:uppercase; opacity:.75; flex-shrink:0; }
+  .persona .cond{ font-family:var(--mono); font-size:7px; padding:1px 5px; border-radius:3px; background:rgba(255,255,255,.2); letter-spacing:.5px; }
+  .persona .estado{ font-family:var(--mono); font-size:8px; padding:1px 8px; border-radius:3px; margin-left:auto; letter-spacing:.5px; }
+  .aviso-req{ margin-top:10px; padding:8px 12px; background:#fef3c7; border-left:4px solid #f59e0b; border-radius:4px; font-family:var(--mono); font-size:10px; color:#92400e; line-height:1.5; }
+  .vacio-aviso{ font-family:var(--sans); font-size:12px; color:var(--ink-faint); }
+
+  .del-desc{ font-size:13px; color:var(--ink-soft); line-height:1.5; margin-bottom:12px; }
+  .del-inner{ display:flex; gap:8px; }
+  .del-input{ flex:1; padding:10px 12px; border:1px solid var(--rule-strong); border-radius:8px; font-size:14px; }
+  .del-btn-buscar{ padding:10px 16px; border:none; border-radius:8px; background:var(--ink); color:#fff; font-size:13px; cursor:pointer; }
+  .del-note{ margin-top:12px; padding:10px 12px; background:#f2f0ec; border:1px dashed var(--rule-strong); border-radius:8px; font-family:var(--mono); font-size:11px; color:var(--ink-soft); line-height:1.6; }
+
+  .bottomnav{
+    display:none; position:fixed; left:0; right:0; bottom:0; z-index:950;
+    background:rgba(14,14,14,.97); border-top:1px solid #262626;
+  }
+  .bottomnav button{
+    flex:1; background:none; border:none; color:rgba(255,255,255,.6); font-size:16px;
+    padding:8px 0; cursor:pointer; -webkit-tap-highlight-color:transparent;
+  }
+  .bottomnav button span{ display:block; font-family:var(--mono); font-size:8.5px; letter-spacing:.5px; margin-top:2px; }
+  .bottomnav button.on{ color:#fff; }
+
+  .modal-mask{
+    display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.55);
+    align-items:center; justify-content:center; padding:20px;
+  }
+  .modal-mask.open{ display:flex; }
+  .modal-box{ background:#fff; border-radius:12px; max-width:440px; width:100%; padding:26px 24px; text-align:center; box-shadow:0 12px 40px rgba(0,0,0,.35); }
+  .modal-box .m-t{ font-size:16px; font-weight:700; margin:10px 0 4px; }
+  .modal-box .m-s{ font-size:12px; color:#777; margin-bottom:16px; line-height:1.6; }
+  .modal-box .m-btn{ display:block; width:100%; padding:11px 0; border:none; border-radius:8px; background:var(--red); color:#fff; font-weight:600; font-size:14px; cursor:pointer; }
+
+  #toast{
+    position:fixed; bottom:78px; left:50%; transform:translateX(-50%); z-index:10000;
+    background:#0e0e0e; color:#fff; padding:12px 24px; border-radius:8px;
+    font-family:var(--mono); font-size:11px; letter-spacing:1px; opacity:0;
+    transition:opacity .25s ease; pointer-events:none; box-shadow:0 4px 20px rgba(0,0,0,.25); max-width:90%;
+  }
+
+  footer{ max-width:1280px; margin:0 auto; padding:8px 24px 40px; }
+  footer div{ font-family:var(--mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-faint); }
+
+  @media (max-width: 980px){
+    .page-body{ grid-template-columns:1fr; padding:16px 12px 96px; }
+    .bottomnav{ display:flex; }
+    .dname-row{ display:none; }
+    .cal-grid{ grid-template-columns:repeat(7,1fr); }
+  }
+  @media (max-width: 560px){
+    .date-row{ grid-template-columns:1fr; }
+    .day{ min-height:52px; }
+    #toast{ bottom:66px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-banner"><b>DEMO</b> · datos ficticios · sin acceso a datos reales</div>
+
+<header>
+  <div class="header-inner">
+    <div class="brand-mark">Guardias
+      <small>1ª Compañía de Bomberos del CBC — Coquimbo · DEMO</small>
+    </div>
+    <div class="header-cta"><a href="#" onclick="abrirModal('guardias'); return false;">Guardias</a></div>
+  </div>
+</header>
+
+<div class="page-body">
+
+  <!-- PANEL 01: INSCRIPCIÓN -->
+  <section class="panel" id="panel-inscripcion">
+    <div class="panel-head"><span class="panel-head-num">01</span><span class="panel-head-title">Inscripción</span></div>
+    <div class="panel-body">
+      <span class="field-label">Cargo en la compañía</span>
+      <div class="seg" id="seg-cargo">
+        <button type="button" class="on" onclick="selCargo('voluntario')" style="color:var(--red);border-color:var(--red);background:#fdeaec;">Voluntario</button>
+        <button type="button" onclick="selCargo('maquinista')" style="color:var(--blue);border-color:var(--blue);background:#e8eefb;">Maquinista</button>
+      </div>
+
+      <span class="field-label">Cantidad de guardias</span>
+      <div class="seg" id="seg-dias">
+        <button type="button" onclick="selNumDias(1)">1</button>
+        <button type="button" onclick="selNumDias(2)">2</button>
+        <button type="button" class="on" onclick="selNumDias(3)">3</button>
+        <button type="button" onclick="selNumDias(4)">4</button>
+      </div>
+
+      <div class="date-row">
+        <div class="date-cell">
+          <span class="field-label">Fecha 01</span>
+          <input type="date" value="2026-08-31" id="fecha1">
+          <div class="cargo-tog">
+            <button class="ctog-btn on-v" onclick="selCargoDia(1,'voluntario')">Voluntario</button>
+            <button class="ctog-btn" onclick="selCargoDia(1,'maquinista')">Maquinista</button>
+          </div>
+        </div>
+        <div class="date-cell">
+          <span class="field-label">Fecha 02</span>
+          <input type="date" value="2026-09-14" id="fecha2">
+          <div class="cargo-tog">
+            <button class="ctog-btn on-v" onclick="selCargoDia(2,'voluntario')">Voluntario</button>
+            <button class="ctog-btn" onclick="selCargoDia(2,'maquinista')">Maquinista</button>
+          </div>
+        </div>
+        <div class="date-cell">
+          <span class="field-label">Fecha 03</span>
+          <input type="date" value="2026-09-15" id="fecha3">
+          <div class="cargo-tog">
+            <button class="ctog-btn on-v" onclick="selCargoDia(3,'voluntario')">Voluntario</button>
+            <button class="ctog-btn" onclick="selCargoDia(3,'maquinista')">Maquinista</button>
+          </div>
+        </div>
+        <div class="date-cell">
+          <span class="field-label">Fecha 04</span>
+          <input type="date" value="" id="fecha4">
+          <div class="cargo-tog">
+            <button class="ctog-btn on-v" onclick="selCargoDia(4,'voluntario')">Voluntario</button>
+            <button class="ctog-btn" onclick="selCargoDia(4,'maquinista')">Maquinista</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sel-count" id="sel-count">3 fechas seleccionadas</div>
+
+      <button class="submit-btn" onclick="demoRegistro()">Registrar guardias</button>
+
+      <!-- Personas anotadas: llena el espacio bajo "Registrar guardias" (como en producción) -->
+      <div id="detalle-dia" style="display:none;">
+        <div class="det-hd">
+          <span class="det-fecha" id="det-fecha">—</span>
+          <span class="det-cerrar" onclick="cerrarDetalle()">✕ Cerrar</span>
+        </div>
+        <div class="det-count" id="det-count"></div>
+        <div id="det-lista"></div>
+        <div id="det-aviso"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PANEL 02: DISPONIBILIDAD -->
+  <section class="panel" id="panel-disponibilidad">
+    <div class="panel-head"><span class="panel-head-num">02</span><span class="panel-head-title">Disponibilidad</span></div>
+    <div class="panel-body">
+      <div class="op-banner">Requisitos despacho: 1 maquinista · 2 bomberos operativos / profesionales</div>
+
+      <div class="cal-scroll">
+        <div class="dname-row">
+          <div class="dname">Lu</div><div class="dname">Ma</div><div class="dname">Mi</div>
+          <div class="dname">Ju</div><div class="dname">Vi</div><div class="dname">Sa</div><div class="dname">Do</div>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><span class="legend-swatch" style="background:#e6f7e8;border-color:#9dd4a0;"></span>Sin guardias</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:#fef9e0;border-color:#e8cf6a;"></span>1–2 guardias</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:#e0ecff;border-color:#7aa9f5;"></span>3 guardias</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:#fee2e2;border-color:#f87171;"></span>4+ guardias</div>
+      </div>
+
+      <div class="sec-oficiales">
+        <h4>Oficial de guardia por semana</h4>
+        <div id="ofic-lista"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PANEL 03: MI BAJA -->
+  <section class="panel panel-full" id="panel-baja">
+    <div class="panel-head"><span class="panel-head-num">03</span><span class="panel-head-title">Mi baja</span></div>
+    <div class="panel-body">
+      <p class="del-desc">En producción, ingresas tu correo y recibes un <b>código de un solo uso</b> para eliminar tus guardias de forma segura.</p>
+      <div class="del-inner">
+        <input class="del-input" type="email" id="baja-email" placeholder="correo@ejemplo.cl">
+        <button class="del-btn-buscar" onclick="demoBaja()">Enviar código</button>
+      </div>
+      <div class="del-note">DEMO — En producción el código de seguridad se envía por correo. En este demo no se envía nada.</div>
+    </div>
+  </section>
+
+  <!-- PANEL 04: ASISTENCIA -->
+  <section class="panel panel-full" id="panel-asistencia">
+    <div class="panel-head"><span class="panel-head-num">04</span><span class="panel-head-title">Asistencia</span></div>
+    <div class="panel-body">
+      <p class="del-desc">Ingresa tu correo para consultar el estado de asistencia de un bombero (demo).</p>
+      <div class="del-inner">
+        <input class="del-input" type="email" id="asis-email" placeholder="correo@ejemplo.cl">
+        <button class="del-btn-buscar" onclick="demoAsistencia()">Buscar</button>
+      </div>
+      <div class="del-note" id="asis-resultado">DEMO — Por ejemplo: correo@ejemplo.cl · nombre@ejemplo.cl · otro@ejemplo.cl</div>
+    </div>
+  </section>
+
+</div>
+
+<nav class="bottomnav" id="bottomnav">
+  <button type="button" class="on" onclick="irA('top'); return false;">🏠<span>Inicio</span></button>
+  <button type="button" onclick="irA('panel-inscripcion'); return false;">➕<span>Inscribirse</span></button>
+  <button type="button" onclick="irA('panel-disponibilidad'); return false;">📅<span>Guardias</span></button>
+  <button type="button" onclick="irA('panel-baja'); return false;">👤<span>Mi baja</span></button>
+  <button type="button" onclick="irA('panel-asistencia'); return false;">🩺<span>Asistencia</span></button>
+</nav>
+
+<div class="modal-mask" id="modal-guardias">
+  <div class="modal-box">
+    <div style="font-size:34px;">📄</div>
+    <div class="m-t">Calendario de guardias — DEMO</div>
+    <div class="m-s">
+      En <b>producción</b>, esta acción genera o actualiza una <b>Google Sheet</b> con el
+      calendario mensual de guardias y la guarda en <b>Google Drive</b> (una hoja por período,
+      con oficiales de semana).<br><br>
+      En este demo solo se muestra esta representación, <b>sin</b> crear ningún archivo real.
+    </div>
+    <button class="m-btn" onclick="cerrarModal()">Entendido</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<footer>
+  <div>Sistema de Guardias · DEMO con datos ficticios · Proyecto portafolio · <a href="https://github.com/2674321/sistema-de-guardias" style="color:inherit;">Repositorio</a></div>
+</footer>
+
+<script>
+//══════════════════════════════════════════════════════════
+// DEMO — datos ficticios (NO son datos reales)
+//══════════════════════════════════════════════════════════
+const DEMO_GUARDIAS = [
+  { id:"G1", inicio:"2026-08-31", fin:"2026-09-06" },
+  { id:"G2", inicio:"2026-09-14", fin:"2026-09-20" }
+];
+const DEMO_OFICIALES = [
+  { inicio:"2026-08-31", nombre:"Carlos Demo" },
+  { inicio:"2026-09-07", nombre:"María Demo" },
+  { inicio:"2026-09-14", nombre:"Pedro Demo" },
+  { inicio:"2026-09-21", nombre:"" }   // 4ª semana sin oficial asignado
+];
+const DEMO_PERSONAS = [
+  { nombre:"Juan Pérez Demo",    email:"correo@ejemplo.cl",  cargo:"voluntario",  condicion:"INICIAL",    fechas:["2026-08-31","2026-09-01"] },
+  { nombre:"María González Demo",email:"nombre@ejemplo.cl",  cargo:"maquinista",  condicion:"OPERATIVO",  fechas:["2026-09-14","2026-09-15","2026-09-16","2026-09-17","2026-09-18","2026-09-19","2026-09-20"] },
+  { nombre:"Pedro Soto Demo",    email:"otro@ejemplo.cl",    cargo:"voluntario",  condicion:"OPERATIVO",  fechas:["2026-08-31","2026-09-06"] },
+  { nombre:"Ana Rojas Demo",     email:"ana@demo.cl",        cargo:"voluntario",  condicion:"PROFESIONAL",fechas:["2026-09-14","2026-09-15","2026-09-16"] },
+  { nombre:"Luis Castro Demo",   email:"luis@demo.cl",       cargo:"voluntario",  condicion:"INICIAL",    fechas:["2026-09-14","2026-09-18","2026-09-20"] },
+  { nombre:"Carola Muñoz Demo",  email:"carola@demo.cl",     cargo:"voluntario",  condicion:"OPERATIVO",  fechas:["2026-09-14","2026-09-16"] },
+  { nombre:"Diego Vega Demo",    email:"diego@demo.cl",      cargo:"maquinista",  condicion:"PROFESIONAL",fechas:["2026-08-31","2026-09-06"] }
+];
+const DEMO_ASISTENCIA = {
+  "correo@ejemplo.cl|2026-08-31":"C",
+  "correo@ejemplo.cl|2026-09-01":"P",
+  "nombre@ejemplo.cl|2026-09-14":"C",
+  "nombre@ejemplo.cl|2026-09-15":"C",
+  "nombre@ejemplo.cl|2026-09-18":"NC",
+  "diego@demo.cl|2026-09-06":"R"
+};
+const ESTADO_LABEL = { C:"Cumple", P:"Permiso", NC:"No cumple", R:"Reemplazo" };
+const ESTADO_COLOR = { C:"#1a6b3a", P:"#9a7a00", NC:"#b91c1c", R:"#1a3a9b" };
+
+//══════════════════════════════════════════════════════════
+// Calendario (cívico, día a día)
+//══════════════════════════════════════════════════════════
+function sumarDiasCivil(key, dias){
+  var p = key.split("-").map(Number);
+  var d = new Date(Date.UTC(p[0], p[1]-1, p[2]+dias));
+  return d.toISOString().slice(0,10);
+}
+function esGuardia(key){
+  return DEMO_GUARDIAS.some(function(g){ return key >= g.inicio && key <= g.fin; });
+}
+function esOficialSemana(key){
+  return DEMO_OFICIALES.some(function(o){ return o.inicio === key; });
+}
+function indiceSemana(key){
+  for (var i=0;i<DEMO_OFICIALES.length;i++) if (key === DEMO_OFICIALES[i].inicio) return i;
+  return -1;
+}
+function diasDe(key){
+  return DEMO_PERSONAS.filter(function(p){ return p.fechas.indexOf(key) !== -1; });
+}
+
+var DIAS = [];
+var d = "2026-08-31";
+for (var i=0;i<28;i++){ DIAS.push(d); d = sumarDiasCivil(d,1); }
+
+function pad2(n){ return (n<10?"0":"")+n; }
+function formatCorta(key){
+  var p = key.split("-").map(Number);
+  return pad2(p[2]) + "/" + pad2(p[1]);
+}
+const DIASEMANA = ["Do","Lu","Ma","Mi","Ju","Vi","Sa"];
+
+function renderCal(){
+  var cal = document.getElementById("cal-grid");
+  var html = "";
+  for (var i=0;i<DIAS.length;i++){
+    var key = DIAS[i];
+    var nuevoBloque = i===0 || esOficialSemana(key);
+    if (nuevoBloque){
+      var g = esGuardia(key);
+      var nom = g ? "Guardia" : "Receso";
+      html += '<div class="block-label ' + (g?"g":"") + '">' + nom + " · semana " + (indiceSemana(key)+1) + "</div>";
+    }
+    var ps = diasDe(key);
+    var maq = ps.filter(function(p){ return p.cargo==="maquinista"; }).length;
+    var vol = ps.length - maq;
+    var grd = ps.length >= 4 ? 4 : ps.length;
+    var sel = key === window._selDia ? " sel" : "";
+    html += '<div class="day g'+grd+sel+'" data-key="'+key+'" onclick="verDia(\''+key+'\')">' +
+      '<span class="dnum">'+formatCorta(key)+'</span>' +
+      '<span class="dflag">'+DIASEMANA[new Date(Date.UTC(+key.slice(0,4),+key.slice(5,7)-1,+key.slice(8,10))).getUTCDay()]+'</span>' +
+      '<div class="dcount"><b>'+maq+'</b> M · <b>'+vol+'</b> V</div>' +
+      '</div>';
+  }
+  cal.innerHTML = html;
+
+  var ofi = document.getElementById("ofic-lista");
+  ofi.innerHTML = DEMO_OFICIALES.map(function(o){
+    return '<div class="ofic-row'+(o.nombre?"":" vacio")+'">' +
+      '<span class="kw">'+formatCorta(o.inicio)+'</span>' +
+      '<span>'+(o.nombre ? o.nombre : "— sin oficial asignado —")+'</span></div>';
+  }).join("");
+}
+
+//══════════════════════════════════════════════════════════
+// Detalle del día
+//══════════════════════════════════════════════════════════
+function verDia(key){
+  window._selDia = key;
+  renderCal();
+  var det = document.getElementById("detalle-dia");
+  document.getElementById("det-fecha").textContent = formatCorta(key) + " · " + (esGuardia(key) ? "guardia" : "receso");
+  var ps = diasDe(key).slice().sort(function(a,b){ return a.nombre.localeCompare(b.nombre,"es"); });
+  var maq = ps.filter(function(p){ return p.cargo==="maquinista"; }).length;
+  var vol = ps.length - maq;
+  var ops  = ps.filter(function(p){ return p.condicion !== "INICIAL"; }).length;
+  document.getElementById("det-count").textContent =
+    ps.length + " bombero(s) · " + vol + " voluntario(s) · " + maq + " maquinista(s) · " + ops + " op./prof.";
+  var lista = document.getElementById("det-lista");
+  if (!ps.length){
+    lista.innerHTML = '<span class="vacio-aviso">Sin guardias este día.</span>';
+  } else {
+    lista.innerHTML = ps.map(function(p){
+      var isMac = p.cargo === "maquinista";
+      var label = isMac ? "M" : "V";
+      var clase = isMac ? "persona mq" : "persona";
+      var cond = p.condicion.charAt(0);
+      var est = DEMO_ASISTENCIA[p.email+"|"+key];
+      var estHtml = est
+        ? '<span class="estado" style="background:'+ESTADO_COLOR[est]+'">'+ESTADO_LABEL[est]+'</span>'
+        : "";
+      return '<div class="'+clase+'">' +
+        '<span class="badge">'+label+'</span>' +
+        '<span class="cond">'+cond+'</span>' +
+        '<span>'+p.nombre+'</span>' + estHtml + '</div>';
+    }).join("");
+  }
+  var aviso = document.getElementById("det-aviso");
+  if (esGuardia(key) && ps.length){
+    var faltas = [];
+    if (maq < 1) faltas.push("1 maquinista");
+    if (ops < 2) faltas.push((2-ops)+" operativo"+(ops<1?"s":""));
+    aviso.innerHTML = faltas.length
+      ? '<div class="aviso-req">Faltan: '+faltas.join(", ")+' para cumplir requisitos de despacho.</div>'
+      : "";
+  } else {
+    aviso.innerHTML = "";
+  }
+  det.style.display = "block";
+}
+function cerrarDetalle(){
+  window._selDia = null;
+  renderCal();
+  document.getElementById("detalle-dia").style.display = "none";
+}
+
+//══════════════════════════════════════════════════════════
+// Interacciones del formulario (solo demo)
+//══════════════════════════════════════════════════════════
+var _cargo = "voluntario", _numDias = 3;
+function selCargo(c){ _cargo = c; return false; }
+function selNumDias(n){ _numDias = n; return false; }
+function selCargoDia(i, c){ return false; }
+function demoRegistro(){
+  var ff = [1,2,3,4].slice(0,_numDias)
+    .map(function(i){ return document.getElementById("fecha"+i).value; })
+    .filter(Boolean);
+  toast("DEMO · En producción registrarías " + ff.length + " guardia(s) en Google Sheets.");
+  return false;
+}
+function demoBaja(){
+  var e = document.getElementById("baja-email").value.trim();
+  toast(e ? ("DEMO · En producción se enviaría un código a " + e + ".") : "Ingresa un correo primero.");
+}
+function demoAsistencia(){
+  var email = document.getElementById("asis-email").value.trim();
+  var out = document.getElementById("asis-resultado");
+  var p = DEMO_PERSONAS.filter(function(x){ return x.email === email; })[0];
+  if (p){
+    var filas = p.fechas.map(function(f){
+      var est = DEMO_ASISTENCIA[email+"|"+f];
+      var txt = est ? ESTADO_LABEL[est] : "Por registrar";
+      return "  • " + formatCorta(f) + " → " + txt;
+    }).join("\n");
+    out.innerHTML = "DEMO · " + p.nombre + " ("+p.cargo+"):\n" + filas + "\n\nEn producción estos estados se guardan en Google Sheets.";
+  } else {
+    out.innerHTML = "DEMO · No se encontró un bombero con ese correo en los datos ficticios. Prueba correo@ejemplo.cl, nombre@ejemplo.cl u otro@ejemplo.cl";
+  }
+}
+
+//══════════════════════════════════════════════════════════
+// Helpers de UI
+//══════════════════════════════════════════════════════════
+var _toastTimer;
+function toast(msg){
+  var t = document.getElementById("toast");
+  t.textContent = msg; t.style.opacity = "1";
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function(){ t.style.opacity = "0"; }, 3200);
+}
+function abrirModal(id){
+  document.getElementById("modal-"+id).classList.add("open");
+}
+function cerrarModal(){
+  document.querySelectorAll(".modal-mask").forEach(function(m){ m.classList.remove("open"); });
+}
+function irA(sel){
+  if (sel === "top"){ window.scrollTo({ top:0, behavior:"smooth" }); return; }
+  var el = document.getElementById(sel);
+  if (el) el.scrollIntoView({ behavior:"smooth", block:"start" });
+  document.querySelectorAll("#bottomnav button").forEach(function(b){ b.classList.remove("on"); });
+  var btn = document.querySelector('#bottomnav button[onclick*="'+sel+'"]');
+  if (btn) btn.classList.add("on");
+}
+
+renderCal();
+</script>
+</body>
+</html>
