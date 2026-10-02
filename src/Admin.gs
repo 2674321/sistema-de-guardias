@@ -68,6 +68,7 @@ function construirMenuAdmin() {
     { titulo: "🔧 Mantenimiento", items: [
       ["Diagnóstico general", "diagnosticoGeneral"],
       ["Reparar estructura", "repararEstructura"],
+      ["🧹 Reparar layout guardias (columna extra)", "repararLayoutGuardiasUI"],
       ["Verificar configuración", "verificarConfiguracion"],
       ["Verificar datos", "verificarDatos"],
       ["🩺 Ping servidor (health check)", "pingServidor"],
@@ -185,6 +186,13 @@ function instalarSistema() {
       asegurar("Asistencia", ["Email", "Nombre", "Cargo", "G1_Estado", "G1_ReempNombre", "G1_ReempEmail", "G2_Estado", "G2_ReempNombre", "G2_ReempEmail", "G3_Estado", "G3_ReempNombre", "G3_ReempEmail", "G4_Estado", "G4_ReempNombre", "G4_ReempEmail", "UltimaActualizacion"]);
       HOJAS_ESTADISTICAS.forEach(function(n) { asegurar(n, n === "Estadisticas" ? ["Métrica", "Valor"] : null); });
       return creados.length ? "creadas " + creados.join(", ") : null;
+    });
+
+    paso("Reparar layout Guardias (columna extra)", function() {
+      var rr = repararLayoutGuardias();
+      return rr && rr.ok
+        ? ("filas reparadas=" + (rr.reporte ? rr.reporte.filasReparadas : 0) + (rr.reporte && rr.reporte.headerReparado ? ", header corregido" : ""))
+        : (rr && rr.error ? "ERROR: " + rr.error : "sin cambios");
     });
 
     paso("Estadísticas regeneradas", function() {
@@ -785,6 +793,23 @@ function _diagDatosLineas() {
   return problemas.length
     ? "⚠️ Problemas encontrados (" + problemas.length + "):\n  • " + problemas.slice(0, 15).join("\n  • ")
     : "✓ Datos consistentes: sin problemas detectados.";
+}
+
+function repararLayoutGuardiasUI() {
+  try {
+    var r = repararLayoutGuardias();
+    var msg = r && r.ok
+      ? ("✅ Layout Guardias normalizado.\n\n" +
+         "Filas reparadas: " + (r.reporte ? r.reporte.filasReparadas : 0) + "\n" +
+         "Header corregido: " + (r.reporte && r.reporte.headerReparado ? "sí" : "no") + "\n" +
+         "Columnas de la hoja: " + (r.reporte ? r.reporte.columnas : "?") + " (esperado 9)")
+      : ("❌ " + (r && r.error ? r.error : "Error desconocido"));
+    SpreadsheetApp.getUi().alert("🧹 Reparar layout Guardias", msg, SpreadsheetApp.getUi().ButtonSet.OK);
+    return r;
+  } catch (e) {
+    SpreadsheetApp.getUi().alert("🧹 Reparar layout Guardias", "Error: " + e.message, SpreadsheetApp.getUi().ButtonSet.OK);
+    return { ok: false, error: e.message };
+  }
 }
 
 function repararEstructura() {

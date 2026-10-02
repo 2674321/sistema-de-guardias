@@ -169,3 +169,77 @@ function _respaldarColumnaNivel(diag) {
   });
   bk.getRange(bk.getLastRow() + 1, 1, filas.length, 4).setValues(filas);
 }
+
+//══════════════════════════════════════════
+// REPARACIÓN DE LAYOUT GUARDIAS (columna extra / datos corridos)
+// Idempotente: normaliza header a 9 columnas (A:I) y reubica filas
+// donde la fecha quedó en la columna Nivel (I) y el nivel en J.
+//══════════════════════════════════════════
+
+function repararLayoutGuardias() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sh = ss.getSheetByName(SHEET_NAME);
+  if (!sh) return { ok: false, error: "No existe la hoja " + SHEET_NAME };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return { ok: false, error: "Ocupado" };
+  try {
+    var valores = sh.getDataRange().getValues();
+    var cols = valores[0].length;
+    var reporte = { filasReparadas: 0, headerReparado: false, columnas: cols };
+
+    // ── 1) Header: forzar exactamente 9 columnas ──
+    var headerBase = ["Timestamp", "Nombre", "Email", "Cargo", "Guardia 01", "Guardia 02", "Guardia 03", "Guardia 04", "Nivel"];
+    var headerActual = valores[0].slice(0, 9).map(function(v){ return String(v || "").trim(); });
+    var headerOK = headerActual.join("|") === headerBase.join("|");
+    if (!headerOK) {
+      sh.getRange(1, 1, 1, 9).setValues([headerBase]);
+      reporte.headerReparado = true;
+    }
+    if (cols > 9) {
+      sh.getRange(1, 10, 1, cols - 9).clearContent();
+      sh.getRange(1, 10, sh.getLastRow(), cols - 9).clearContent();
+      reporte.columnas = 9;
+    }
+
+    // ── 2) Reparar filas corridas en memoria ──
+    // Detección: el "Nivel" (col I) contiene lo que parece una fecha (la 5ª guardia
+    // desplazada) y la col J contiene el nivel real. Reubicar: fechas → E:H, nivel → I.
+    var actualizaciones = [];
+    for (var i = 1; i < valores.length; i++) {
+      var nivelI = valores[i][8];
+      var nivelJ = valores[i][9];
+      var pareceFechaI = nivelI instanceof Date ||
+        /^\d{4}[\/-]\d{1,2}[\/-]\d{1,2}/.test(String(nivelI || "").trim());
+
+      if (pareceFechaI && nivelJ) {
+        // Las fechas están desplazadas: mover los 4 primeros valores-fecha a E:H y el nivel a I
+        var nombre = valores[i][1], email = valores[i][2], cargo = valores[i][3];
+        var fechasCorridas = valores[i].slice(4, 9); // E..I (puede haber fechas de más)
+        var fFechas = fechasCorridas.filter(function(v){
+          return v instanceof Date || /^\d{4}[\/-]\d{1,2}[\/-]\d{1,2}/.test(String(v || "").trim());
+        });
+        var g = [fFechas[0] || "", fFechas[1] || "", fFechas[2] || "", fFechas[3] || ""];
+        var nivelReal = String(nivelJ).trim();
+        // normalizar nivel real
+        if (/^operativo/i.test(nivelReal)) nivelReal = "OPERATIVO";
+        else if (/^profesional/i.test(nivelReal)) nivelReal = "PROFESIONAL";
+        else if (/^inicial/i.test(nivelReal)) nivelReal = "INICIAL";
+        else nivelReal = "INICIAL";
+        var nuevaFila = [valores[i][0], nombre, email, cargo, g[0], g[1], g[2], g[3], nivelReal];
+        actualizaciones.push({ fila: i + 1, valores: nuevaFila });
+        reporte.filasReparadas++;
+      }
+    }
+
+    for (var a = 0; a < actualizaciones.length; a++) {
+      sh.getRange(actualizaciones[a].fila, 1, 1, 9).setValues([actualizaciones[a].valores]);
+    }
+
+    return { ok: true, reporte: reporte };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  } finally {
+    lock.releaseLock();
+  }
+}

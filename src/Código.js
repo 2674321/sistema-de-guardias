@@ -175,29 +175,41 @@ function registrarGuardia(datos) {
       return { ok: false, errores: errores };
     }
 
-    // ESCRIBIR EN LA HOJA
+    // ESCRIBIR EN LA HOJA — SIEMPRE 9 columnas exactas (A:I).
+    // Evita el desalineado por columnas extra: describe el rango en 9 celdas
+    // y borra cualquier residuo en columnas posteriores de la misma fila.
     var f0 = fechas[0] || "", f1 = fechas[1] || "", f2 = fechas[2] || "", f3 = fechas[3] || "";
-    if (filaExistenteIdx !== null) {
-        // Actualizar fila existente (re-registro)
-        var filaValores = [new Date(), nombre, email, cargo, f0, f1, f2, f3, nivel];
-        sheet.getRange(filaExistenteIdx + 1, 1, 1, filaValores.length).setValues([filaValores]);
-      } else {
-        // Nueva fila
-        var filaLibre = null;
-        for (var bli = 1; bli < dataAll.length; bli++) {
-          if (dataAll[bli].every(function(c) { return c === ""; })) {
-            filaLibre = bli + 1;
-            break;
-          }
-        }
-        var nuevaFila = [new Date(), nombre, email, cargo, f0, f1, f2, f3, nivel];
+    var filaNueva = new Date(), cNombre = nombre, cEmail = email, cCargo = cargo;
+    var valores9 = [filaNueva, cNombre, cEmail, cCargo, f0, f1, f2, f3, nivel];
+    var filaDestino = filaExistenteIdx !== null ? filaExistenteIdx + 1 : null;
 
-      if (filaLibre) {
-        sheet.getRange(filaLibre, 1, 1, nuevaFila.length).setValues([nuevaFila]);
-      } else {
-        sheet.appendRow(nuevaFila);
+    if (filaDestino === null) {
+      // Buscar fila libre respetando la estructura
+      var filaLibre = null;
+      for (var bli = 1; bli < dataAll.length; bli++) {
+        if (dataAll[bli].every(function(c) { return c === ""; })) {
+          filaLibre = bli + 1;
+          break;
+        }
       }
+      if (filaLibre) {
+        sheet.getRange(filaLibre, 1, 1, 9).setValues([valores9]);
+        filaDestino = filaLibre;
+      } else {
+        sheet.appendRow(valores9);
+        filaDestino = sheet.getLastRow();
+      }
+    } else {
+      sheet.getRange(filaDestino, 1, 1, 9).setValues([valores9]);
     }
+
+    // Limpiar cualquier columna posterior a I en esa fila (residuos del desalineado)
+    try {
+      var colExtra = sheet.getLastColumn();
+      if (colExtra > 9) {
+        sheet.getRange(filaDestino, 10, 1, colExtra - 9).clearContent();
+      }
+    } catch (e) { Logger.log("limpieza columna extra: " + e); }
 
     // ENVIAR EMAIL (best-effort) — solo si es email real
     if (!silencioso) {
