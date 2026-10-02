@@ -465,10 +465,6 @@ function _aplicarModelo(sheet, m) {
   m.merges.forEach(function(me) {
     try { sheet.getRange(me.r1, me.c1, me.r2 - me.r1 + 1, me.c2 - me.c1 + 1).merge(); } catch (e) { Logger.log("merge: " + e); }
   });
-  try {
-    sheet.getRange(m.areaBorde.r1, m.areaBorde.c1, m.areaBorde.r2 - m.areaBorde.r1 + 1, m.areaBorde.c2 - m.areaBorde.c1 + 1)
-        .setBorder(true, true, true, true, false, false, _C_NEGRO, SpreadsheetApp.BorderStyle.SOLID);
-  } catch (e) { Logger.log("bordes: " + e); }
   m.estilos.forEach(function(s) {
     try {
       var rng = sheet.getRange(s.r1, s.c1, s.r2 - s.r1 + 1, s.c2 - s.c1 + 1);
@@ -485,6 +481,10 @@ function _aplicarModelo(sheet, m) {
       if (s.rotate) rng.setTextRotation(s.rotate);
     } catch (e) { Logger.log("estilo: " + e); }
   });
+  try {
+    sheet.getRange(m.areaBorde.r1, m.areaBorde.c1, m.areaBorde.r2 - m.areaBorde.r1 + 1, m.areaBorde.c2 - m.areaBorde.c1 + 1)
+        .setBorder(true, true, true, true, true, true, _C_NEGRO, SpreadsheetApp.BorderStyle.SOLID);
+  } catch (e) { Logger.log("bordes: " + e); }
   Object.keys(m.anchoColumnas).forEach(function(c) { sheet.setColumnWidth(parseInt(c, 10), m.anchoColumnas[c]); });
   Object.keys(m.altoFilas).forEach(function(r) { sheet.setRowHeight(parseInt(r, 10), m.altoFilas[r]); });
   try { sheet.setFrozenRows(m.freezeRows); } catch (e) { Logger.log("freeze filas: " + e); }
