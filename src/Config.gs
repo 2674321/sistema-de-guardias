@@ -90,11 +90,10 @@ function _leerCeldaConfig(sheet, clave) {
 function obtenerInicioSemanaConfig() {
   var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("Config");
   var val = _leerCeldaConfig(sheet, "inicio").valor;
-  if (val instanceof Date) {
-    // Mediodía local: inmune a cambios de hora y a la hora grabada en la celda
-    return new Date(val.getFullYear(), val.getMonth(), val.getDate(), 12);
-  }
-  return new Date(String(val).trim() + "T12:00:00");
+  var partes = fechaPartesDe(val);
+  if (!partes) return new Date(NaN);
+  // Mediodía local: inmune a UTC, cambios de hora y a la hora grabada.
+  return new Date(partes.y, partes.m - 1, partes.d, 12);
 }
 
 function obtenerConfigGeneral() {
@@ -114,8 +113,8 @@ function obtenerConfigGeneral() {
   var rLimite = _leerCeldaConfig(sheet, "fechaLimite");
   var fechaLimite = null;
   if (rLimite.valor) {
-    if (rLimite.valor instanceof Date) fechaLimite = rLimite.valor;
-    else fechaLimite = new Date(String(rLimite.valor).trim() + "T12:00:00");
+    var limitePartes = fechaPartesDe(rLimite.valor);
+    if (limitePartes) fechaLimite = new Date(limitePartes.y, limitePartes.m - 1, limitePartes.d, 12);
   }
 
   var rSemanas = _leerCeldaConfig(sheet, "semanas");

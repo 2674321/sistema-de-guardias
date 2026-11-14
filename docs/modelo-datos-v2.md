@@ -20,6 +20,8 @@ Contiene solo datos mínimos. `condicion_institucional` debe ser exactamente `PO
 
 `evento_id | creado_en | persona_id | nombre_presentacion | fecha | tipo_actividad | estado_programacion | estado_cumplimiento | requiere_supervisor | validado_por | validado_en`
 
+`tipo_actividad` queda fijado por el servidor a `GUARDIA_FORMATIVA`. No es una elección del postulante ni representa una citación; registra el cumplimiento mensual formativo sin incorporarlo a la dotación operativa.
+
 `evento_id` es determinista por persona, fecha y tipo; impide duplicados activos. Programación y cumplimiento son dimensiones separadas.
 
 ### `OBAC_Habilitaciones` (contrato objetivo)
@@ -48,7 +50,7 @@ Es una proyección mínima autorizada, no una copia de la nómina. El adapter ex
 
 ## Matriz de roles
 
-| Condición | Guardia operativa | Maquinista | Cupo O/P | OBAC | Actividad formativa |
+| Condición | Guardia operativa | Maquinista | Cupo O/P | OBAC | Guardia formativa |
 |---|---:|---:|---:|---:|---:|
 | Voluntario activo inicial | Sí, autorizado | solo habilitación | No | solo habilitación OBAC | N/A |
 | Voluntario operativo/profesional | Sí, nivel acreditado | solo habilitación | Sí | solo habilitación OBAC | N/A |

@@ -24,12 +24,12 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Validación básica del demo (sin backend)
+      - name: Validación básica de la vista previa (sin backend)
         run: |
           test -f docs/index.html
-          test -f docs/demo/index.html
-          if grep -rqE "google\.script\.run|SpreadsheetApp|script\.google\.com" docs/demo docs/index.html; then
-            echo "ERROR: el demo referencia backend real (google.script.run / SpreadsheetApp)." >&2
+          test -f docs/preview/index.html
+          if grep -rqE "google\.script\.run|SpreadsheetApp|script\.google\.com" docs/preview docs/index.html; then
+            echo "ERROR: la vista previa referencia backend real (google.script.run / SpreadsheetApp)." >&2
             exit 1
           fi
 

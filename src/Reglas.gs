@@ -242,11 +242,10 @@ function resolverObacDia(entrada) {
 function evaluarSolicitudFormativa(personas, solicitud) {
   solicitud = solicitud || {};
   var email = normalizarTextoIdentidad(solicitud.email);
-  var tipos = ["TURNO_FORMATIVO", "ACOMPANAMIENTO", "OBSERVACION"];
-  var tipo = String(solicitud.tipoActividad || "").trim().toUpperCase();
+  // Para postulantes existe una sola modalidad institucional: guardia formativa
+  // mensual. No es una citación ni un rol operativo.
+  var tipo = "GUARDIA_FORMATIVA";
   var fechas = (solicitud.fechas || []).map(fechaStrCivil).filter(function(f) { return !!f; });
-  if (!solicitud.identidadVerificada) return { ok: false, estado: "REQUIERE_VALIDACION", codigo: "IDENTIDAD_NO_VERIFICADA" };
-  if (tipos.indexOf(tipo) === -1) return { ok: false, estado: "REQUIERE_VALIDACION", codigo: "TIPO_ACTIVIDAD_INVALIDO" };
   if (!fechas.length || fechas.length !== (solicitud.fechas || []).length || new Set(fechas).size !== fechas.length) {
     return { ok: false, estado: "REQUIERE_VALIDACION", codigo: "FECHAS_INVALIDAS" };
   }

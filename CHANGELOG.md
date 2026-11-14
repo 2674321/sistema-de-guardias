@@ -7,34 +7,34 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) ·
 ### Guardias 2.0 — rama local de revisión
 
 - Autorización server-side de identidad, cargo y nivel contra el padrón `Voluntarios`; payloads autodeclarados dejan de otorgar rol.
-- Modelo separado para postulantes y actividades formativas, sin modificar `Guardias!A:I` ni contar actividades como dotación.
+- Modelo separado para guardias formativas de postulantes, con modalidad única y sin modificar `Guardias!A:I` ni contar estas fechas como dotación.
 - Motor OBAC puro, determinista y fail-closed; el exportador muestra responsable validado o `PENDIENTE DE ASIGNACIÓN`.
 - Configuración por ambiente mediante Script Properties (`ENVIRONMENT`, `SHEET_ID`, `WEB_APP_URL`); se retiraron IDs operativos del código y la prueba de carga ya no tiene URL por defecto.
-- Rediseño institucional azul petróleo/rojo/ámbar, banner de ambiente y selector de participación con demo sintética.
+- Rediseño institucional simplificado, con base neutra, un acento principal, colores reservados para estados y textos más breves.
 - Auditoría, modelo de datos, sistema visual y runbook de deployments documentados.
 
-> Estado: implementado y probado localmente; no desplegado ni conectado a libros reales.
+> Estado: implementado y probado en un entorno QA aislado con datos sintéticos; producción no fue alterada.
 
 ### Cierre del proyecto (documentación / publicación)
 
-- **Demo pública** en GitHub Pages (`docs/demo/`) con datos ficticios, desacoplada del backend real (sin `google.script.run` ni accesos a Sheets).
+- **Preview pública** en GitHub Pages (`docs/preview/`) con datos ficticios, desacoplada del backend real (sin `google.script.run` ni accesos a Sheets).
 - **Landing** del proyecto en `docs/index.html`.
-- **Workflow** `.github/workflows/pages.yml` que publica `docs/` en GitHub Pages y valida que la demo no referencia el backend real.
-- **Calendario cívico** para el periodo de la demo (31/08/2026 → 27/09/2026).
-- **LICENSE** (MIT) y **CITATION.cff** añadidos; README reescrito (estructura, capturas, sección "Demo vs Producción", uso y despliegue).
+- **Workflow** `.github/workflows/pages.yml` que publica `docs/` en GitHub Pages y valida que la vista previa no referencia el backend real.
+- **Calendario cívico** para el periodo de la vista previa (31/08/2026 → 27/09/2026).
+- **LICENSE** (MIT) y **CITATION.cff** añadidos; README reescrito (estructura, capturas, sección "Preview vs Producción", uso y despliegue).
 - Se incorpora `docs/img/guardias-hoja-generada.png`: previsualización de la hoja de guardias generada, con datos ficticios.
 
-### Demo de alta fidelidad (rediseño)
+### Preview de alta fidelidad (rediseño)
 
-- **Demo rediseñada** (`docs/demo/`): ahora es la interfaz de producción **verbatim** (head/CSS + markup + JS de `src/Index.html`) con una capa de datos ficticios. Antes era una simplificación; ahora replica la experiencia real: inscripción, panel de baja, asistencia y calendario bimestral.
-- **Backend simulado** en la demo: sustituye la llamada `google.script.run` por un alias local (`D_RUN`) que responde con datos y retardos ficticios, con manejo correcto de peticiones en paralelo en el arranque. La demo **no contiene** referencia alguna a `google.script.run`, Sheets, Drive ni al backend real (lo valida el workflow de Pages).
+- **Preview rediseñada** (`docs/preview/`): ahora es la interfaz de producción **verbatim** (head/CSS + markup + JS de `src/Index.html`) con una capa de datos ficticios. Antes era una simplificación; ahora replica la experiencia real: inscripción, panel de baja, asistencia y calendario bimestral.
+- **Backend simulado** en la vista previa: sustituye la llamada `google.script.run` por un alias local (`D_RUN`) que responde con datos y retardos ficticios, con manejo correcto de peticiones en paralelo en el arranque. La vista previa **no contiene** referencia alguna a `google.script.run`, Sheets, Drive ni al backend real (lo valida el workflow de Pages).
 - **Imagen corregida**: `docs/img/guardias-hoja-generada.png` pasa a ser la **captura real** del formato de hoja de cálculo (1852×745) en lugar de la previsualización generada por el asistente.
 
-### Demo: realce visual del flujo
+### Preview: realce visual del flujo
 
 - El panel de **Inscripción** se pre-rellena al cargar con un ejemplo ficticio (nombre, correo y 2 días con cargo) y el calendario resalta esas fechas como seleccionadas. Así cualquier visitante entiende el flujo de registro sin escribir nada.
-- **Logo de la Compañía restaurado** en la demo: se incorpora `docs/img/logo-1cia.png` (copia local, transparente) y el masthead pasa de un emoji 🚒 a la imagen real, sin depender de Google Drive.
-- Todo es **solo visual** (capa de datos ficticios de la demo): no persiste ni toca producción.
+- **Logo de la Compañía restaurado** en la vista previa: se incorpora `docs/img/logo-1cia.png` (copia local, transparente) y el masthead pasa de un emoji 🚒 a la imagen real, sin depender de Google Drive.
+- Todo es **solo visual** (capa de datos ficticios de la vista previa): no persiste ni toca producción.
 
 No hubo cambios funcionales en la aplicación de producción en esta iteración (Apps Script sigue en v58).
 
@@ -85,7 +85,7 @@ Primera versión estable completa: reescritura del sistema histórico sobre Apps
 ### Security
 - Eliminación de guardias ajena usando solo el correo: requerido código enviado al correo del titular.
 - LockService en todas las escrituras críticas (inscripción, baja, asistencia, migración).
-- Hojas LOG/BACKUP ocultas y con protección de aviso; sin secretos en el repositorio (`.gitignore` + datos demo anonimizados).
+- Hojas LOG/BACKUP ocultas y con protección de aviso; sin secretos en el repositorio (`.gitignore` + datos vista previa anonimizados).
 
 ### Performance
 - Lectura masiva → procesamiento en memoria → escritura masiva; sin `getRange` por celda en flujos automáticos.

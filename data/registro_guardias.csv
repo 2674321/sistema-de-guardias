@@ -1,4 +1,4 @@
 Timestamp,Nombre,Email,Cargo,Guardia 01,Guardia 02,Guardia 03,Guardia 04,Nivel
-01/09/2026 12:00:00,Bombero Demo Uno,demo1@ejemplo.cl,voluntario,2026-09-07,2026-09-21,,,OPERATIVO
-01/09/2026 12:01:00,Bombero Demo Dos,demo2@ejemplo.cl,maquinista,2026-09-07,,,,INICIAL
-02/09/2026 12:00:00,Bombero Demo Tres,demo3@ejemplo.cl,voluntario,2026-09-21,2026-09-23,,,"PROFESIONAL"
+01/09/2026 12:00:00,Bombero Ficticio Uno,persona1@example.invalid,voluntario,2026-09-07,2026-09-21,,,OPERATIVO
+01/09/2026 12:01:00,Bombero Ficticio Dos,persona2@example.invalid,maquinista,2026-09-07,,,,INICIAL
+02/09/2026 12:00:00,Bombero Ficticio Tres,persona3@example.invalid,voluntario,2026-09-21,2026-09-23,,,"PROFESIONAL"

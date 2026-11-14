@@ -1,6 +1,6 @@
 # Política de datos privados
 
-Este repositorio público debe contener solamente **código, documentación y datos de demostración sintéticos**.
+Este repositorio público debe contener solamente **código, documentación y datos de vista previa sintéticos**.
 
 ## Prohibido versionar
 
@@ -20,5 +20,5 @@ Los datos de prueba deben ser inventados y no corresponder a personas reales. No
 1. Revisar `git diff --staged`.
 2. Confirmar que no se agregaron exportaciones o respaldos.
 3. Ejecutar las pruebas y validaciones del proyecto.
-4. Verificar que demos y capturas usen únicamente información ficticia.
+4. Verificar que vistas previas y capturas usen únicamente información ficticia.
 5. Si hubo una exposición, no limitarse a borrar el archivo del último commit: revisar también el historial Git.

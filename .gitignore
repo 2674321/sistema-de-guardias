@@ -1,4 +1,4 @@
-# Datos locales con información real (el repo incluye solo demo anónima)
+# Datos locales con información real (el repo incluye solo muestras anónimas)
 data/registro_guardias-real.csv
 data/*.local.csv
 /data/real/
@@ -42,5 +42,5 @@ node_modules/
 # Generación de calendario: salidas del script Python (referencia de formato)
 python-formato-calendario-de-guardias/*.xlsx
 
-# Artefactos locales del demo/portafolio
-docs/demo/*.tmp
+# Artefactos locales de la vista previa/portafolio
+docs/preview/*.tmp

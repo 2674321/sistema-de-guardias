@@ -148,8 +148,6 @@
     .participation-grid button { min-height:48px; padding:10px 12px; border:1px solid var(--rule); border-radius:8px; background:var(--card); color:var(--ink-soft); font:600 12px var(--sans); cursor:pointer; text-align:left; }
     .participation-grid button[aria-pressed="true"] { border-color:var(--ink); background:var(--ink); color:white; box-shadow:inset 0 -3px 0 var(--gold); }
     .participation-note { margin:-8px 0 20px; padding:10px 12px; border-left:3px solid var(--gold); background:#fbf7ee; color:var(--ink-soft); font-size:12px; line-height:1.5; }
-    .formativo-fields { display:none; }
-    body[data-participacion="postulante"] .formativo-fields { display:block; }
     body[data-participacion="postulante"] .operativo-only { display:none !important; }
     .pdf-btn {
       background: none;
@@ -1467,6 +1465,45 @@
     @media (min-width: 1000px){
       #cal-grid:not(.cal-lista){ min-width: 0; }
     }
+
+    /* V2 simple: una base neutra, un acento y color sólo para estados. */
+    :root{
+      --ink:#202a30; --ink-mid:#202a30; --ink-soft:#5f696f; --ink-faint:#8a9297;
+      --paper:#f5f6f6; --paper-dark:#eef0f1; --card:#ffffff; --rule:#dfe3e5;
+      --red:#a63b37; --red-deep:#87302d; --red-pale:#f6e9e8; --red-tint:#fbf5f4;
+      --blue:#3f5967; --blue-pale:#e9eef0; --blue-tint:#f4f6f7;
+      --green:#39705f; --green-pale:#e9f2ee; --gold:#9b7a42;
+      --orange:#8a5b3c; --orange-pale:#f2ece8; --orange-tint:#f8f5f2; --orange-deep:#70462f;
+      --shadow-sm:none; --shadow-md:0 4px 18px rgba(23,35,42,.06); --shadow-lg:0 8px 28px rgba(23,35,42,.08);
+      --radius:12px;
+    }
+    body{ background:var(--paper); }
+    .masthead{ background:var(--ink); padding:0 24px; overflow:visible; }
+    .masthead::before,.masthead::after{ display:none; }
+    .masthead-inner{ max-width:880px; padding:13px 0; }
+    .masthead-logo{ width:42px; height:42px; border:1px solid rgba(255,255,255,.35); box-shadow:none; }
+    .masthead-eyebrow{ color:rgba(255,255,255,.58); letter-spacing:1.4px; }
+    .masthead-title{ font-family:var(--sans); font-size:20px; font-weight:600; letter-spacing:-.2px; }
+    .masthead-right a{ color:rgba(255,255,255,.72); font-weight:500; }
+    .env-banner.visible{ background:var(--paper-dark); color:var(--ink-soft); border-bottom-color:var(--rule); }
+    .pdf-btn{ border-color:rgba(255,255,255,.22); text-transform:none; letter-spacing:.4px; }
+    .chipnav{ display:none !important; }
+    .page-body{ max-width:880px; padding:22px 20px 52px; gap:16px; }
+    .panel{ border-color:var(--rule); box-shadow:none; }
+    .panel-head,.panel-del .panel-head{ background:var(--card); border-bottom:1px solid var(--rule); padding:13px 20px; }
+    .panel-head-num,.panel-del .panel-head-num{ color:var(--ink-faint); }
+    .panel-head-title{ font-family:var(--sans); font-size:14px; font-weight:600; letter-spacing:0; text-transform:none; color:var(--ink); }
+    .panel-body{ padding:20px; }
+    .sep{ margin:5px 0 14px; }
+    .sep-label{ letter-spacing:.8px; }
+    .participation-grid{ margin-bottom:12px; }
+    .participation-grid button{ min-height:44px; border-radius:9px; }
+    .participation-grid button[aria-pressed="true"]{ background:var(--ink); border-color:var(--ink); box-shadow:none; }
+    .participation-note{ margin:0 0 18px; padding:9px 11px; border:0; border-radius:8px; background:var(--paper-dark); font-size:11px; line-height:1.4; }
+    .submit-btn,.del-btn-confirmar{ border-radius:9px; box-shadow:none; }
+    .op-banner{ border-left-color:var(--ink-faint); background:var(--paper-dark); }
+    .legend{ opacity:.82; }
+    footer{ max-width:880px !important; }
   </style>
 </head>
 <body style="min-height:100vh;">
@@ -1481,8 +1518,8 @@
     <div class="masthead-left">
       <img class="masthead-logo" src="https://drive.google.com/thumbnail?id=1KGkEIbJWCCy8qYYWf-bjmTE7PC5UznAI&sz=w200" alt="Logo 1ra Compañía CBC">
       <div class="masthead-texts">
-        <span class="masthead-eyebrow">1ra Compañía CBC</span>
-        <span class="masthead-title">Guardias 1ra Compañía Coquimbo</span>
+        <span class="masthead-eyebrow">1ra Compañía CBC · Coquimbo</span>
+        <span class="masthead-title">Guardias</span>
       </div>
     </div>
     <div class="masthead-right">
@@ -1529,7 +1566,7 @@
   <a href="#panel-inscripcion" data-secc="panel-inscripcion">01 · Inscripción</a>
   <a href="#panel-disponibilidad" data-secc="panel-disponibilidad">02 · Disponibilidad</a>
   <a href="#panel-baja" data-secc="panel-baja">03 · Mi baja</a>
-  <a href="#panel-asistencia" data-secc="panel-asistencia" data-nav-asistencia>04 · Asistencia</a>
+  <a href="#panel-asistencia" data-secc="panel-asistencia" data-nav-asistencia hidden>04 · Asistencia</a>
 </nav>
 
 <nav class="bottomnav" id="bottomnav" aria-label="Navegación principal">
@@ -1537,7 +1574,7 @@
   <button type="button" data-go="#panel-inscripcion" aria-label="Inscripción">➕<span>Inscribirse</span></button>
   <button type="button" data-go="#panel-disponibilidad" aria-label="Disponibilidad de guardias">📅<span>Guardias</span></button>
   <button type="button" data-go="#panel-baja" aria-label="Dar de baja mis guardias">👤<span>Mi baja</span></button>
-  <button type="button" data-go="#panel-asistencia" data-bn-asistencia aria-label="Asistencia">🩺<span>Asistencia</span></button>
+  <button type="button" data-go="#panel-asistencia" data-bn-asistencia aria-label="Asistencia" hidden>🩺<span>Asistencia</span></button>
 </nav>
 
 <div class="page-body">
@@ -1566,20 +1603,10 @@
 
       <div class="sep"><span class="sep-label">Tipo de participación</span></div>
       <div class="participation-grid" role="group" aria-label="Tipo de participación">
-        <button type="button" id="tipo-voluntario" aria-pressed="true" onclick="seleccionarTipoPersona('voluntario')">Voluntario habilitado<br><small>Guardia operativa</small></button>
-        <button type="button" id="tipo-postulante" aria-pressed="false" onclick="seleccionarTipoPersona('postulante')">Postulante<br><small>Actividad formativa · no dotación</small></button>
+        <button type="button" id="tipo-voluntario" aria-pressed="true" onclick="seleccionarTipoPersona('voluntario')">Voluntario<br><small>Guardia operativa</small></button>
+        <button type="button" id="tipo-postulante" aria-pressed="false" onclick="seleccionarTipoPersona('postulante')">Postulante<br><small>Guardia formativa</small></button>
       </div>
-      <div class="participation-note" id="participation-note">Tu rol y nivel serán verificados por el servidor contra el padrón institucional.</div>
-      <div class="formativo-fields">
-        <div class="field">
-          <label class="field-label" for="tipo-actividad">Tipo de actividad</label>
-          <select id="tipo-actividad">
-            <option value="TURNO_FORMATIVO">Turno formativo</option>
-            <option value="ACOMPANAMIENTO">Acompañamiento</option>
-            <option value="OBSERVACION">Observación</option>
-          </select>
-        </div>
-      </div>
+      <div class="participation-note" id="participation-note">La habilitación se verifica automáticamente.</div>
 
       <div class="field field-op operativo-only">
         <label class="field-label">Nivel de bombero</label>
@@ -1655,7 +1682,7 @@
   </div>
 
   <!-- PANEL 02: CALENDARIO -->
-  <div class="panel" style="background:#edeae4;" id="panel-disponibilidad">
+  <div class="panel" id="panel-disponibilidad">
     <div class="panel-head">
       <span class="panel-head-num">02</span>
       <span class="panel-head-title">Disponibilidad</span>
@@ -1673,7 +1700,7 @@
       </span>
 
       <div id="op-banner" class="op-banner">
-        <span class="op-banner-text">Requisitos despacho: 1 maquinista · 2 bomberos operativos / profesionales</span>
+        <span class="op-banner-text">Referencia: 1 maquinista · 2 operativos</span>
       </div>
 
       <div class="cal-scroll" id="cal-scroll">
@@ -1723,10 +1750,7 @@
     </div>
     <div class="panel-body">
 
-      <p class="del-desc">
-        Si necesitas corregir tus guardias del mes, ingresa tu correo electrónico para consultar tus guardias.
-        Puedes eliminar todos tus registros del mes en curso y volver a inscribirte.
-      </p>
+      <p class="del-desc">Consulta y corrige tus guardias del mes.</p>
 
 
       <div class="del-inner">
@@ -1794,7 +1818,7 @@
   </div>
 
   <!-- PANEL 04: ASISTENCIA -->
-  <div class="panel panel-full" id="panel-asistencia">
+  <div class="panel panel-full" id="panel-asistencia" hidden>
     <div class="panel-head">
       <span class="panel-head-num">04</span>
       <span class="panel-head-title">Asistencia</span>
@@ -1839,11 +1863,7 @@
 
 <footer style="max-width:960px;margin:0 auto;padding:0 24px 32px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <span style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-faint);">
-    Guardias 1ra Cía Coquimbo &mdash; v2.0 · revisión
-  </span>
-  <span style="width:32px;height:1px;background:var(--rule);display:block;flex-shrink:0;"></span>
-  <span style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-faint);">
-    Patricio Varela C.
+    Guardias 1ra Cía Coquimbo &mdash; v2.0
   </span>
 </footer>
 
@@ -1940,7 +1960,7 @@ function _aplicarConfig(cfg){
   var ambiente = String(cfg.ambiente || "UNCONFIGURED").toUpperCase();
   var eb = document.getElementById("env-banner");
   if(eb && ambiente !== "PROD" && ambiente !== "PRODUCCION"){
-    eb.textContent = ambiente === "QA" ? "Entorno de pruebas · datos ficticios" : ambiente === "DEMO" ? "Entorno de demostración · datos ficticios · no guarda información" : "Entorno sin configurar · registros deshabilitados";
+    eb.textContent = ambiente === "QA" ? "Entorno de pruebas · datos ficticios" : ambiente === "PREVIEW" ? "Entorno de vista previa · datos ficticios · no guarda información" : "Entorno sin configurar · registros deshabilitados";
     eb.classList.add("visible");
   }
   if(ambiente === "UNCONFIGURED"){
@@ -1951,14 +1971,16 @@ function _aplicarConfig(cfg){
   window._maxDias = Math.min(cfg.cantidadGuardias || 4, 4);
   seleccionarNumDias(window._maxDias);
 
-  // Panel Asistencia: 1 visible · 0 desaparece por completo
+  // Asistencia parte oculta y solo se habilita cuando Config C8 vale 1.
   var mostrar = !!cfg.mostrarAsistencia;
   var pa = document.getElementById("panel-asistencia");
-  if(!mostrar){
-    if(pa) pa.remove();
-    var chip = document.querySelector("[data-nav-asistencia]");
-    if(chip) chip.remove();
-  }
+  var chip = document.querySelector("[data-nav-asistencia]");
+  var bn = document.querySelector("[data-bn-asistencia]");
+  [pa, chip, bn].forEach(function(el){
+    if(!el) return;
+    if(mostrar) el.removeAttribute("hidden");
+    else el.remove();
+  });
 }
 
 function seleccionarTipoPersona(tipo){
@@ -1972,11 +1994,11 @@ function seleccionarTipoPersona(tipo){
   var fl = document.getElementById("fechas-label");
   var btn = document.getElementById("btnEnviar");
   if(estado.tipoPersona === "postulante"){
-    if(nota) nota.textContent = "Actividad formativa o de acompañamiento. No constituye guardia, no integra dotación y requiere identidad y autorización verificadas.";
-    if(fl) fl.textContent = "Fechas de actividad formativa";
-    if(btn) btn.textContent = "Programar actividad formativa";
+    if(nota) nota.textContent = "Guardia mensual formativa. No integra la dotación operativa.";
+    if(fl) fl.textContent = "Fechas de guardia formativa";
+    if(btn) btn.textContent = "Registrar guardias formativas";
   } else {
-    if(nota) nota.textContent = "Tu rol y nivel serán verificados por el servidor contra el padrón institucional.";
+    if(nota) nota.textContent = "La habilitación se verifica automáticamente.";
     if(fl) fl.textContent = "Fechas de guardia";
     if(btn) btn.textContent = "Registrar guardias";
   }
@@ -2339,7 +2361,7 @@ function _resolverCalendario(reqId, data){
     _aplicarConfig({
       ok: true,
       cantidadGuardias: (data.configuracion || {}).cantidadGuardias || 4,
-      mostrarAsistencia: !((data.configuracion || {}).mostrarAsistencia === false),
+      mostrarAsistencia: (data.configuracion || {}).mostrarAsistencia === true,
       ambiente: (data.configuracion || {}).ambiente || "UNCONFIGURED"
     });
 
@@ -2842,7 +2864,7 @@ function renderResumen(){
     return '<span class="resumen-fech">' + nombre + '</span>';
   }).join("");
   box.innerHTML = pills + (estado.tipoPersona === "postulante"
-    ? '<span class="resumen-meta">Actividad formativa · no dotación</span>'
+    ? '<span class="resumen-meta">Guardia formativa</span>'
     : '<span class="resumen-meta">Nivel ' + nivelTxt + '</span>');
 }
 
@@ -2963,7 +2985,7 @@ function validarFormulario(){
       mostrarError("Selecciona al menos 1 día en el calendario.");
     }
   }
-  // Cada guardia operativa debe tener cargo. Una actividad formativa nunca lo usa.
+  // Cada guardia operativa debe tener cargo. Una guardia formativa nunca lo usa.
   var sinCargo = estado.seleccionadas.filter(function(f){
     if(estado.tipoPersona === "postulante") return false;
     for(var si=1;si<=4;si++){
@@ -3011,7 +3033,7 @@ function enviar(){
         }
         _btnEstado(btn, "ok-state", "✓ ACTIVIDAD PROGRAMADA");
         document.getElementById("exito").style.display = "block";
-        document.querySelector("#exito p").textContent = "Actividad formativa programada; queda pendiente de validación de cumplimiento.";
+        document.querySelector("#exito p").textContent = "Guardias formativas registradas.";
         limpiarFormulario();
       })
       .withFailureHandler(function(err){
@@ -3023,7 +3045,6 @@ function enviar(){
       .registrarActividadFormativa({
         nombre: nombre,
         email: email,
-        tipoActividad: document.getElementById("tipo-actividad").value,
         fechas: estado.seleccionadas.slice()
       });
     return;

@@ -12,9 +12,9 @@ Alcance: repositorio local, fuentes públicas y fixtures sintéticos. **Producci
 | Repositorio y tests locales | VERIFICADO | checkout de `origin/main`, suite Node y análisis estático |
 | Issue público de seguridad #3 | VERIFICADO | abierto al 2026-11-14; tag `v1.1.0` todavía alcanza dos artefactos retirados |
 | Documentación de deployments | VERIFICADO | Apps Script distingue versión inmutable de deployment editable; actualizar el deployment conserva ID/URL |
-| Libros Guardias/Ayudantía | NO VERIFICADO EN ESTA EJECUCIÓN | no hay conector autorizado ni credenciales locales; se conserva el diagnóstico V2 como antecedente, no como lectura nueva |
-| Permisos de Drive | NO VERIFICADO EN ESTA EJECUCIÓN | no se modificaron ACL ni archivos |
-| Deployments Apps Script | NO VERIFICADO | `.clasp.json` ausente y no se autenticó `clasp`; la URL antes hardcodeada no prueba inventario ni vigencia |
+| Libros Guardias/Ayudantía | IDENTIFICADOS, NO MODIFICADOS | IDs productivos contrastados; las pruebas de escritura usan un libro QA sintético separado |
+| Permisos de Drive | VERIFICADO SOLO EN QA | libro sintético con único permiso `user:owner`; ACL productivas no se modificaron |
+| Deployments Apps Script | VERIFICADO | 11 deployments productivos inventariados en modo lectura; deployment QA canónico actualizado hasta `@6` |
 
 ## Baseline
 
@@ -23,7 +23,7 @@ Alcance: repositorio local, fuentes públicas y fixtures sintéticos. **Producci
 - Baseline inicial: 69/69 pruebas puras y sintaxis JS correctas. Tras la implementación V2, la integridad alcanza 71 funciones cliente/servidor y 82/82 pruebas.
 - Stack: Apps Script V8, HtmlService, Sheets, MailApp, CacheService y LockService.
 - Manifest actual: `executeAs=USER_DEPLOYING`, `access=ANYONE_ANONYMOUS`.
-- `.clasp.json`: ausente. No se ejecutó `clasp pull`, `push`, `version` ni `deploy`.
+- `.clasp.json`: no se versiona. `clasp push/version/deploy` se ejecutó únicamente contra el proyecto QA inspeccionado; producción permaneció intacta.
 
 ## Hallazgos y riesgos
 
@@ -38,8 +38,8 @@ Alcance: repositorio local, fuentes públicas y fixtures sintéticos. **Producci
 | R-07 | P1 | `doGet()` usaba `ALLOWALL` sin dependencia de embedding documentada | IMPLEMENTADO localmente: eliminado, vuelve la protección por defecto de HtmlService |
 | R-08 | P1 | OTP de baja usaba `Math.random()` | IMPLEMENTADO localmente: UUID de plataforma + SHA-256 + rate limit/TTL existentes; pendiente prueba Apps Script QA |
 | R-09 | P1 | UI usa `innerHTML` extensamente | PARCIAL: errores pasan a `textContent` y nombres/reemplazos se escapan; falta CSP/análisis contextual completo |
-| R-10 | P1 | No existe modelo separado para postulantes ni cumplimiento formativo | PENDIENTE; no se ampliará `Guardias!A:I` directamente |
-| R-11 | P1 | Exportador deja OBAC vacío | PENDIENTE; motor puro y adapter de Ayudantía requeridos |
+| R-10 | P1 | No existe modelo separado para postulantes ni cumplimiento formativo | IMPLEMENTADO: guardias formativas segregadas, sin rol/cupo/OBAC y sin modificar `Guardias!A:I` |
+| R-11 | P1 | Exportador deja OBAC vacío | IMPLEMENTADO: responsable validado o `PENDIENTE DE ASIGNACIÓN` |
 | R-12 | P1 | No se puede comprobar el contrato A:G ni límite 250 sin acceso a los libros | NO VERIFICADO; se debe probar con copia QA estructural |
 
 ## Cambio P0: autorización server-side
@@ -68,7 +68,7 @@ Reglas conservadoras implementadas:
 - ausencia de hoja, columnas obligatorias, identidad única o evidencia produce rechazo sin escritura;
 - el mensaje público no revela el contenido del padrón.
 
-El adapter admite encabezados acotados y requiere al menos correo y estado. El esquema real debe reconciliarse en una copia QA antes de publicar; hasta entonces este cambio no debe desplegarse.
+El adapter admite encabezados acotados y requiere al menos correo y estado. El esquema real todavía debe reconciliarse en una copia estructural antes de publicar en producción.
 
 ## Superficies RPC observadas
 
@@ -110,13 +110,13 @@ Invariantes de migración:
 
 ## Deployments y ambientes
 
-Apps Script documenta que una versión es inmutable y un deployment posee ID/URL; para actualizar sin cambiar la URL se crea una versión y se edita el deployment existente. No se ejecutó ninguna operación de deployment.
+Apps Script documenta que una versión es inmutable y un deployment posee ID/URL; para actualizar sin cambiar la URL se crea una versión y se edita el deployment existente. Ese procedimiento se verificó en QA.
 
 | Ambiente | Script ID | Deployment ID | URL | Sheet | Estado |
 |---|---|---|---|---|---|
-| Demo pública | N/A | GitHub Pages | histórica `/demo/` | ninguno | VERIFICADO en repo, sintético |
-| QA funcional | NO VERIFICADO | NO VERIFICADO | NO VERIFICADO | debe ser solo QA | BLOQUEADO hasta inventario autorizado |
-| Producción | NO VERIFICADO | NO VERIFICADO | candidato histórico retirado del código | real | NO TOCADO |
+| Preview pública | N/A | GitHub Pages | histórica `/preview/` | ninguno | VERIFICADO en repo, sintético |
+| QA funcional | VERIFICADO | canónico estable `@6` | `/exec` estable | sintética privada | ACTIVO |
+| Producción | VERIFICADO en modo lectura | 11 deployments inventariados | canónica histórica contrastada | real | NO TOCADO |
 
 Las propiedades obligatorias por proyecto son `ENVIRONMENT`, `SHEET_ID`, `WEB_APP_URL`, `ADMIN_EMAILS`, `OBAC_ANCHOR_PERSON_ID` y opcionalmente `OBAC_SOURCE_MAX_AGE_HOURS`. QA debe fallar el preflight si el ID de hoja coincide con producción o si el banner de ambiente no es `QA`.
 
@@ -124,17 +124,13 @@ Las propiedades obligatorias por proyecto son `ENVIRONMENT`, `SHEET_ID`, `WEB_AP
 
 El issue público #3 sigue abierto. La inspección local confirma que `v1.1.0` contiene `REM_ECICEP_2026_08.xlsx` y `ODD INTERNA N°001.2026.pdf`; `git log v1.1.0 --` devuelve un commit para esas rutas. No se movió el tag, no se reescribió historia y no se hizo push. La corrección requiere una autorización separada y coordinación con consumidores del tag.
 
-## Gate para continuar
-
-Antes de QA conectado:
+## Gate para producción
 
 1. obtener acceso de solo lectura autorizado y reconciliar el esquema real de `Voluntarios`;
-2. crear/confirmar proyecto y libro QA sintético separados;
-3. inventariar deployments con propietario y acceso;
-4. cerrar autorización de RPC administrativas;
-5. confirmar que el cambio de Script Properties no deja valores sin configurar;
-6. ejecutar pruebas de entorno Apps Script sobre QA, nunca producción;
-7. comparar `Guardias | Compartir!A:G` y el `IMPORTRANGE` en copias QA.
+2. cerrar autorización de RPC administrativas y configurar `ADMIN_EMAILS` con confirmación del propietario;
+3. comparar `Guardias | Compartir!A:G` y el `IMPORTRANGE` en copias QA estructurales;
+4. probar concurrencia, correo sink, exportación y rollback;
+5. revisar/remediar ACL productivas con aprobación y readback.
 
 ## Evidencia de esta iteración
 
@@ -142,6 +138,6 @@ Antes de QA conectado:
 - Integridad frontend/backend: 71 funciones llamadas/definidas PASS.
 - Sintaxis de archivos `.js`/`.mjs`: PASS.
 - `git diff --check`: PASS.
-- QA visual local: escritorio y 320/360/375/390/430 px; sin overflow horizontal; flujo formativo demo confirmado.
-- QA visual local: escritorio y 320/360/375/390/430 px; sin overflow horizontal. Flujo formativo demo confirmado.
-- Producción, Drive, ACL, correos, Apps Script y Git remoto: **NO MODIFICADOS**.
+- QA visual local: escritorio y 320/360/375/390/430 px; sin overflow horizontal; flujo formativo confirmado.
+- QA Apps Script: libro sintético privado, banner QA, Asistencia oculta, registro formativo E2E persistido y deployment estable actualizado hasta `@6`.
+- Producción, ACL productivas, correos y Git remoto: **NO MODIFICADOS**.

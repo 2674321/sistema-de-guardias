@@ -8,18 +8,18 @@
 
 **Autor:** [Patricio Varela C.](https://github.com/2674321) · **ORCID:** [0009-0002-1087-9445](https://orcid.org/0009-0002-1087-9445) · **Licencia:** [MIT](LICENSE) · **Citación:** [CITATION.cff](CITATION.cff)
 
-Sistema de calendarización y gestión de guardias para la 1ª Compañía del Cuerpo de Bomberos de Coquimbo. Construido sobre **Google Apps Script** (backend + web app) con **Google Sheets** como base de datos.
+Sistema de calendarización y gestión de guardias para la 1ª Compañía del Cuerpo de Bomberos de Coquimbo. Lleva cerca de seis meses operativo con funcionamiento normal. Está construido sobre **Google Apps Script** (backend + web app) con **Google Sheets** como base de datos.
 
-> **Estado productivo documentado:** v1.1.0. La rama Guardias 2.0 está en revisión local y no ha sido desplegada. [Ver demo](https://2674321.github.io/sistema-de-guardias/demo/)
+> **Estado productivo documentado:** v1.1.0. Guardias 2.0 está desplegado únicamente en QA con datos sintéticos; producción no fue alterada. [Ver vista previa](https://2674321.github.io/sistema-de-guardias/preview/)
 
-## Demo en línea (datos ficticios)
+## Preview en línea (datos ficticios)
 
-El repositorio publica una **demo autónoma y desacoplada** del backend real en GitHub Pages:
+El repositorio publica una **vista previa autónoma y desacoplada** del backend real en GitHub Pages:
 
 - **Landing:** https://2674321.github.io/sistema-de-guardias/
-- **Demo interactiva:** https://2674321.github.io/sistema-de-guardias/demo/
+- **Preview interactiva:** https://2674321.github.io/sistema-de-guardias/preview/
 
-La demo (`docs/demo/`) es una copia de la interfaz con **datos ficticios**, sin `google.script.run` ni acceso a ninguna hoja real: no modifica guardias, no envía correos y no toca la base de datos de producción. Sirve únicamente para mostrar la experiencia de usuario.
+La vista previa (`docs/preview/`) es una copia de la interfaz con **datos ficticios**, sin `google.script.run` ni acceso a ninguna hoja real: no modifica guardias, no envía correos y no toca la base de datos de producción. Sirve únicamente para mostrar la experiencia de usuario.
 
 ## Capturas de pantalla
 
@@ -134,9 +134,9 @@ git push origin main --follow-tags
 
 Historial: [`CHANGELOG.md`](CHANGELOG.md).
 
-## Demo vs Producción
+## Preview vs Producción
 
-| | Demo (`docs/demo/`) | Producción (Apps Script) |
+| | Preview (`docs/preview/`) | Producción (Apps Script) |
 |---|---|---|
 | Datos | Ficticios, embebidos | Google Sheets real |
 | Backend | Ninguno (archivos estáticos) | `google.script.run` → Apps Script |
@@ -146,7 +146,7 @@ Historial: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Datos
 
-El repo incluye **solo datos demo anónimos** (`data/registro_guardias.csv`). Para exportar datos reales localmente:
+El repo incluye **solo datos vista previa anónimos** (`data/registro_guardias.csv`). Para exportar datos reales localmente:
 
 ```bash
 curl -sL "https://docs.google.com/spreadsheets/d/<ID>/export?format=csv" -o data/registro_guardias-real.csv

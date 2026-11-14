@@ -44,19 +44,15 @@ function registrarActividadFormativa(datos) {
   if (!lock.tryLock(30000)) return { ok: false, errorCode: "SISTEMA_OCUPADO", errores: ["El sistema está ocupado. Intenta nuevamente."] };
   try {
     var email = normalizarTextoIdentidad(datos && datos.email);
-    var correoSesion = "";
-    try { correoSesion = normalizarTextoIdentidad(Session.getActiveUser().getEmail()); } catch (e) {}
     var padron = _leerPostulantesAutorizados();
     if (!padron.ok) return { ok: false, errorCode: padron.codigo, estado: "REQUIERE_VALIDACION", errores: ["No fue posible verificar la autorización formativa."] };
     var ev = evaluarSolicitudFormativa(padron.personas, {
       email: email,
-      identidadVerificada: !!correoSesion && correoSesion === email,
-      tipoActividad: datos && datos.tipoActividad,
       fechas: (datos && datos.fechas) || []
     });
-    if (!ev.ok) return { ok: false, errorCode: ev.codigo, estado: ev.estado, errores: ["La actividad requiere validación de identidad y autorización por Ayudantía."] };
+    if (!ev.ok) return { ok: false, errorCode: ev.codigo, estado: ev.estado, errores: ["El correo debe figurar una sola vez como postulante autorizado."] };
     for (var f = 0; f < ev.fechas.length; f++) {
-      if (!esSemanaHabilitada(ev.fechas[f])) return { ok: false, errorCode: "FECHA_NO_HABILITADA", errores: ["Una fecha no está habilitada para actividades."] };
+      if (!esSemanaHabilitada(ev.fechas[f])) return { ok: false, errorCode: "FECHA_NO_HABILITADA", errores: ["Una fecha no está habilitada para guardias formativas."] };
     }
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sh = _asegurarHojaActividadesFormativas(ss);

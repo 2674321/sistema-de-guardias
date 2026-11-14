@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
-  <title>Guardias · 1ra Compañía Coquimbo — DEMO (datos ficticios)</title>
+  <title>Guardias · 1ra Compañía Coquimbo</title>
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -148,8 +148,6 @@
     .participation-grid button { min-height:48px; padding:10px 12px; border:1px solid var(--rule); border-radius:8px; background:var(--card); color:var(--ink-soft); font:600 12px var(--sans); cursor:pointer; text-align:left; }
     .participation-grid button[aria-pressed="true"] { border-color:var(--ink); background:var(--ink); color:white; box-shadow:inset 0 -3px 0 var(--gold); }
     .participation-note { margin:-8px 0 20px; padding:10px 12px; border-left:3px solid var(--gold); background:#fbf7ee; color:var(--ink-soft); font-size:12px; line-height:1.5; }
-    .formativo-fields { display:none; }
-    body[data-participacion="postulante"] .formativo-fields { display:block; }
     body[data-participacion="postulante"] .operativo-only { display:none !important; }
     .pdf-btn {
       background: none;
@@ -1468,23 +1466,60 @@
       #cal-grid:not(.cal-lista){ min-width: 0; }
     }
 
-    /*════════ DEMO ────────*/
-    .demo-banner{
+    /* V2 simple: una base neutra, un acento y color sólo para estados. */
+    :root{
+      --ink:#202a30; --ink-mid:#202a30; --ink-soft:#5f696f; --ink-faint:#8a9297;
+      --paper:#f5f6f6; --paper-dark:#eef0f1; --card:#ffffff; --rule:#dfe3e5;
+      --red:#a63b37; --red-deep:#87302d; --red-pale:#f6e9e8; --red-tint:#fbf5f4;
+      --blue:#3f5967; --blue-pale:#e9eef0; --blue-tint:#f4f6f7;
+      --green:#39705f; --green-pale:#e9f2ee; --gold:#9b7a42;
+      --orange:#8a5b3c; --orange-pale:#f2ece8; --orange-tint:#f8f5f2; --orange-deep:#70462f;
+      --shadow-sm:none; --shadow-md:0 4px 18px rgba(23,35,42,.06); --shadow-lg:0 8px 28px rgba(23,35,42,.08);
+      --radius:12px;
+    }
+    body{ background:var(--paper); }
+    .masthead{ background:var(--ink); padding:0 24px; overflow:visible; }
+    .masthead::before,.masthead::after{ display:none; }
+    .masthead-inner{ max-width:880px; padding:13px 0; }
+    .masthead-logo{ width:42px; height:42px; border:1px solid rgba(255,255,255,.35); box-shadow:none; }
+    .masthead-eyebrow{ color:rgba(255,255,255,.58); letter-spacing:1.4px; }
+    .masthead-title{ font-family:var(--sans); font-size:20px; font-weight:600; letter-spacing:-.2px; }
+    .masthead-right a{ color:rgba(255,255,255,.72); font-weight:500; }
+    .env-banner.visible{ background:var(--paper-dark); color:var(--ink-soft); border-bottom-color:var(--rule); }
+    .pdf-btn{ border-color:rgba(255,255,255,.22); text-transform:none; letter-spacing:.4px; }
+    .chipnav{ display:none !important; }
+    .page-body{ max-width:880px; padding:22px 20px 52px; gap:16px; }
+    .panel{ border-color:var(--rule); box-shadow:none; }
+    .panel-head,.panel-del .panel-head{ background:var(--card); border-bottom:1px solid var(--rule); padding:13px 20px; }
+    .panel-head-num,.panel-del .panel-head-num{ color:var(--ink-faint); }
+    .panel-head-title{ font-family:var(--sans); font-size:14px; font-weight:600; letter-spacing:0; text-transform:none; color:var(--ink); }
+    .panel-body{ padding:20px; }
+    .sep{ margin:5px 0 14px; }
+    .sep-label{ letter-spacing:.8px; }
+    .participation-grid{ margin-bottom:12px; }
+    .participation-grid button{ min-height:44px; border-radius:9px; }
+    .participation-grid button[aria-pressed="true"]{ background:var(--ink); border-color:var(--ink); box-shadow:none; }
+    .participation-note{ margin:0 0 18px; padding:9px 11px; border:0; border-radius:8px; background:var(--paper-dark); font-size:11px; line-height:1.4; }
+    .submit-btn,.del-btn-confirmar{ border-radius:9px; box-shadow:none; }
+    .op-banner{ border-left-color:var(--ink-faint); background:var(--paper-dark); }
+    .legend{ opacity:.82; }
+    footer{ max-width:880px !important; }
+
+    /*════════ VISTA PREVIA ────────*/
+    .preview-banner{
       background:#141414; color:#fff; text-align:center;
       padding:6px 14px; font-family:var(--mono); font-size:9px;
       letter-spacing:2px; text-transform:uppercase;
       border-bottom:1px solid var(--red);
     }
-    .demo-banner b{ color:#FFD700; }
-    .masthead-right.demo a{ color:#FFD700; cursor:default; text-decoration:none; }
-    .masthead-logo.masthead-logo-demo{
+    .preview-banner b{ color:#FFD700; }
+    .masthead-right.preview a{ color:#FFD700; cursor:default; text-decoration:none; }
+    .masthead-logo.masthead-logo-preview{
       display:block; background:#fff; object-fit:cover;
     }
   </style>
 </head>
 <body style="min-height:100vh;">
-
-<div class="demo-banner" role="status"><b>DEMO</b> · datos ficticios · sin acceso a datos reales</div>
 
 <div id="splash" style="position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#0e0e0e,#1a1a1a);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .5s ease;">
   <div style="width:40px;height:40px;border:3px solid rgba(255,255,255,0.15);border-top-color:#9b1a1a;border-radius:50%;animation:spin .6s linear infinite;"></div>
@@ -1494,17 +1529,16 @@
 <header class="masthead">
   <div class="masthead-inner">
     <div class="masthead-left">
-      <img class="masthead-logo masthead-logo-demo" src="../img/logo-1cia.png" alt="Logo 1ra Compañía CBC">
+      <img class="masthead-logo masthead-logo-preview" src="../img/logo-1cia.png" alt="Logo 1ra Compañía CBC">
       <div class="masthead-texts">
-        <span class="masthead-eyebrow">1ra Compañía CBC</span>
-        <span class="masthead-title">Guardias 1ra Compañía Coquimbo</span>
+        <span class="masthead-eyebrow">1ra Compañía CBC · Coquimbo</span>
+        <span class="masthead-title">Guardias</span>
       </div>
     </div>
-    <div class="masthead-right demo"><a href="#" onclick="return false;">DEMO · datos de prueba</a></div>
     <button class="pdf-btn" onclick="generarGuardias()">Guardias</button>
   </div>
 </header>
-<div id="env-banner" class="env-banner visible" role="status" aria-live="polite">Entorno de demostración · datos ficticios · no guarda información</div>
+<div id="env-banner" class="env-banner visible" role="status" aria-live="polite">Datos ficticios · no guarda información</div>
 
 <div id="hoja-modal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;" role="dialog" aria-modal="true" aria-labelledby="hoja-modal-title">
   <div style="background:#fff;border-radius:12px;max-width:420px;width:90%;padding:26px 24px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.35);font-family:'Helvetica Neue',Arial,sans-serif;">
@@ -1542,7 +1576,7 @@
   <a href="#panel-inscripcion" data-secc="panel-inscripcion">01 · Inscripción</a>
   <a href="#panel-disponibilidad" data-secc="panel-disponibilidad">02 · Disponibilidad</a>
   <a href="#panel-baja" data-secc="panel-baja">03 · Mi baja</a>
-  <a href="#panel-asistencia" data-secc="panel-asistencia" data-nav-asistencia>04 · Asistencia</a>
+  <a href="#panel-asistencia" data-secc="panel-asistencia" data-nav-asistencia hidden>04 · Asistencia</a>
 </nav>
 
 <nav class="bottomnav" id="bottomnav" aria-label="Navegación principal">
@@ -1550,7 +1584,7 @@
   <button type="button" data-go="#panel-inscripcion" aria-label="Inscripción">➕<span>Inscribirse</span></button>
   <button type="button" data-go="#panel-disponibilidad" aria-label="Disponibilidad de guardias">📅<span>Guardias</span></button>
   <button type="button" data-go="#panel-baja" aria-label="Dar de baja mis guardias">👤<span>Mi baja</span></button>
-  <button type="button" data-go="#panel-asistencia" data-bn-asistencia aria-label="Asistencia">🩺<span>Asistencia</span></button>
+  <button type="button" data-go="#panel-asistencia" data-bn-asistencia aria-label="Asistencia" hidden>🩺<span>Asistencia</span></button>
 </nav>
 
 <div class="page-body">
@@ -1579,20 +1613,10 @@
 
       <div class="sep"><span class="sep-label">Tipo de participación</span></div>
       <div class="participation-grid" role="group" aria-label="Tipo de participación">
-        <button type="button" id="tipo-voluntario" aria-pressed="true" onclick="seleccionarTipoPersona('voluntario')">Voluntario habilitado<br><small>Guardia operativa</small></button>
-        <button type="button" id="tipo-postulante" aria-pressed="false" onclick="seleccionarTipoPersona('postulante')">Postulante<br><small>Actividad formativa · no dotación</small></button>
+        <button type="button" id="tipo-voluntario" aria-pressed="true" onclick="seleccionarTipoPersona('voluntario')">Voluntario<br><small>Guardia operativa</small></button>
+        <button type="button" id="tipo-postulante" aria-pressed="false" onclick="seleccionarTipoPersona('postulante')">Postulante<br><small>Guardia formativa</small></button>
       </div>
-      <div class="participation-note" id="participation-note">Tu rol y nivel serán verificados por el servidor contra el padrón institucional.</div>
-      <div class="formativo-fields">
-        <div class="field">
-          <label class="field-label" for="tipo-actividad">Tipo de actividad</label>
-          <select id="tipo-actividad">
-            <option value="TURNO_FORMATIVO">Turno formativo</option>
-            <option value="ACOMPANAMIENTO">Acompañamiento</option>
-            <option value="OBSERVACION">Observación</option>
-          </select>
-        </div>
-      </div>
+      <div class="participation-note" id="participation-note">La habilitación se verifica automáticamente.</div>
 
       <div class="field field-op operativo-only">
         <label class="field-label">Nivel de bombero</label>
@@ -1668,7 +1692,7 @@
   </div>
 
   <!-- PANEL 02: CALENDARIO -->
-  <div class="panel" style="background:#edeae4;" id="panel-disponibilidad">
+  <div class="panel" id="panel-disponibilidad">
     <div class="panel-head">
       <span class="panel-head-num">02</span>
       <span class="panel-head-title">Disponibilidad</span>
@@ -1686,7 +1710,7 @@
       </span>
 
       <div id="op-banner" class="op-banner">
-        <span class="op-banner-text">Requisitos despacho: 1 maquinista · 2 bomberos operativos / profesionales</span>
+        <span class="op-banner-text">Referencia: 1 maquinista · 2 operativos</span>
       </div>
 
       <div class="cal-scroll" id="cal-scroll">
@@ -1736,10 +1760,7 @@
     </div>
     <div class="panel-body">
 
-      <p class="del-desc">
-        Si necesitas corregir tus guardias del mes, ingresa tu correo electrónico para consultar tus guardias.
-        Puedes eliminar todos tus registros del mes en curso y volver a inscribirte.
-      </p>
+      <p class="del-desc">Consulta y corrige tus guardias del mes.</p>
 
 
       <div class="del-inner">
@@ -1807,7 +1828,7 @@
   </div>
 
   <!-- PANEL 04: ASISTENCIA -->
-  <div class="panel panel-full" id="panel-asistencia">
+  <div class="panel panel-full" id="panel-asistencia" hidden>
     <div class="panel-head">
       <span class="panel-head-num">04</span>
       <span class="panel-head-title">Asistencia</span>
@@ -1852,104 +1873,100 @@
 
 <footer style="max-width:960px;margin:0 auto;padding:0 24px 32px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <span style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-faint);">
-    Guardias 1ra Cía Coquimbo &mdash; v2.0 · demo QA
-  </span>
-  <span style="width:32px;height:1px;background:var(--rule);display:block;flex-shrink:0;"></span>
-  <span style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-faint);">
-    Patricio Varela C.
+    Guardias 1ra Cía Coquimbo &mdash; v2.0
   </span>
 </footer>
 
 
 <script>
 //══════════════════════════════════════════════════════════════════
-// DEMO — Capa de datos ficticios (NO es producción).
+// VISTA PREVIA — Capa de datos ficticios (NO es producción).
 // Sustituye al backend real (Apps Script / Sheets / Drive / correo).
 // Todos los nombres, correos y registros aquí son inventados.
 //══════════════════════════════════════════════════════════════════
-const DEMO_NOTA = "DEMO — datos ficticios · sin acceso a datos reales";
+const PREVIEW_NOTA = "Datos ficticios · no guarda información";
 
 // Personas ficticias (el barniz que puebla el calendario).
-const DEMO_PERSONAS = [
-  { nombre:"Carlos Pérez Demo",   email:"carlos@demo.cl",    cargo:"voluntario",  condicion:"INICIAL",     fechas:["2026-08-31","2026-09-01"] },
-  { nombre:"María González Demo", email:"maria@demo.cl",     cargo:"maquinista",  condicion:"PROFESIONAL", fechas:["2026-09-14","2026-09-16","2026-09-20"] },
-  { nombre:"Pedro Soto Demo",     email:"pedro@demo.cl",     cargo:"voluntario",  condicion:"OPERATIVO",   fechas:["2026-08-31","2026-09-06","2026-09-14","2026-09-18"] },
-  { nombre:"Ana Rojas Demo",      email:"ana@demo.cl",       cargo:"voluntario",  condicion:"PROFESIONAL", fechas:["2026-09-14","2026-09-15"] },
-  { nombre:"Luis Muñoz Demo",     email:"luis@demo.cl",      cargo:"voluntario",  condicion:"OPERATIVO",   fechas:["2026-09-14","2026-09-19"] },
-  { nombre:"Carola Díaz Demo",    email:"carola@demo.cl",    cargo:"voluntario",  condicion:"INICIAL",     fechas:["2026-09-14"] },
-  { nombre:"Diego Vega Demo",     email:"diego@demo.cl",     cargo:"maquinista",  condicion:"PROFESIONAL", fechas:["2026-08-31","2026-09-06","2026-09-14","2026-09-15","2026-09-20"] },
-  { nombre:"Emilia Torres Demo",  email:"emilia@demo.cl",    cargo:"voluntario",  condicion:"OPERATIVO",   fechas:["2026-09-14","2026-09-15","2026-09-16"] }
+const PREVIEW_PERSONAS = [
+  { nombre:"Carlos Pérez Ficticio",   email:"carlos@example.invalid",    cargo:"voluntario",  condicion:"INICIAL",     fechas:["2026-08-31","2026-09-01"] },
+  { nombre:"María González Ficticio", email:"maria@example.invalid",     cargo:"maquinista",  condicion:"PROFESIONAL", fechas:["2026-09-14","2026-09-16","2026-09-20"] },
+  { nombre:"Pedro Soto Ficticio",     email:"pedro@example.invalid",     cargo:"voluntario",  condicion:"OPERATIVO",   fechas:["2026-08-31","2026-09-06","2026-09-14","2026-09-18"] },
+  { nombre:"Ana Rojas Ficticio",      email:"ana@example.invalid",       cargo:"voluntario",  condicion:"PROFESIONAL", fechas:["2026-09-14","2026-09-15"] },
+  { nombre:"Luis Muñoz Ficticio",     email:"luis@example.invalid",      cargo:"voluntario",  condicion:"OPERATIVO",   fechas:["2026-09-14","2026-09-19"] },
+  { nombre:"Carola Díaz Ficticio",    email:"carola@example.invalid",    cargo:"voluntario",  condicion:"INICIAL",     fechas:["2026-09-14"] },
+  { nombre:"Diego Vega Ficticio",     email:"diego@example.invalid",     cargo:"maquinista",  condicion:"PROFESIONAL", fechas:["2026-08-31","2026-09-06","2026-09-14","2026-09-15","2026-09-20"] },
+  { nombre:"Emilia Torres Ficticio",  email:"emilia@example.invalid",    cargo:"voluntario",  condicion:"OPERATIVO",   fechas:["2026-09-14","2026-09-15","2026-09-16"] }
 ];
 
-// Guardias programadas (escenario fijo del demo) y oficiales por semana.
-const DEMO_GUARDIAS = [
+// Guardias programadas (escenario fijo de la vista previa) y oficiales por semana.
+const PREVIEW_GUARDIAS = [
   { inicio:"2026-08-31", fin:"2026-09-06" },   // semana 1 · GUARDIA
   { inicio:"2026-09-14", fin:"2026-09-20" }    // semana 3 · GUARDIA
 ];
-const DEMO_OFICIALES = [
-  { inicio:"2026-08-31", nombre:"Natalia Fuentes Demo" },
-  { inicio:"2026-09-07", nombre:"Rodrigo Paredes Demo" },
-  { inicio:"2026-09-14", nombre:"Camila Araya Demo" },
+const PREVIEW_OFICIALES = [
+  { inicio:"2026-08-31", nombre:"Natalia Fuentes Ficticio" },
+  { inicio:"2026-09-07", nombre:"Rodrigo Paredes Ficticio" },
+  { inicio:"2026-09-14", nombre:"Camila Araya Ficticio" },
   { inicio:"2026-09-21", nombre:"" }
 ];
 
 // Asistencia ficticia (clave "correo|fecha").
-let DEMO_ASISTENCIA = {
-  "carlos@demo.cl|2026-08-31":"C",
-  "carlos@demo.cl|2026-09-01":"P",
-  "pedro@demo.cl|2026-08-31":"C",
-  "pedro@demo.cl|2026-09-06":"C",
-  "diego@demo.cl|2026-08-31":"R",
-  "maria@demo.cl|2026-09-14":"C",
-  "maria@demo.cl|2026-09-16":"NC",
-  "ana@demo.cl|2026-09-14":"C",
-  "luis@demo.cl|2026-09-14":"C"
+let PREVIEW_ASISTENCIA = {
+  "carlos@example.invalid|2026-08-31":"C",
+  "carlos@example.invalid|2026-09-01":"P",
+  "pedro@example.invalid|2026-08-31":"C",
+  "pedro@example.invalid|2026-09-06":"C",
+  "diego@example.invalid|2026-08-31":"R",
+  "maria@example.invalid|2026-09-14":"C",
+  "maria@example.invalid|2026-09-16":"NC",
+  "ana@example.invalid|2026-09-14":"C",
+  "luis@example.invalid|2026-09-14":"C"
 };
 
 // Contactos aceptados por el panel de "Atendida" (cualquiera que coincida
 // con una persona ficticia responde; el resto da "no encontrado").
 
 //──────────────────────────────────────────────────────────────────
-// Rango del demo: 31/08/2026 → 27/09/2026 (bimestral, todo cívico)
+// Rango de la vista previa: 31/08/2026 → 27/09/2026 (bimestral, todo cívico)
 //──────────────────────────────────────────────────────────────────
-function _sumarDiasCivilDemo(key, dias){
+function _sumarDiasCivilPreview(key, dias){
   var p = key.split("-").map(Number);
   var d = new Date(Date.UTC(p[0], p[1]-1, p[2]+dias));
   return d.toISOString().slice(0,10);
 }
-var _demoFechas = [];
+var _previewFechas = [];
 var _d0 = "2026-08-31";
-for(var _i=0; _i<28; _i++){ _demoFechas.push(_d0); _d0 = _sumarDiasCivilDemo(_d0,1); }
+for(var _i=0; _i<28; _i++){ _previewFechas.push(_d0); _d0 = _sumarDiasCivilPreview(_d0,1); }
 
-// Ocupación por día derivada de DEMO_PERSONAS (misma regla que producción).
-var _demoOcupacion = {};
-_demoFechas.forEach(function(f){
-  var ps = DEMO_PERSONAS.filter(function(p){ return p.fechas.indexOf(f) !== -1; });
+// Ocupación por día derivada de PREVIEW_PERSONAS (misma regla que producción).
+var _previewOcupacion = {};
+_previewFechas.forEach(function(f){
+  var ps = PREVIEW_PERSONAS.filter(function(p){ return p.fechas.indexOf(f) !== -1; });
   var maq = ps.filter(function(p){ return p.cargo === "maquinista"; }).length;
   var vol = ps.length - maq;
   var ops = ps.filter(function(p){ return p.condicion !== "INICIAL"; }).length;
-  _demoOcupacion[f] = { habilitado:true, voluntarios:vol, maquinistas:maq, operativos:ops };
+  _previewOcupacion[f] = { habilitado:true, voluntarios:vol, maquinistas:maq, operativos:ops };
 });
 
-// Detalle por día (nombre, cargo, condición, estado) desde DEMO_PERSONAS.
-function _demoGuardiasDelDia(f){
-  return DEMO_PERSONAS
+// Detalle por día (nombre, cargo, condición, estado) desde PREVIEW_PERSONAS.
+function _previewGuardiasDelDia(f){
+  return PREVIEW_PERSONAS
     .filter(function(p){ return p.fechas.indexOf(f) !== -1; })
     .map(function(p){ return {
-      nombre: p.nombre.replace(/\s+Demo$/, ""),
+      nombre: p.nombre.replace(/\s+Ficticio$/, ""),
       cargo: p.cargo === "maquinista" ? "maquinista" : "voluntario",
       condicion: p.condicion,
-      estado: DEMO_ASISTENCIA[p.email + "|" + f] || ""
+      estado: PREVIEW_ASISTENCIA[p.email + "|" + f] || ""
     }; });
 }
 
 // Buscar a una persona por correo.
-function _demoPersonaPorEmail(email){
-  return DEMO_PERSONAS.filter(function(p){ return p.email.toLowerCase() === String(email).trim().toLowerCase(); })[0];
+function _previewPersonaPorEmail(email){
+  return PREVIEW_PERSONAS.filter(function(p){ return p.email.toLowerCase() === String(email).trim().toLowerCase(); })[0];
 }
 
 // Asignación oficial por semana (para "Agregar oficial de semana").
-var DEMO_SEMANAS_OFICIALES = [
+var PREVIEW_SEMANAS_OFICIALES = [
   { etiqueta:"Semana 1 · 31/08/2026", inicio:"2026-08-31" },
   { etiqueta:"Semana 2 · 07/09/2026", inicio:"2026-09-07" },
   { etiqueta:"Semana 3 · 14/09/2026", inicio:"2026-09-14" },
@@ -1961,11 +1978,11 @@ var DEMO_SEMANAS_OFICIALES = [
 // para que la interfaz se sienta viva aunque no haya servidor.
 //══════════════════════════════════════════════════════════════════
 (function(){
-  var DEMO_BACKEND = {
+  var PREVIEW_BACKEND = {
     detectarCorreoUsuario: function(){ return { ok:false }; },
 
     obtenerCalendario: function(mes, año){
-      // estado.mes/año son null en el primer arranque → fijar el rango del demo.
+      // estado.mes/año son null en el primer arranque → fijar el rango de la vista previa.
       if(mes === null || mes === undefined) mes = 8;
       if(año === null || año === undefined) año = 2026;
       return {
@@ -1974,8 +1991,8 @@ var DEMO_SEMANAS_OFICIALES = [
         ok:true,
         mes: mes,
         año: año,
-        ocupacion: _demoOcupacion,
-        configuracion: { cantidadGuardias:4, mostrarAsistencia:true }
+        ocupacion: _previewOcupacion,
+        configuracion: { cantidadGuardias:4, mostrarAsistencia:false }
       };
     },
 
@@ -1995,12 +2012,12 @@ var DEMO_SEMANAS_OFICIALES = [
     enviarCorreoRegistro: function(datos){ return { ok:true }; },
 
     buscarGuardiasPorEmail: function(email){
-      var p = _demoPersonaPorEmail(email);
+      var p = _previewPersonaPorEmail(email);
       if(!p) return { ok:false, error:"No se encontraron guardias para ese correo (dato ficticio)." };
       var guardias = p.fechas.map(function(f){ return { fecha:f, cargo:p.cargo }; });
       return {
         ok:true,
-        nombre: p.nombre.replace(/\s+Demo$/, ""),
+        nombre: p.nombre.replace(/\s+Ficticio$/, ""),
         guardias: guardias,
         mesLabel:"SEPTIEMBRE",
         año:2026,
@@ -2010,25 +2027,25 @@ var DEMO_SEMANAS_OFICIALES = [
     },
 
     solicitarCodigoEliminacion: function(email){
-      var p = _demoPersonaPorEmail(email);
-      if(!p) return { ok:false, error:"En la demo solo se aceptan correos de las personas ficticias." };
-      return { ok:true, mensaje:"DEMO · En producción se enviaría un código a tu correo. Aquí usa 123456." };
+      var p = _previewPersonaPorEmail(email);
+      if(!p) return { ok:false, error:"En la vista previa solo se aceptan correos de las personas ficticias." };
+      return { ok:true, mensaje:"VISTA PREVIA · En producción se enviaría un código a tu correo. Aquí usa 123456." };
     },
 
     eliminarGuardiasPorEmail: function(email, codigo){
-      if(String(codigo || "").trim() !== "123456") return { ok:false, error:"Código incorrecto. En la demo usa 123456." };
+      if(String(codigo || "").trim() !== "123456") return { ok:false, error:"Código incorrecto. En la vista previa usa 123456." };
       return { ok:true };
     },
 
     obtenerGuardiasDelDia: function(f){
-      var gs = _demoGuardiasDelDia(f);
+      var gs = _previewGuardiasDelDia(f);
       var ops = gs.filter(function(g){ return g.condicion && g.cargo === "voluntario"; }).length;
       var maq = gs.filter(function(g){ return g.cargo === "maquinista"; }).length;
       return { ok:true, total:gs.length, voluntarios:gs.length - maq, maquinistas:maq, operativos:ops, guardias:gs };
     },
 
     obtenerOficialSemanas: function(){
-      return { ok:true, semanas: DEMO_SEMANAS_OFICIALES };
+      return { ok:true, semanas: PREVIEW_SEMANAS_OFICIALES };
     },
 
     generarHojaGuardias: function(oficiales){
@@ -2037,28 +2054,28 @@ var DEMO_SEMANAS_OFICIALES = [
         ok:true,
         url:"#",
         estado:"nuevo",
-        nombre:"Calendario Guardia Nocturna (demo)",
-        ubicacion:"carpeta ficticia · DEMO",
+        nombre:"Calendario Guardia Nocturna (vista previa)",
+        ubicacion:"carpeta ficticia · VISTA PREVIA",
         notaOficial: n + " oficiale(s) asignado(s)"
       };
     },
 
     obtenerGuardiasConAsistencia: function(email){
-      var p = _demoPersonaPorEmail(email);
+      var p = _previewPersonaPorEmail(email);
       if(!p) return { ok:false, error:"No se encontró un bombero con ese correo (dato ficticio)." };
       var asis = {};
-      p.fechas.forEach(function(f){ asis[f] = { estado: DEMO_ASISTENCIA[p.email+"|"+f] || "C", reemplazoNombre:"" }; });
-      return { ok:true, nombre:p.nombre.replace(/\s+Demo$/, ""), cargo:p.cargo, mesLabel:"SEPTIEMBRE", año:2026, fechas:p.fechas, asistencia:asis };
+      p.fechas.forEach(function(f){ asis[f] = { estado: PREVIEW_ASISTENCIA[p.email+"|"+f] || "C", reemplazoNombre:"" }; });
+      return { ok:true, nombre:p.nombre.replace(/\s+Ficticio$/, ""), cargo:p.cargo, mesLabel:"SEPTIEMBRE", año:2026, fechas:p.fechas, asistencia:asis };
     },
 
     guardarAsistencias: function(email, cambios){
-      // En la demo actualiza en memoria (no persiste).
+      // En la vista previa actualiza en memoria (no persiste).
       (cambios || []).forEach(function(c){
-        var p = _demoPersonaPorEmail(email);
+        var p = _previewPersonaPorEmail(email);
         if(p){
-          if(c.estado === "R"){ DEMO_ASISTENCIA[p.email+"|"+c.fecha] = "R"; }
-          else if(c.estado){ DEMO_ASISTENCIA[p.email+"|"+c.fecha] = c.estado; }
-          else { delete DEMO_ASISTENCIA[p.email+"|"+c.fecha]; }
+          if(c.estado === "R"){ PREVIEW_ASISTENCIA[p.email+"|"+c.fecha] = "R"; }
+          else if(c.estado){ PREVIEW_ASISTENCIA[p.email+"|"+c.fecha] = c.estado; }
+          else { delete PREVIEW_ASISTENCIA[p.email+"|"+c.fecha]; }
         }
       });
       return { ok:true };
@@ -2088,7 +2105,7 @@ var DEMO_SEMANAS_OFICIALES = [
                 var args = Array.prototype.slice.call(arguments);
                 setTimeout(function(){
                   try {
-                    var r = (DEMO_BACKEND[p] || function(){ return undefined; }).apply(null, args);
+                    var r = (PREVIEW_BACKEND[p] || function(){ return undefined; }).apply(null, args);
                     if(chain.ok) chain.ok(r);
                     else if(chain.fail) chain.fail(r);
                   } catch(e){
@@ -2108,10 +2125,10 @@ var DEMO_SEMANAS_OFICIALES = [
   window.google = window.google || {};
   window.google.script = { run: proxy };
   // La plantilla de producción lo renombra a D_RUN para garantizar
-  // que en el demo no quede rastro de backend real.
+  // que en la vista previa no quede rastro de backend real.
   window.D_RUN = proxy;
 
-  // ── SOLO DEMO · visual ─────────────────────────────────────────────
+  // ── SOLO VISTA PREVIA · visual ─────────────────────────────────────────────
   // Pre-rellena el panel de inscripción con un ejemplo ficticio al cargar,
   // para que cualquier visitante entienda el flujo sin escribir nada.
   // No toca producción ni persiste nada.
@@ -2129,7 +2146,7 @@ var DEMO_SEMANAS_OFICIALES = [
 
         // ejemplo: 2 días disponibles con cargo
         setTxt("nombre", "Carlos Pérez");
-        setTxt("email", "carlos@demo.cl");
+        setTxt("email", "carlos@example.invalid");
         if(window.seleccionarNumDias) window.seleccionarNumDias(2);
 
         setTxt("fecha1", "2026-09-07");
@@ -2144,7 +2161,7 @@ var DEMO_SEMANAS_OFICIALES = [
         if(window.actualizarInputs) window.actualizarInputs();
       }, 300);
     } catch(e){
-      // ignorar: es solo un realce visual del demo
+      // ignorar: es solo un realce visual de la vista previa
     }
   });
 })();
@@ -2244,14 +2261,16 @@ function _aplicarConfig(cfg){
   window._maxDias = Math.min(cfg.cantidadGuardias || 4, 4);
   seleccionarNumDias(window._maxDias);
 
-  // Panel Asistencia: 1 visible · 0 desaparece por completo
+  // Asistencia parte oculta y solo se habilita cuando Config C8 vale 1.
   var mostrar = !!cfg.mostrarAsistencia;
   var pa = document.getElementById("panel-asistencia");
-  if(!mostrar){
-    if(pa) pa.remove();
-    var chip = document.querySelector("[data-nav-asistencia]");
-    if(chip) chip.remove();
-  }
+  var chip = document.querySelector("[data-nav-asistencia]");
+  var bn = document.querySelector("[data-bn-asistencia]");
+  [pa, chip, bn].forEach(function(el){
+    if(!el) return;
+    if(mostrar) el.removeAttribute("hidden");
+    else el.remove();
+  });
 }
 
 function seleccionarTipoPersona(tipo){
@@ -2265,11 +2284,11 @@ function seleccionarTipoPersona(tipo){
   var fl = document.getElementById("fechas-label");
   var btn = document.getElementById("btnEnviar");
   if(estado.tipoPersona === "postulante"){
-    if(nota) nota.textContent = "Actividad formativa o de acompañamiento. No constituye guardia, no integra dotación y requiere identidad y autorización verificadas.";
-    if(fl) fl.textContent = "Fechas de actividad formativa";
-    if(btn) btn.textContent = "Programar actividad formativa";
+    if(nota) nota.textContent = "Guardia mensual formativa. No integra la dotación operativa.";
+    if(fl) fl.textContent = "Fechas de guardia formativa";
+    if(btn) btn.textContent = "Registrar guardias formativas";
   } else {
-    if(nota) nota.textContent = "Tu rol y nivel serán verificados por el servidor contra el padrón institucional.";
+    if(nota) nota.textContent = "La habilitación se verifica automáticamente.";
     if(fl) fl.textContent = "Fechas de guardia";
     if(btn) btn.textContent = "Registrar guardias";
   }
@@ -2632,7 +2651,7 @@ function _resolverCalendario(reqId, data){
     _aplicarConfig({
       ok: true,
       cantidadGuardias: (data.configuracion || {}).cantidadGuardias || 4,
-      mostrarAsistencia: !((data.configuracion || {}).mostrarAsistencia === false)
+      mostrarAsistencia: (data.configuracion || {}).mostrarAsistencia === true
     });
 
     renderCalendario();
@@ -3134,7 +3153,7 @@ function renderResumen(){
     return '<span class="resumen-fech">' + nombre + '</span>';
   }).join("");
   box.innerHTML = pills + (estado.tipoPersona === "postulante"
-    ? '<span class="resumen-meta">Actividad formativa · no dotación</span>'
+    ? '<span class="resumen-meta">Guardia formativa</span>'
     : '<span class="resumen-meta">Nivel ' + nivelTxt + '</span>');
 }
 
@@ -3303,7 +3322,7 @@ function enviar(){
         }
         _btnEstado(btn, "ok-state", "✓ ACTIVIDAD PROGRAMADA");
         document.getElementById("exito").style.display = "block";
-        document.querySelector("#exito p").textContent = "Actividad formativa programada; queda pendiente de validación de cumplimiento.";
+        document.querySelector("#exito p").textContent = "Guardias formativas registradas.";
         limpiarFormulario();
       })
       .withFailureHandler(function(err){
@@ -3314,7 +3333,6 @@ function enviar(){
       .registrarActividadFormativa({
         nombre: nombre,
         email: email,
-        tipoActividad: document.getElementById("tipo-actividad").value,
         fechas: estado.seleccionadas.slice()
       });
     return;

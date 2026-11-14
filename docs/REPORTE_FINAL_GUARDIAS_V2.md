@@ -4,29 +4,28 @@ Fecha: 2026-11-14
 Rama: `codex/guardias-v2-redesign`  
 HEAD inicial: `201f0acd3b88e5dc038d25e4ccab2c0de4c3e59c`  
 HEAD funcional auditado: `d55cf31`  
-Commits locales: `fb0c0ab`, `d55cf31`  
 
-> **Producción NO fue alterada.** No se ejecutaron `clasp push/version/deploy`, escrituras en Drive/Sheets, cambios de permisos, correos reales, movimientos de tags ni `git push`.
+> **Producción NO fue alterada.** Las únicas escrituras externas fueron un libro sintético privado y un proyecto Apps Script QA separado. No hubo cambios de permisos, correos reales, movimientos de tags ni `git push`.
 
 ## Resumen ejecutivo
 
-La rama implementa una base V2 segura y revisable: autorización server-side de rol/nivel, separación de postulantes, motor OBAC determinista, exportación con pendiente explícito, configuración por ambiente, endurecimiento de RPC y una interfaz institucional responsive con demo sintética.
+El sistema productivo lleva aproximadamente seis meses operativo con funcionamiento normal. La rama conserva sus contratos vigentes e implementa una V2 revisable: autorización server-side de rol/nivel, guardias formativas separadas para postulantes, motor OBAC determinista, exportación con pendiente explícito, configuración por ambiente, endurecimiento de RPC y una interfaz responsive más simple.
 
-No se declara lista para producción. Faltan acceso autorizado a copias QA de los dos libros, reconciliación real 60/47, inventario de deployments/ACL, pruebas Apps Script y dos publicaciones sobre el mismo deployment QA.
+No se declara lista para producción. QA ya cuenta con hoja sintética privada, propiedades aisladas y un deployment canónico actualizado varias veces sin cambiar su URL. Siguen pendientes la reconciliación con copias estructurales reales, ACL productivas, pruebas de concurrencia/exportación y autorización administrativa.
 
 ## Estado por fase
 
 | Fase | Estado | Evidencia / pendiente |
 |---|---|---|
-| F0 Auditoría | IMPLEMENTADO local | auditoría, riesgos, flujo, issue #3 y baseline; Drive/deployments NO VERIFICADOS |
-| F1 Seguridad/entornos | IMPLEMENTADO local, PROBADO parcialmente | rol server-side, Script Properties, RPC de sesión/admin, OTP, `ALLOWALL` retirado; falta Apps Script QA |
-| F2 Design system/UI | IMPLEMENTADO y PROBADO local | demo escritorio/móvil; 320/360/375/390/430 sin overflow |
+| F0 Auditoría | IMPLEMENTADO | repositorio, producción clonada en modo lectura, 11 deployments productivos inventariados; ACL productivas no modificadas |
+| F1 Seguridad/entornos | IMPLEMENTADO, PROBADO parcialmente | proyecto/hoja QA separados, Script Properties, rol server-side, OTP y `ALLOWALL` retirado; `ADMIN_EMAILS` aún sin configurar |
+| F2 Design system/UI | IMPLEMENTADO y PROBADO | interfaz neutra y compacta; vista previa escritorio/móvil; asistencia oculta desde el HTML y Config |
 | F3 Inscripción/consulta/bajas | PARCIAL | inscripción endurecida, consulta ligada a sesión, baja OTP preservada; reemplazos y cancelación individual pendientes |
-| F4 Postulantes | IMPLEMENTADO local, PROBADO sintético | tablas separadas, identidad/autorización, actividad no dotación; cumplimiento administrativo pendiente |
+| F4 Postulantes | IMPLEMENTADO local, PROBADO sintético | tablas separadas, correo único autorizado, guardia no operativa; cumplimiento administrativo pendiente |
 | F5 Identidad/OBAC | IMPLEMENTADO como motor + adapter | puente mínimo, ancla por propiedad, frescura, reintegros/ODD/alias fail-closed; datos reales NO VERIFICADOS |
 | F6 Exportador | IMPLEMENTADO local | OBAC asignado o `PENDIENTE DE ASIGNACIÓN`; prueba real de hoja pendiente |
 | F7 Panel/admin/ACL | PARCIAL | RPC críticas protegidas; panel V2 y remediación ACL pendientes de autorización |
-| F8 QA URL estable | PENDIENTE | no existe inventario autenticado ni permiso de publicación |
+| F8 QA URL estable | IMPLEMENTADO | deployment canónico actualizado sucesivamente `@2 → @3 → @4 → @5 → @6`, conservando el mismo ID y `/exec` |
 | F9 Paquete PROD | PENDIENTE | bloqueado por QA, ACL e integración real |
 
 ## Cambios principales
@@ -47,15 +46,16 @@ No se declara lista para producción. Faltan acceso autorizado a copias QA de lo
 - se retiraron Sheet ID, deployment ID y URL productiva del código activo;
 - propiedades: `ENVIRONMENT`, `SHEET_ID`, `WEB_APP_URL`, `ADMIN_EMAILS`, `OBAC_ANCHOR_PERSON_ID`, `OBAC_SOURCE_MAX_AGE_HOURS`;
 - `tools/prueba-carga.mjs` exige URL QA explícita y `CONFIRM_QA_LOAD_TEST=YES`;
-- ambiente sin configurar bloquea el botón de registro; QA/demo muestran banner persistente.
+- ambiente sin configurar bloquea el botón de registro; QA/vista previa muestran banner persistente.
 
 ### Postulantes
 
 - `Postulantes_Autorizados` guarda solo identidad mínima y autorización;
 - `ActividadesFormativas` separa programación de cumplimiento;
 - no escribe `postulante` en `Guardias!A:I`, no asigna nivel/rol, no cuenta cupos y no entra en OBAC/ranking;
-- idempotencia por `persona_id|fecha|tipo_actividad`;
-- actividad requiere sesión coincidente y condición exacta `POSTULANTE/AUTORIZADO`.
+- modalidad única `GUARDIA_FORMATIVA`, sin selector de actividad ni lenguaje de citación;
+- idempotencia por `persona_id|fecha|GUARDIA_FORMATIVA`;
+- guardia formativa requiere correo exacto y único con condición `POSTULANTE/AUTORIZADO`; conserva el mismo patrón de inscripción simple del flujo operativo.
 
 ### OBAC
 
@@ -76,12 +76,12 @@ No se declara lista para producción. Faltan acceso autorizado a copias QA de lo
 | Sintaxis `.gs` | 11 archivos, PASS |
 | Sintaxis `.js/.mjs` | PASS |
 | `git diff --check` | PASS |
-| Demo sin `google.script.run`/SpreadsheetApp/URL Apps Script | PASS |
+| Preview sin `google.script.run`/SpreadsheetApp/URL Apps Script | PASS |
 | Responsive 320/360/375/390/430 | PASS, sin overflow horizontal |
-| Flujo formativo demo | PASS, confirmación segregada |
-| Apps Script/Sheets QA | NO VERIFICADO |
+| Flujo formativo vista previa | PASS, confirmación segregada |
+| Apps Script/Sheets QA | PASS: carga real, banner QA, libro privado, calendario conectado, inscripción formativa persistida y asistencia ausente |
 | Concurrencia real/último cupo | NO VERIFICADO |
-| Dos releases misma URL QA | NO VERIFICADO |
+| Dos releases misma URL QA | PASS: tres actualizaciones sucesivas conservaron el deployment canónico |
 
 Casos cubiertos: payload maquinista/operativo falsificado, `Activo=Si + Aspirante`, identidad ausente/duplicada/inactiva, corte inclusivo, posterior al corte, reintegro, ODD pendiente, inhabilitación, alias pendiente, maquinista, fuente ausente/desactualizada, postulante no dotación y OBAC pendiente visible.
 
@@ -95,11 +95,11 @@ Casos cubiertos: payload maquinista/operativo falsificado, `Activo=Si + Aspirant
 
 ## Drive y permisos
 
-Los antecedentes V2 señalan `anyone:writer/reader`, pero esta ejecución no tuvo conector autorizado. Por ello:
+Se creó un libro QA exclusivamente sintético y se leyó su ACL después de importarlo:
 
-- estado actual: **NO VERIFICADO**;
-- no se afirma filtración ni remediación;
-- no se modificaron ACL, carpetas, originales ni respaldos;
+- QA sintético: solo `user:owner`; no existe permiso `anyone`;
+- producción: inventariada en modo lectura, sin remediación ni cambios de ACL;
+- no se modificaron carpetas, originales ni respaldos productivos;
 - antes de producción se requiere matriz actor/rol, simulación, reversión, aprobación, cambio gradual y readback.
 
 ## Issue de tag
@@ -110,22 +110,18 @@ El issue público #3 continúa abierto. Localmente `v1.1.0` todavía contiene la
 
 - Seguridad/dominio: `src/Reglas.gs`, `src/Db.gs`, `src/Seguridad.gs`, `src/Postulantes.gs`, `src/Obac.gs`.
 - Casos de uso: `src/Código.js`, `src/Exportar.js`, `src/Guardias.gs`.
-- UI/demo: `src/Index.html`, `docs/demo/index.html`.
+- UI/vista previa: `src/Index.html`, `docs/preview/index.html`.
 - Config/CI: `src/Config.gs`, `.github/workflows/ci.yml`, `tools/check-gs-syntax.mjs`, `tools/prueba-carga.mjs`.
 - Documentación: auditoría, diseño, modelo y runbook en `docs/`.
 
-## Puesta en QA (requiere autorización)
+## QA ejecutada
 
-1. Crear o confirmar proyecto Apps Script y libro QA sintético separados.
-2. Configurar todas las Script Properties; comprobar que `SHEET_ID` no coincide con producción.
-3. Crear estructuras QA para `Voluntarios`, postulantes y puente OBAC con identidades ficticias.
-4. Ejecutar 82 pruebas locales y pruebas de entorno Apps Script.
-5. Inventariar deployments; seleccionar el deployment QA canónico existente.
-6. `clasp push` solo al proyecto QA autorizado, crear versión y actualizar ese deployment por ID.
-7. Verificar misma URL `/exec`, banner QA, escritura solo QA y correo sink.
-8. Repetir una segunda versión sobre el mismo deployment y comparar URL exacta.
-9. Probar copia QA del contrato A:G/IMPORTRANGE y calendario exportado.
-10. Documentar rollback a la versión anterior.
+1. Se creó un proyecto Apps Script QA y un libro nativo de Sheets con datos exclusivamente ficticios.
+2. Se configuraron `ENVIRONMENT`, `SHEET_ID`, `WEB_APP_URL`, ancla OBAC y frescura; el ID de hoja no coincide con producción.
+3. Se verificó el libro QA como privado (`user:owner`) y con Asistencia desactivada (`Config C8 = 0`).
+4. Se publicaron las versiones 3 a 6 sobre el mismo deployment canónico, sin cambiar la URL.
+5. El smoke test confirmó banner QA, interfaz simplificada, flujo formativo sin selector, ausencia de Asistencia y persistencia E2E de una guardia sintética `GUARDIA_FORMATIVA`.
+6. El lector de Config se endureció para fechas nativas, ISO y civiles después de probar una importación real.
 
 ## Bloqueos antes de producción
 
@@ -135,6 +131,4 @@ El issue público #3 continúa abierto. Localmente `v1.1.0` todavía contiene la
 - autorización administrativa probada con cuentas reales en QA;
 - panel de Ayudantía, validación de cumplimiento y reemplazos completos;
 - pruebas E2E/Sheets, concurrencia, correo sink, exportación e integración;
-- dos releases QA con URL idéntica;
 - aprobación formal del propietario.
-

@@ -24,7 +24,7 @@ Radio base `10px`; sombras discretas; tipografía Archivo/DM Mono con fallbacks 
 - Navegación: Inscripción, Disponibilidad, Mi baja y Asistencia.
 - Inscripción: identidad → tipo de participación → condición/actividad → fechas → resumen → resultado.
 - Calendario: disponibilidad y requisitos operativos expresados por texto, cifras e iconografía.
-- Postulante: variante explícita de actividad formativa, nunca un cargo operativo.
+- Postulante: guardia mensual formativa, sin selector de actividad y nunca como cargo operativo.
 
 ## Estados
 
@@ -35,13 +35,13 @@ Radio base `10px`; sombras discretas; tipografía Archivo/DM Mono con fallbacks 
 | Guardado | confirmación específica del objeto persistido |
 | Error | explicación y valores conservados |
 | Requiere validación | ámbar + siguiente acción Ayudantía |
-| QA/demo | banner permanente, no dependiente de scroll |
+| QA/vista previa | banner permanente, no dependiente de scroll |
 | Sin configuración | escritura bloqueada |
 | OBAC pendiente | texto `PENDIENTE DE ASIGNACIÓN`, no celda vacía |
 
 ## Semántica de participación
 
-`Voluntario habilitado` muestra nivel y rol por fecha. `Postulante` oculta controles operativos, muestra tipo de actividad y usa el resumen `Actividad formativa · no dotación`. El cambio de vista no altera el modelo histórico `Guardias!A:I`.
+`Voluntario habilitado` muestra nivel y rol por fecha. `Postulante` oculta controles operativos y usa el resumen `Guardia formativa · no dotación`. No existe selector de actividad: solo registra el cumplimiento de sus guardias mensuales. El cambio de vista no altera el modelo histórico `Guardias!A:I`.
 
 ## Accesibilidad y responsive
 
@@ -52,7 +52,6 @@ Radio base `10px`; sombras discretas; tipografía Archivo/DM Mono con fallbacks 
 - escritorio verificado en viewport por defecto del navegador de QA local;
 - la elección de estado no depende solo del color.
 
-## Fuente única demo/producto
+## Fuente única preview/producto
 
-La estructura visual se mantiene equivalente en `src/Index.html` y `docs/demo/index.html`; la demo sustituye únicamente el adapter RPC por datos ficticios. Como mejora siguiente se debe automatizar la generación de la demo desde una plantilla común para impedir deriva manual.
-
+La estructura visual se mantiene equivalente en `src/Index.html` y `docs/preview/index.html`; la vista previa sustituye únicamente el adapter RPC por datos ficticios. Como mejora siguiente se debe automatizar la generación de la vista previa desde una plantilla común para impedir deriva manual.

@@ -216,37 +216,37 @@ function pruebasPuras() {
 
   // ── AUTORIZACIÓN SERVER-SIDE DE IDENTIDAD / ROL ──
   var PADRON_HABILITACIONES = [
-    { personaId: "p1", email: "inicial@demo.cl", activo: "Si", categoria: "Voluntario", cargo: "Voluntario", nivel: "INICIAL", maquinista: "No" },
-    { personaId: "p2", email: "operativo@demo.cl", activo: "Si", categoria: "Voluntario", cargo: "Voluntario", nivel: "OPERATIVO", maquinista: "No" },
-    { personaId: "p3", email: "maquinista@demo.cl", activo: "Si", categoria: "Voluntario", cargo: "Maquinista", nivel: "PROFESIONAL", maquinista: "Si" },
-    { personaId: "p4", email: "aspirante@demo.cl", activo: "Si", categoria: "Aspirante", cargo: "", nivel: "", maquinista: "No" },
-    { personaId: "p5", email: "inactivo@demo.cl", activo: "No", categoria: "Voluntario", cargo: "Voluntario", nivel: "PROFESIONAL", maquinista: "Si" }
+    { personaId: "p1", email: "inicial@example.invalid", activo: "Si", categoria: "Voluntario", cargo: "Voluntario", nivel: "INICIAL", maquinista: "No" },
+    { personaId: "p2", email: "operativo@example.invalid", activo: "Si", categoria: "Voluntario", cargo: "Voluntario", nivel: "OPERATIVO", maquinista: "No" },
+    { personaId: "p3", email: "maquinista@example.invalid", activo: "Si", categoria: "Voluntario", cargo: "Maquinista", nivel: "PROFESIONAL", maquinista: "Si" },
+    { personaId: "p4", email: "aspirante@example.invalid", activo: "Si", categoria: "Aspirante", cargo: "", nivel: "", maquinista: "No" },
+    { personaId: "p5", email: "inactivo@example.invalid", activo: "No", categoria: "Voluntario", cargo: "Voluntario", nivel: "PROFESIONAL", maquinista: "Si" }
   ];
   h.t("Habilitación: voluntario inicial activo puede registrarse", function() {
     var r = evaluarHabilitacionRegistro(PADRON_HABILITACIONES,
-      { email: "INICIAL@demo.cl", cargo: "voluntario", nivel: "INICIAL" });
+      { email: "INICIAL@example.invalid", cargo: "voluntario", nivel: "INICIAL" });
     h.eq([r.ok, r.estado, r.personaId], [true, "HABILITADO", "p1"]);
   });
   h.t("T-A1: payload maquinista u operativo autodeclarado se rechaza", function() {
     var maq = evaluarHabilitacionRegistro(PADRON_HABILITACIONES,
-      { email: "inicial@demo.cl", cargo: "maquinista", nivel: "INICIAL" });
+      { email: "inicial@example.invalid", cargo: "maquinista", nivel: "INICIAL" });
     var op = evaluarHabilitacionRegistro(PADRON_HABILITACIONES,
-      { email: "inicial@demo.cl", cargo: "voluntario", nivel: "OPERATIVO" });
+      { email: "inicial@example.invalid", cargo: "voluntario", nivel: "OPERATIVO" });
     h.eq([maq.ok, maq.codigo], [false, "MAQUINISTA_NO_HABILITADO"]);
     h.eq([op.ok, op.codigo], [false, "NIVEL_NO_HABILITADO"]);
   });
   h.t("T-A2: Activo=Si + Aspirante no habilita rol operativo", function() {
     var r = evaluarHabilitacionRegistro(PADRON_HABILITACIONES,
-      { email: "aspirante@demo.cl", cargo: "voluntario", nivel: "INICIAL" });
+      { email: "aspirante@example.invalid", cargo: "voluntario", nivel: "INICIAL" });
     h.eq([r.ok, r.estado, r.codigo], [false, "REQUIERE_VALIDACION", "CONDICION_NO_OPERATIVA"]);
   });
   h.t("Habilitación: identidad ausente, duplicada o inactiva falla seguro", function() {
     var ausente = evaluarHabilitacionRegistro(PADRON_HABILITACIONES,
-      { email: "nadie@demo.cl", cargo: "voluntario", nivel: "INICIAL" });
+      { email: "nadie@example.invalid", cargo: "voluntario", nivel: "INICIAL" });
     var duplicado = evaluarHabilitacionRegistro(PADRON_HABILITACIONES.concat([PADRON_HABILITACIONES[0]]),
-      { email: "inicial@demo.cl", cargo: "voluntario", nivel: "INICIAL" });
+      { email: "inicial@example.invalid", cargo: "voluntario", nivel: "INICIAL" });
     var inactivo = evaluarHabilitacionRegistro(PADRON_HABILITACIONES,
-      { email: "inactivo@demo.cl", cargo: "voluntario", nivel: "INICIAL" });
+      { email: "inactivo@example.invalid", cargo: "voluntario", nivel: "INICIAL" });
     h.eq([ausente.codigo, duplicado.codigo, inactivo.codigo],
       ["IDENTIDAD_NO_ENCONTRADA", "IDENTIDAD_AMBIGUA", "PERSONA_NO_ACTIVA"]);
   });
@@ -325,32 +325,32 @@ function pruebasPuras() {
 
   // ── POSTULANTES / ACTIVIDADES FORMATIVAS ──
   var PADRON_FORMATIVO = [
-    { personaId: "post-1", email: "postulante@demo.cl", nombrePresentacion: "Postulante Demo", condicionInstitucional: "POSTULANTE", estado: "AUTORIZADO", requiereSupervisor: true },
-    { personaId: "asp-1", email: "aspirante@demo.cl", nombrePresentacion: "Aspirante Demo", condicionInstitucional: "ASPIRANTE", estado: "AUTORIZADO", requiereSupervisor: true }
+    { personaId: "post-1", email: "postulante@example.invalid", nombrePresentacion: "Postulante Preview", condicionInstitucional: "POSTULANTE", estado: "AUTORIZADO", requiereSupervisor: true },
+    { personaId: "asp-1", email: "aspirante@example.invalid", nombrePresentacion: "Aspirante Preview", condicionInstitucional: "ASPIRANTE", estado: "AUTORIZADO", requiereSupervisor: true }
   ];
-  h.t("Postulante: programa actividad formativa sin rol ni nivel operativo", function() {
+  h.t("Postulante: programa guardia formativa sin rol ni nivel operativo", function() {
     var r = evaluarSolicitudFormativa(PADRON_FORMATIVO, {
-      email: "postulante@demo.cl", identidadVerificada: true,
-      tipoActividad: "TURNO_FORMATIVO", fechas: ["2026-09-14"]
+      email: "postulante@example.invalid",
+      fechas: ["2026-09-14"]
     });
     h.eq([r.ok, r.estado, r.personaId, r.requiereSupervisor], [true, "PROGRAMADA", "post-1", true]);
     h.eq(r.rolGuardia, undefined, "no crea rol operativo");
   });
-  h.t("Postulante: identidad no verificada y fechas inválidas se rechazan", function() {
+  h.t("Postulante: correo ausente y fechas inválidas se rechazan", function() {
     var sinId = evaluarSolicitudFormativa(PADRON_FORMATIVO, {
-      email: "postulante@demo.cl", identidadVerificada: false,
-      tipoActividad: "OBSERVACION", fechas: ["2026-09-14"]
+      email: "no-autorizado@example.invalid",
+      fechas: ["2026-09-14"]
     });
     var dup = evaluarSolicitudFormativa(PADRON_FORMATIVO, {
-      email: "postulante@demo.cl", identidadVerificada: true,
-      tipoActividad: "OBSERVACION", fechas: ["2026-09-14", "2026-09-14"]
+      email: "postulante@example.invalid",
+      fechas: ["2026-09-14", "2026-09-14"]
     });
-    h.eq([sinId.codigo, dup.codigo], ["IDENTIDAD_NO_VERIFICADA", "FECHAS_INVALIDAS"]);
+    h.eq([sinId.codigo, dup.codigo], ["IDENTIDAD_NO_ENCONTRADA", "FECHAS_INVALIDAS"]);
   });
   h.t("Aspirante no se convierte automáticamente en postulante", function() {
     var r = evaluarSolicitudFormativa(PADRON_FORMATIVO, {
-      email: "aspirante@demo.cl", identidadVerificada: true,
-      tipoActividad: "ACOMPANAMIENTO", fechas: ["2026-09-14"]
+      email: "aspirante@example.invalid",
+      fechas: ["2026-09-14"]
     });
     h.eq([r.ok, r.codigo], [false, "CONDICION_NO_POSTULANTE"]);
   });
