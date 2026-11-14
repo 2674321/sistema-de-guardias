@@ -278,6 +278,7 @@ function registrarGuardia(datos) {
     } catch (e) { Logger.log("Actualización Asistencia tras registro: " + e); }
 
     _bumpCalVersion();
+    try { actualizarCalendarioCompartido_(); } catch (eCal) { Logger.log("refresco calendario compartido: " + eCal); }
     return { ok: true };
   } catch (e) {
     Logger.log("registrarGuardia: " + e);
@@ -507,6 +508,7 @@ function eliminarGuardiasPorEmail(email, codigo) {
     } catch (e) { Logger.log("LogEliminaciones: " + e); }
 
     _bumpCalVersion();
+    try { actualizarCalendarioCompartido_(); } catch (eCal) { Logger.log("refresco calendario compartido: " + eCal); }
     return { ok: true, eliminadas: eliminadas, filasEliminadas: filasEliminar.length };
   } catch (err) {
     Logger.log("eliminarGuardiasPorEmail: " + err);
@@ -550,6 +552,9 @@ function obtenerGuardiasDelDia(fechaStr) {
         }
       }
     }
+
+    // Una persona repetida en filas históricas cuenta y se muestra una sola vez.
+    resultado = deduplicarGuardiasPorEmail(resultado);
 
     // Cargar asistencia para cada guardia
     try {
@@ -980,6 +985,7 @@ function _semanaHabilitadaDe(fechaKey, config) {
 // luego un solo pase de Asistencia cruzando por índice email→guardia.
 function _construirSnapshotCalendario(dataAll, asisData, config, mes, año) {
   var ocupacion = {};
+  var vistosPorDia = {};
   // Días del ciclo: 28 días CÍVICOS desde el inicio de la primera guardia
   // (o desde config.inicio si aún no hay guardias programadas). Nunca se
   // suman milisegundos de 24h: eso deriva la fecha al cruzar un cambio de
@@ -1019,6 +1025,9 @@ function _construirSnapshotCalendario(dataAll, asisData, config, mes, año) {
 
       var dia = ocupacion[key];
       if (!dia) continue; // registro de otro mes: queda indexado para asistencia
+      var clavePersonaDia = key + "|" + email;
+      if (vistosPorDia[clavePersonaDia]) continue;
+      vistosPorDia[clavePersonaDia] = true;
 
       dia.guardias.push({
         nombre: String(fila[1] || ""),

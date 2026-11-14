@@ -132,6 +132,13 @@ function pruebasPuras() {
     if (diaBloqueadoPara(c, "voluntario", false)) throw new Error("inicial no debe bloquearse");
     if (diaBloqueadoPara(c, "voluntario", true)) throw new Error("operativo no debe bloquearse aún (0 op.)");
   });
+  h.t("Maquinista repetido por correo cuenta una sola vez", function() {
+    var c = contarCupoDia([
+      { email: "maq@example.invalid", cargo: "maquinista", nivel: "INICIAL" },
+      { email: "MAQ@example.invalid", cargo: "maquinista", nivel: "INICIAL" }
+    ]);
+    h.eq([c.maquinistas, c.operativos], [1, 0]);
+  });
   h.t("Operativo: 2 existentes llenan cupo y bloquean O/P pero no inicial", function() {
     var c = contarCupoDia([
       { cargo: "voluntario", nivel: "OPERATIVO" },
@@ -618,6 +625,13 @@ function pruebasPuras() {
     h.eq(oct, "CALENDARIO_GUARDIAS_2026_10", "período de octubre → clave distinta");
     h.eq(oct !== A, true, "meses distintos → claves distintas");
     h.eq(_periodoClave([]), "", "sin guardias → clave vacía");
+  });
+  h.t("Calendario acumulativo: pestaña identifica el ciclo entre meses", function() {
+    var gs = normalizarGuardias([
+      { id: "g1", inicio: "2026-10-26", duracion: 7, activa: true },
+      { id: "g2", inicio: "2026-11-09", duracion: 7, activa: true }
+    ]).guardias;
+    h.eq(_nombrePestanaPeriodo_(gs), "oct-nov 2026");
   });
 
   h.t("Actualización: misma clave y la hoja refleja los NUEVOS oficiales", function() {

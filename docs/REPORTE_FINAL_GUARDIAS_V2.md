@@ -5,7 +5,7 @@ Rama: `codex/guardias-v2-redesign`
 HEAD inicial: `201f0acd3b88e5dc038d25e4ccab2c0de4c3e59c`  
 HEAD funcional auditado: `dda6ca1`
 
-> **Producción actualizada y verificada.** El deployment canónico conserva su URL y apunta a Apps Script v61. Se creó el respaldo inmutable v59 antes del cambio. No se modificaron permisos de Drive, no se enviaron correos reales y no se movieron tags.
+> **Producción actualizada y verificada.** El deployment canónico conserva su URL y apunta a Apps Script v64. Se creó el respaldo inmutable v59 antes del cambio. El calendario compartido quedó como solo lectura; no se enviaron correos reales y no se movieron tags.
 
 ## Resumen ejecutivo
 
@@ -26,7 +26,7 @@ La interfaz V2 está operativa en producción. QA mantiene una hoja sintética p
 | F6 Exportador | IMPLEMENTADO local | OBAC asignado o `PENDIENTE DE ASIGNACIÓN`; prueba real de hoja pendiente |
 | F7 Panel/admin/ACL | PARCIAL | RPC críticas protegidas; panel V2 y remediación ACL pendientes de autorización |
 | F8 QA URL estable | IMPLEMENTADO | deployment canónico actualizado hasta `@8`, conservando el mismo ID y `/exec` |
-| F9 Paquete PROD | IMPLEMENTADO | respaldo v59, candidata v61 y deployment canónico productivo actualizado con smoke test conectado |
+| F9 Paquete PROD | IMPLEMENTADO | respaldo v59 y deployment canónico v64 actualizado con smoke test conectado |
 
 ## Cambios principales
 
@@ -71,7 +71,7 @@ La interfaz V2 está operativa en producción. QA mantiene una hoja sintética p
 
 | Verificación | Resultado |
 |---|---|
-| Reglas puras Node | 83/83 PASS |
+| Reglas puras Node | 85/85 PASS |
 | Integridad funciones frontend/backend | 71 definidas, PASS |
 | Sintaxis `.gs` | 11 archivos, PASS |
 | Sintaxis `.js/.mjs` | PASS |
@@ -82,7 +82,7 @@ La interfaz V2 está operativa en producción. QA mantiene una hoja sintética p
 | Apps Script/Sheets QA | PASS: carga real, banner QA, libro privado, calendario conectado, inscripción formativa persistida y asistencia ausente |
 | Concurrencia real/último cupo | NO VERIFICADO |
 | Releases misma URL QA | PASS: actualizaciones sucesivas hasta `@8` conservaron el deployment canónico |
-| Producción v61 | PASS: shell, configuración y calendario real cargaron con estado `Conectado` |
+| Producción v64 | PASS: shell, configuración y calendario real cargaron con estado `Conectado`; maquinistas deduplicados por correo/fecha |
 
 Casos cubiertos: payload maquinista/operativo falsificado, `Activo=Si + Aspirante`, identidad ausente/duplicada/inactiva, corte inclusivo, posterior al corte, reintegro, ODD pendiente, inhabilitación, alias pendiente, maquinista, fuente ausente/desactualizada, postulante no dotación y OBAC pendiente visible.
 
@@ -101,7 +101,7 @@ Se creó un libro QA exclusivamente sintético y se leyó su ACL después de imp
 - QA sintético: solo `user:owner`; no existe permiso `anyone`;
 - producción: esquema y configuración inspeccionados; sin remediación ni cambios de ACL;
 - se modificó el proyecto Apps Script y su deployment canónico; el libro de datos no fue reestructurado;
-- respaldo previo v59 y versión activa v61 permiten reversión inmediata del deployment.
+- respaldo previo v59 y versión activa v64 permiten reversión inmediata del deployment.
 
 ## Issue de tag
 

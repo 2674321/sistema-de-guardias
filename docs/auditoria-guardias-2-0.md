@@ -14,13 +14,13 @@ Alcance: repositorio local, fuentes públicas y fixtures sintéticos. **Producci
 | Documentación de deployments | VERIFICADO | Apps Script distingue versión inmutable de deployment editable; actualizar el deployment conserva ID/URL |
 | Libros Guardias/Ayudantía | IDENTIFICADOS E INSPECCIONADOS | esquema productivo contrastado; las pruebas de escritura usan un libro QA sintético separado |
 | Permisos de Drive | VERIFICADO SOLO EN QA | libro sintético con único permiso `user:owner`; ACL productivas no se modificaron |
-| Deployments Apps Script | VERIFICADO | respaldo productivo v59, producción canónica activa en v61 y QA canónico actualizado hasta `@8` |
+| Deployments Apps Script | VERIFICADO | respaldo productivo v59, producción canónica activa en v64 y QA canónico actualizado hasta `@9` |
 
 ## Baseline
 
 - Rama principal remota: `origin/main` en `201f0ac`.
 - Tags: `v1.0.0` → `3c8ffeb`; `v1.1.0` → `c5529b9`.
-- Baseline inicial: 69/69 pruebas puras y sintaxis JS correctas. Tras la implementación V2, la integridad alcanza 71 funciones cliente/servidor y 83/83 pruebas.
+- Baseline inicial: 69/69 pruebas puras y sintaxis JS correctas. Tras la implementación V2, la integridad alcanza 72 funciones cliente/servidor y 85/85 pruebas.
 - Stack: Apps Script V8, HtmlService, Sheets, MailApp, CacheService y LockService.
 - Manifest actual: `executeAs=USER_DEPLOYING`, `access=ANYONE_ANONYMOUS`.
 - `.clasp.json`: no se versiona. Se publicaron versiones separadas en QA y producción; producción conserva el mismo deployment y URL canónicos.
@@ -116,8 +116,7 @@ Apps Script documenta que una versión es inmutable y un deployment posee ID/URL
 |---|---|---|---|---|---|
 | Preview pública | N/A | GitHub Pages | histórica `/preview/` | ninguno | VERIFICADO en repo, sintético |
 | QA funcional | VERIFICADO | canónico estable `@8` | `/exec` estable | sintética privada | ACTIVO |
-| Producción | VERIFICADO | canónico estable `@61` | `/exec` estable | libro real existente | ACTIVO |
-| Producción | VERIFICADO en modo lectura | 11 deployments inventariados | canónica histórica contrastada | real | NO TOCADO |
+| Producción | VERIFICADO | canónico estable `@64` | `/exec` estable | libro real + calendario acumulativo de solo lectura | ACTIVO |
 
 Las propiedades obligatorias por proyecto son `ENVIRONMENT`, `SHEET_ID`, `WEB_APP_URL`, `ADMIN_EMAILS`, `OBAC_ANCHOR_PERSON_ID` y opcionalmente `OBAC_SOURCE_MAX_AGE_HOURS`. QA debe fallar el preflight si el ID de hoja coincide con producción o si el banner de ambiente no es `QA`.
 
@@ -135,11 +134,11 @@ El issue público #3 sigue abierto. La inspección local confirma que `v1.1.0` c
 
 ## Evidencia de esta iteración
 
-- 83/83 pruebas puras PASS tras controles de rol, OBAC y postulantes.
-- Integridad frontend/backend: 71 funciones llamadas/definidas PASS.
+- 85/85 pruebas puras PASS tras controles de rol, OBAC, postulantes y deduplicación por correo/fecha.
+- Integridad frontend/backend: 72 funciones llamadas/definidas PASS.
 - Sintaxis de archivos `.js`/`.mjs`: PASS.
 - `git diff --check`: PASS.
 - QA visual local: escritorio y 320/360/375/390/430 px; sin overflow horizontal; flujo formativo confirmado.
 - QA Apps Script: libro sintético privado, banner QA, Asistencia oculta, registro formativo E2E persistido y deployment estable actualizado hasta `@8`.
-- Producción: v61 cargó configuración y calendario reales con estado `Conectado`; la URL canónica no cambió.
+- Producción: v64 cargó configuración y calendario reales con estado `Conectado`; la URL canónica no cambió.
 - ACL productivas, correos reales y tags: **NO MODIFICADOS**. Proyecto Apps Script, deployment productivo y rama remota: **ACTUALIZADOS**.

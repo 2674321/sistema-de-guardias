@@ -10,7 +10,7 @@
 
 Sistema de calendarización y gestión de guardias para la 1ª Compañía del Cuerpo de Bomberos de Coquimbo. Lleva cerca de seis meses operativo con funcionamiento normal. Está construido sobre **Google Apps Script** (backend + web app) con **Google Sheets** como base de datos.
 
-> **Estado productivo:** Guardias 2.0 activo en Apps Script v61, sobre la URL canónica existente. La versión anterior quedó respaldada como versión inmutable v59. [Ver vista previa](https://2674321.github.io/sistema-de-guardias/preview/)
+> **Estado productivo:** Guardias 2.0 activo en Apps Script v64, sobre la URL canónica existente. La versión anterior quedó respaldada como versión inmutable v59. [Ver vista previa](https://2674321.github.io/sistema-de-guardias/preview/)
 
 ## Preview en línea (datos ficticios)
 
@@ -80,6 +80,7 @@ Web App (Index.html, SPA) ──google.script.run──► Backend Apps Script �
 - **Baja protegida** con código de un solo uso enviado al correo (anti-suplantación).
 - **Estadísticas** diarias/mensuales/ranking y **exportación PDF** mensual.
 - **Estados de conexión** (● Conectado · ◐ Sincronizando · ⚠ Lento · ✕ Sin conexión) con fallback al último calendario válido.
+- **Calendario acumulativo compartido** en un único archivo de solo lectura, con una pestaña por ciclo y refresco automático tras inscripciones o bajas.
 
 ## Configuración (hoja `Config`)
 
@@ -107,7 +108,7 @@ clasp push                  # repo → Apps Script
 ### Pruebas
 
 ```bash
-node tools/local-tests/run_tests.mjs    # suite pura (83 casos)
+node tools/local-tests/run_tests.mjs    # suite pura (85 casos)
 node tools/check-funciones.mjs          # funciones llamadas vs definidas (frontend)
 node tools/check-gs-syntax.mjs          # sintaxis de todos los archivos Apps Script .gs
 node tools/prueba-carga.mjs [URL]       # latencia del shell (no abusiva)
@@ -120,7 +121,7 @@ En Apps Script: menú → Pruebas → *Ejecutar tests*.
 1. `clasp push`
 2. `clasp deploy -i <DEPLOYMENT_ID> -d "descripción"` — re-despliega **la misma URL** en una versión nueva.
 
-Deployment vigente (Apps Script v61, rama `codex/guardias-v2-redesign`): se conservó el deployment canónico y, por tanto, la misma URL pública. El respaldo previo está disponible en v59.
+Deployment vigente (Apps Script v64, rama `codex/guardias-v2-redesign`): se conservó el deployment canónico y, por tanto, la misma URL pública. El respaldo previo está disponible en v59.
 
 ## Versionado
 

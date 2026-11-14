@@ -1529,7 +1529,7 @@
     <div class="masthead-right">
       <a href="mailto:ayudantec1@bomberosdecoquimbo.cl">✉ ayudantec1@bomberosdecoquimbo.cl</a>
     </div>
-    <button class="pdf-btn" onclick="generarGuardias()">Guardias</button>
+    <button class="pdf-btn" onclick="abrirCalendarioGuardias(this)">Guardias</button>
   </div>
 </header>
 <div id="env-banner" class="env-banner" role="status" aria-live="polite"></div>
@@ -3559,6 +3559,30 @@ function ocultarModales(){
 
 function generarGuardias(){
   mostrarModal("hoja-opciones");
+}
+
+function abrirCalendarioGuardias(btn){
+  var texto = btn ? btn.textContent : "Guardias";
+  var ventana = null;
+  try { ventana = window.open("about:blank", "_blank"); } catch(e) {}
+  if(btn){ btn.disabled = true; btn.textContent = "Abriendo..."; }
+  google.script.run
+    .withSuccessHandler(function(resp){
+      if(btn){ btn.disabled = false; btn.textContent = texto; }
+      if(resp && resp.ok && resp.url){
+        if(ventana) ventana.location.href = resp.url;
+        else window.open(resp.url, "_blank", "noopener");
+        return;
+      }
+      if(ventana) ventana.close();
+      alert((resp && resp.error) || "El calendario compartido aún no está disponible.");
+    })
+    .withFailureHandler(function(){
+      if(btn){ btn.disabled = false; btn.textContent = texto; }
+      if(ventana) ventana.close();
+      alert("No se pudo abrir el calendario compartido.");
+    })
+    .obtenerCalendarioCompartido();
 }
 
 function generarGuardiasRapido(){

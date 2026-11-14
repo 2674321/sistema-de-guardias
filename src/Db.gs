@@ -47,6 +47,7 @@ function contarCupoDiaFilas(dataAll, fechaStr) {
         : String(dataAll[ri][ci] || "").trim();
       if (df === fechaStr) {
         filas.push({
+          email: String(dataAll[ri][2] || "").trim().toLowerCase(),
           cargo: String(dataAll[ri][3] || ""),
           nivel: normalizarNivel(dataAll[ri][8])
         });

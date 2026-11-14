@@ -47,6 +47,21 @@ function consumeCupoOperativo(nivel) {
   return REGLAS.nivelesCupoOperativo.indexOf(nivel) !== -1;
 }
 
+// Una persona puede aparecer en más de una fila histórica del mismo período.
+// Para disponibilidad y exportación cuenta una sola vez por día. Solo se
+// deduplica cuando existe una identidad estable (correo); filas sin correo se
+// conservan para no fusionar personas por nombre.
+function deduplicarGuardiasPorEmail(filas) {
+  var vistos = {};
+  return (filas || []).filter(function(f) {
+    var email = normalizarTextoIdentidad(f && f.email);
+    if (!email) return true;
+    if (vistos[email]) return false;
+    vistos[email] = true;
+    return true;
+  });
+}
+
 //══════════════════════════════════════════
 // VALIDADORES Y RESOLUTORES PUROS
 //══════════════════════════════════════════
@@ -396,7 +411,7 @@ function resolverCantidadGuardias(valor, valorLegado, defecto) {
 
 function contarCupoDia(filas) {
   var r = { maquinistas: 0, operativos: 0 };
-  (filas || []).forEach(function(f) {
+  deduplicarGuardiasPorEmail(filas).forEach(function(f) {
     var cargo = String(f.cargo || "").trim().toLowerCase();
     if (cargo.indexOf("maquinista") !== -1) {
       // Conductor: cuenta SOLO como maquinista, sin importar su nivel.
