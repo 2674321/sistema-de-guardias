@@ -15,6 +15,36 @@ function _hashEmail(email) {
   }).join("").substring(0, 16);
 }
 
+function autorizarCorreoSesion_(email) {
+  var solicitado = String(email || "").trim().toLowerCase();
+  var activo = "";
+  try { activo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase(); } catch (e) {}
+  return {
+    ok: !!activo && activo === solicitado && esEmailValido(activo),
+    codigo: !activo ? "IDENTIDAD_NO_DISPONIBLE" : activo !== solicitado ? "IDENTIDAD_NO_COINCIDE" : "OK"
+  };
+}
+
+function autorizarAdmin_() {
+  var activo = "";
+  try { activo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase(); } catch (e) {}
+  var lista = String(PropertiesService.getScriptProperties().getProperty("ADMIN_EMAILS") || "")
+    .split(",").map(function(x) { return x.trim().toLowerCase(); }).filter(Boolean);
+  return { ok: !!activo && lista.indexOf(activo) !== -1, codigo: activo ? "ADMIN_NO_AUTORIZADO" : "IDENTIDAD_NO_DISPONIBLE" };
+}
+
+function _generarCodigoOtp_() {
+  // Apps Script no expone Web Crypto en servidor. Se deriva el código de un
+  // UUID de plataforma y SHA-256, evitando Math.random() y sus estados débiles.
+  var bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    Utilities.getUuid() + ":" + new Date().toISOString()
+  );
+  var n = 0;
+  for (var i = 0; i < 4; i++) n = (n * 256 + (bytes[i] < 0 ? bytes[i] + 256 : bytes[i])) >>> 0;
+  return String(100000 + (n % 900000));
+}
+
 // Paso 1: el bombero solicita el código. Se envía a su correo.
 function solicitarCodigoEliminacion(email) {
   try {
@@ -31,7 +61,7 @@ function solicitarCodigoEliminacion(email) {
     }
 
     // Verificar que efectivamente tenga guardias (evita correos falsos)
-    var consulta = buscarGuardiasPorEmail(email);
+    var consulta = _buscarGuardiasPorEmailInterno(email);
     if (!consulta.ok) {
       return { ok: false, error: "No se pudieron consultar tus guardias. Intenta más tarde." };
     }
@@ -39,7 +69,7 @@ function solicitarCodigoEliminacion(email) {
       return { ok: false, error: "No se encontraron guardias para este correo." };
     }
 
-    var codigo = String(Math.floor(100000 + Math.random() * 900000));
+    var codigo = _generarCodigoOtp_();
     cache.put("delcode_" + _hashEmail(email), codigo, CONFIG.codigoEliminacionTtlSeg);
     cache.put(keyReq, "1", 60);
 

@@ -1,9 +1,21 @@
 #!/usr/bin/env node
 // Prueba de carga NO abusiva del shell de la web app.
 // Mide latencia de: 1 carga, 5 concurrentes, 3 consecutivas.
-// Uso: node tools/prueba-carga.mjs [URL]
-const url = process.argv[2] ||
-  "https://script.google.com/macros/s/AKfycbxZyIlFLu7kj0kJlJsksV9D9Zy4tATlTtCQW-zYTqvYLeL1mmGK4jAx_2VWzfEmDfZ0/exec";
+// Uso: node tools/prueba-carga.mjs <URL_QA>
+// No existe un valor por defecto: evita golpear producción por accidente.
+const url = process.argv[2];
+if (!url) {
+  console.error("Uso: node tools/prueba-carga.mjs <URL_QA>");
+  process.exit(2);
+}
+if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(url)) {
+  console.error("La URL debe ser un deployment versionado /exec de Apps Script.");
+  process.exit(2);
+}
+if (process.env.CONFIRM_QA_LOAD_TEST !== "YES") {
+  console.error("Define CONFIRM_QA_LOAD_TEST=YES después de verificar que la URL y hoja pertenecen a QA.");
+  process.exit(2);
+}
 
 async function medir() {
   const t0 = Date.now();

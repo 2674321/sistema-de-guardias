@@ -56,6 +56,219 @@ function esEmailValido(email) {
 }
 
 //══════════════════════════════════════════
+// AUTORIZACIÓN DE IDENTIDAD Y ROL — núcleo puro
+//
+// El navegador solo declara una intención. La autorización se resuelve con
+// un registro institucional leído por el servidor. Ante datos incompletos,
+// duplicados o contradictorios se falla de forma segura.
+//══════════════════════════════════════════
+
+function normalizarTextoIdentidad(valor) {
+  return String(valor == null ? "" : valor).trim().toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function valorAfirmativo(valor) {
+  var v = normalizarTextoIdentidad(valor);
+  return v === "si" || v === "s" || v === "1" || v === "true" || v === "activo" || v === "habilitado";
+}
+
+function _nivelAutorizadoSuficiente(nivelFuente, nivelSolicitado) {
+  var orden = { INICIAL: 0, OPERATIVO: 1, PROFESIONAL: 2 };
+  var fuente = normalizarNivel(nivelFuente);
+  var pedido = normalizarNivel(nivelSolicitado);
+  return fuente !== null && pedido !== null && orden[fuente] >= orden[pedido];
+}
+
+// personas: [{email,nombre,activo,categoria,cargo,nivel,maquinista}]
+// solicitud: {email,nombre,cargo,nivel}
+// No compara por nombre: un nombre visible no es identidad estable.
+function evaluarHabilitacionRegistro(personas, solicitud) {
+  solicitud = solicitud || {};
+  var email = normalizarTextoIdentidad(solicitud.email);
+  var cargo = normalizarTextoIdentidad(solicitud.cargo);
+  var nivel = normalizarNivel(solicitud.nivel);
+  var salidaBase = { ok: false, estado: "REQUIERE_VALIDACION", codigo: "HABILITACION_NO_VERIFICADA" };
+
+  if (!email || !esEmailValido(email)) {
+    salidaBase.codigo = "IDENTIDAD_INVALIDA";
+    return salidaBase;
+  }
+  if (cargo !== "voluntario" && cargo !== "maquinista") {
+    salidaBase.codigo = "ROL_INVALIDO";
+    return salidaBase;
+  }
+  if (nivel === null) {
+    salidaBase.codigo = "NIVEL_INVALIDO";
+    return salidaBase;
+  }
+
+  var coincidencias = (personas || []).filter(function(p) {
+    return normalizarTextoIdentidad(p && p.email) === email;
+  });
+  if (coincidencias.length !== 1) {
+    salidaBase.codigo = coincidencias.length > 1 ? "IDENTIDAD_AMBIGUA" : "IDENTIDAD_NO_ENCONTRADA";
+    return salidaBase;
+  }
+
+  var p = coincidencias[0] || {};
+  if (!valorAfirmativo(p.activo)) {
+    salidaBase.codigo = "PERSONA_NO_ACTIVA";
+    return salidaBase;
+  }
+
+  var categoria = normalizarTextoIdentidad(p.categoria);
+  var cargoFuente = normalizarTextoIdentidad(p.cargo);
+  var textoCondicion = categoria + " " + cargoFuente;
+  if (/\b(aspirante|postulante|brigadier|pendiente)\b/.test(textoCondicion)) {
+    salidaBase.codigo = "CONDICION_NO_OPERATIVA";
+    return salidaBase;
+  }
+
+  // El padrón debe acreditar una condición voluntaria; Activo=Si por sí solo
+  // no habilita una guardia operativa.
+  if (textoCondicion.indexOf("voluntario") === -1 && cargoFuente.indexOf("maquinista") === -1) {
+    salidaBase.codigo = "CONDICION_NO_ACREDITADA";
+    return salidaBase;
+  }
+
+  if (cargo === "maquinista") {
+    if (!valorAfirmativo(p.maquinista) && cargoFuente.indexOf("maquinista") === -1) {
+      salidaBase.codigo = "MAQUINISTA_NO_HABILITADO";
+      return salidaBase;
+    }
+  } else if (nivel !== "INICIAL" && !_nivelAutorizadoSuficiente(p.nivel, nivel)) {
+    salidaBase.codigo = "NIVEL_NO_HABILITADO";
+    return salidaBase;
+  }
+
+  return { ok: true, estado: "HABILITADO", codigo: "OK", personaId: String(p.personaId || email) };
+}
+
+//══════════════════════════════════════════
+// OBAC — resolución determinista y segura
+//══════════════════════════════════════════
+
+function _vigenteEnFecha(desde, hasta, fecha) {
+  var f = fechaStrCivil(fecha);
+  if (!f) return false;
+  var d = desde ? fechaStrCivil(desde) : null;
+  var h = hasta ? fechaStrCivil(hasta) : null;
+  return (!d || d <= f) && (!h || h >= f);
+}
+
+// entrada: {fecha,dotacion,nomina,habilitaciones,anclaPersonaId,fuenteTimestamp,versionReglas,permitirMaquinistaObac}
+// La tabla de habilitaciones es obligatoria: el corte de antigüedad limita
+// candidatos, pero nunca concede por sí mismo una autorización individual.
+function resolverObacDia(entrada) {
+  entrada = entrada || {};
+  var fecha = fechaStrCivil(entrada.fecha);
+  var base = {
+    fecha: fecha || String(entrada.fecha || ""),
+    obacId: "",
+    nombrePresentacion: "",
+    estado: "OBAC_PENDIENTE",
+    motivo: "",
+    candidatosEvaluados: 0,
+    fuente: String(entrada.fuente || ""),
+    timestampFuente: String(entrada.fuenteTimestamp || ""),
+    versionReglas: String(entrada.versionReglas || "obac-1")
+  };
+  if (!fecha) { base.motivo = "FECHA_INVALIDA"; return base; }
+  if (!entrada.fuenteTimestamp) { base.motivo = "FUENTE_SIN_TIMESTAMP"; return base; }
+  if (entrada.fuenteVigente === false) { base.motivo = "FUENTE_DESACTUALIZADA"; return base; }
+
+  var nomina = entrada.nomina || [];
+  var anclaId = String(entrada.anclaPersonaId || "");
+  var anclas = nomina.filter(function(n) { return String(n.personaId || "") === anclaId; });
+  if (anclas.length !== 1 || !isFinite(Number(anclas[0].orden))) {
+    base.motivo = anclas.length > 1 ? "ANCLA_AMBIGUA" : "ANCLA_NO_ENCONTRADA";
+    return base;
+  }
+  var ordenCorte = Number(anclas[0].orden);
+  var nominaPorId = {};
+  nomina.forEach(function(n) {
+    var id = String(n.personaId || "");
+    if (!id) return;
+    if (!nominaPorId[id]) nominaPorId[id] = [];
+    nominaPorId[id].push(n);
+  });
+  var habilPorId = {};
+  (entrada.habilitaciones || []).forEach(function(h) {
+    var id = String(h.personaId || "");
+    if (!id || !_vigenteEnFecha(h.vigenteDesde, h.vigenteHasta, fecha)) return;
+    if (!habilPorId[id]) habilPorId[id] = [];
+    habilPorId[id].push(h);
+  });
+
+  var candidatos = [];
+  (entrada.dotacion || []).forEach(function(d) {
+    var id = String(d.personaId || "");
+    if (!id || String(d.identidadEstado || "") !== "VERIFICADA") return;
+    var condicion = normalizarTextoIdentidad(d.condicionInstitucional);
+    if (/aspirante|postulante|brigadier|pendiente/.test(condicion)) return;
+    if (!entrada.permitirMaquinistaObac && normalizarTextoIdentidad(d.rolGuardia).indexOf("maquinista") !== -1) return;
+    var ns = nominaPorId[id] || [];
+    var hs = habilPorId[id] || [];
+    base.candidatosEvaluados++;
+    if (ns.length !== 1 || hs.length !== 1) return;
+    var n = ns[0], h = hs[0];
+    if (!valorAfirmativo(n.activo) || n.vigente === false) return;
+    if (valorAfirmativo(n.esReintegrado) || valorAfirmativo(n.oddPendiente)) return;
+    var orden = Number(n.orden);
+    if (!isFinite(orden) || orden > ordenCorte) return;
+    if (normalizarTextoIdentidad(h.estado) !== "habilitado") return;
+    candidatos.push({ personaId: id, nombre: String(d.nombrePresentacion || n.nombrePresentacion || "").trim(), orden: orden });
+  });
+
+  candidatos.sort(function(a, b) {
+    if (a.orden !== b.orden) return a.orden - b.orden;
+    return a.personaId < b.personaId ? -1 : a.personaId > b.personaId ? 1 : 0;
+  });
+  if (!candidatos.length) { base.motivo = "SIN_CANDIDATO_ELEGIBLE"; return base; }
+  base.obacId = candidatos[0].personaId;
+  base.nombrePresentacion = candidatos[0].nombre;
+  base.estado = "ASIGNADO_AUTOMATICO";
+  base.motivo = "MAYOR_ANTIGUEDAD_ELEGIBLE";
+  return base;
+}
+
+//══════════════════════════════════════════
+// ACTIVIDADES FORMATIVAS — postulantes
+// Separadas de guardias, roles, cupos y asistencia operativa.
+//══════════════════════════════════════════
+
+function evaluarSolicitudFormativa(personas, solicitud) {
+  solicitud = solicitud || {};
+  var email = normalizarTextoIdentidad(solicitud.email);
+  var tipos = ["TURNO_FORMATIVO", "ACOMPANAMIENTO", "OBSERVACION"];
+  var tipo = String(solicitud.tipoActividad || "").trim().toUpperCase();
+  var fechas = (solicitud.fechas || []).map(fechaStrCivil).filter(function(f) { return !!f; });
+  if (!solicitud.identidadVerificada) return { ok: false, estado: "REQUIERE_VALIDACION", codigo: "IDENTIDAD_NO_VERIFICADA" };
+  if (tipos.indexOf(tipo) === -1) return { ok: false, estado: "REQUIERE_VALIDACION", codigo: "TIPO_ACTIVIDAD_INVALIDO" };
+  if (!fechas.length || fechas.length !== (solicitud.fechas || []).length || new Set(fechas).size !== fechas.length) {
+    return { ok: false, estado: "REQUIERE_VALIDACION", codigo: "FECHAS_INVALIDAS" };
+  }
+  var ps = (personas || []).filter(function(p) { return normalizarTextoIdentidad(p.email) === email; });
+  if (ps.length !== 1) return { ok: false, estado: "REQUIERE_VALIDACION", codigo: ps.length > 1 ? "IDENTIDAD_AMBIGUA" : "IDENTIDAD_NO_ENCONTRADA" };
+  var p = ps[0];
+  var condicion = normalizarTextoIdentidad(p.condicionInstitucional);
+  if (condicion !== "postulante") return { ok: false, estado: "REQUIERE_VALIDACION", codigo: "CONDICION_NO_POSTULANTE" };
+  if (normalizarTextoIdentidad(p.estado) !== "autorizado") return { ok: false, estado: "REQUIERE_VALIDACION", codigo: "PARTICIPACION_NO_AUTORIZADA" };
+  return {
+    ok: true,
+    estado: "PROGRAMADA",
+    codigo: "OK",
+    personaId: String(p.personaId || ""),
+    nombrePresentacion: String(p.nombrePresentacion || "").trim(),
+    tipoActividad: tipo,
+    fechas: fechas,
+    requiereSupervisor: p.requiereSupervisor !== false
+  };
+}
+
+//══════════════════════════════════════════
 // FECHAS — partes seguras por zona horaria
 //
 // PROBLEMA que resuelve: new Date("2026-07-08") se interpreta como

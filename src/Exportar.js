@@ -20,7 +20,8 @@
 //   generarHojaGuardias() solo orquesta servicios de Apps Script:
 //   leer datos → SpreadsheetApp.create() → aplicar modelo → carpeta Drive.
 //
-// OBAC y Oficial de quedan vacíos: no existen en el modelo de datos
+// OBAC queda pendiente de forma explícita si no existe una fuente validada.
+// Oficial de Semana conserva una fuente y semántica independientes.
 // (cargos `voluntario`/`maquinista`). La estructura queda preparada para
 // incorporarlos vía _oficialesPosibles() cuando exista la fuente.
 //════════════════════════════════════════════════════════════════
@@ -155,7 +156,7 @@ function _bloquesCalendario(guardias) {
   return bloques;
 }
 
-function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales) {
+function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales, obacPorDia) {
   if (!guardias || !guardias.length) {
     return { ok: false, error: "No existen guardias programadas para generar." };
   }
@@ -167,6 +168,7 @@ function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales) {
   for (var b = 0; b < dias.length; b += _N_DIAS) bloques.push(dias.slice(b, b + _N_DIAS));
 
   var porDia = (oficiales && oficiales.porDia) || {};
+  obacPorDia = obacPorDia || {};
   var notaOficial = (oficiales && oficiales.nota) || "No existe fuente de datos suficiente para determinar el oficial.";
 
   var GRID = [];
@@ -267,13 +269,15 @@ function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales) {
 
     bloque.forEach(function(dd, i) { indice[dd.key] = { dia: rDia, obac: rObac, maq: rMaq, vol: volRows, oficial: rOf, roja: roja, inicio: bloque[0].key }; });
 
-    // OBAC (sin dato en el modelo → vacío)
+    // OBAC: asignación validada o pendiente explícito; nunca celda vacía.
     setVal(rObac, _COL_LABEL, "OBAC");
     addStyle({ r1: rObac, c1: _COL_LABEL, r2: rObac, c2: _COL_LABEL, bold: true, size: 8, align: "left", valign: "middle" });
     for (var i2 = 0; i2 < _N_DIAS; i2++) {
       var b3 = baseDia(i2);
-      setVal(rObac, b3, "");
-      addStyle({ r1: rObac, c1: b3, r2: rObac, c2: b3 + _N_SUB - 1, bg: bg, size: 8, align: "center", valign: "middle", wrap: true });
+      var diaObac = bloque[i2] && obacPorDia[bloque[i2].key];
+      var asignado = diaObac && (diaObac.estado === "ASIGNADO_AUTOMATICO" || diaObac.estado === "ASIGNADO_MANUAL") && diaObac.nombrePresentacion;
+      setVal(rObac, b3, asignado ? diaObac.nombrePresentacion : "PENDIENTE DE ASIGNACIÓN");
+      addStyle({ r1: rObac, c1: b3, r2: rObac, c2: b3 + _N_SUB - 1, bg: asignado ? bg : _C_AMARILLO, size: 8, align: "center", valign: "middle", wrap: true, bold: !asignado });
     }
 
     // Maquinista
@@ -367,6 +371,8 @@ function _oficialesPosibles(guardias, registros) {
 //────────────────────────────────────────────
 
 function generarHojaGuardias(oficialesSemana) {
+  var auth = autorizarAdmin_();
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: "Acceso administrativo no autorizado." };
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var guardias = _ordenarGuardiasPorInicio(obtenerGuardias().guardias);
@@ -427,7 +433,10 @@ function generarHojaGuardias(oficialesSemana) {
       porDia: porDia,
       nota: Object.keys(porDia).length ? "" : "No existe fuente de datos suficiente para determinar el oficial."
     };
-    var modelo = _modeloHojaGuardias(guardias, personas, asisEstado, oficiales);
+    // Adapter privado: si el puente mínimo autorizado no está disponible,
+    // resolverObacParaCalendario devuelve pendiente para cada fecha.
+    var obacPorDia = resolverObacParaCalendario(personas);
+    var modelo = _modeloHojaGuardias(guardias, personas, asisEstado, oficiales, obacPorDia);
     if (!modelo.ok) return { ok: false, error: modelo.error };
 
     var clave = _periodoClave(guardias);

@@ -3,8 +3,7 @@
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("Index")
-    .setTitle("Guardias 1ra Compañía Coquimbo")
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .setTitle("Guardias 1ra Compañía Coquimbo");
 }
 
 // Asegura el layout de la hoja Guardias (9 columnas A–I). Auto-reparación
@@ -55,6 +54,18 @@ function registrarGuardia(datos) {
     // VALIDAR CARGO
     if (cargo !== "voluntario" && cargo !== "maquinista") {
       errores.push("Cargo inválido.");
+    }
+
+    // La UI expresa una intención; el servidor decide la habilitación real.
+    // Fallo seguro: sin identidad única o evidencia suficiente no se escribe.
+    var autorizacion = autorizarSolicitudGuardia(datos);
+    if (!autorizacion.ok) {
+      return {
+        ok: false,
+        errorCode: autorizacion.codigo || "HABILITACION_NO_VERIFICADA",
+        estado: autorizacion.estado || "REQUIERE_VALIDACION",
+        errores: ["No fue posible verificar tu habilitación institucional para el rol solicitado. Contacta a Ayudantía para revisar el padrón."]
+      };
     }
 
     // VALIDAR CANTIDADES Y REPETICIONES (regla central en Reglas.gs)
@@ -274,6 +285,12 @@ function registrarGuardia(datos) {
 //══════════════════════════════════════════
 
 function buscarGuardiasPorEmail(email) {
+  var auth = autorizarCorreoSesion_(email);
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: "No fue posible verificar que este correo pertenezca a tu sesión." };
+  return _buscarGuardiasPorEmailInterno(email);
+}
+
+function _buscarGuardiasPorEmailInterno(email) {
   try {
     var sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
     var datos = sh.getDataRange().getValues();
@@ -605,6 +622,8 @@ function inicializarHojaAsistencia() {
 }
 
 function guardarAsistencias(email, registros) {
+  var auth = autorizarCorreoSesion_(email);
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: "No fue posible verificar tu identidad para modificar asistencia." };
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
     return { ok: false, error: "El sistema está ocupado. Espera unos segundos e inténtalo de nuevo." };
@@ -705,6 +724,8 @@ function guardarAsistencias(email, registros) {
 }
 
 function obtenerGuardiasConAsistencia(email) {
+  var auth = autorizarCorreoSesion_(email);
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: "No fue posible verificar tu identidad para consultar asistencia." };
   try {
     var config = obtenerConfigGeneral();
     var mes = config.mes;
@@ -895,6 +916,7 @@ function obtenerCalendario(mes, año) {
       configuracion: {
         cantidadGuardias: config.cantidadGuardias,
         mostrarAsistencia: !!config.mostrarAsistencia,
+        ambiente: CONFIG.ambiente,
         semanas: config.semanas,
         diasEliminacion: config.diasEliminacion,
         fechaLimite: config.fechaLimite

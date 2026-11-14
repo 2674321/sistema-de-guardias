@@ -3,7 +3,9 @@
 // Única fuente de constantes y de lectura de la hoja Config.
 //══════════════════════════════════════════
 
-const SHEET_ID = "1pvDXSzGwySOPK9hDIHgGjbb4XMY7wQDk3RTC5QSPsWs";
+// Recursos por ambiente. Nunca se versionan IDs de hojas o URLs operativas.
+// Configurar en Script Properties: SHEET_ID, WEB_APP_URL y ENVIRONMENT.
+const SHEET_ID = PropertiesService.getScriptProperties().getProperty("SHEET_ID") || "";
 const SHEET_NAME = "Guardias";
 var _configCache = null;
 var _DIAG = true; // [DIAG] instrumentación temporal de auditoría
@@ -21,11 +23,13 @@ const CONFIG = {
   codigoEliminacionTtlSeg: 600,    // Vigencia del código de baja (10 min)
   codigoEliminacionMaxIntentos: 5,
 
-  // URL vigente del web app (actualizar al crear un deployment nuevo)
-  webAppUrl: "https://script.google.com/macros/s/AKfycbxZyIlFLu7kj0kJlJsksV9D9Zy4tATlTtCQW-zYTqvYLeL1mmGK4jAx_2VWzfEmDfZ0/exec",
+  // URL canónica del deployment existente en este ambiente.
+  webAppUrl: PropertiesService.getScriptProperties().getProperty("WEB_APP_URL") || "",
+
+  ambiente: PropertiesService.getScriptProperties().getProperty("ENVIRONMENT") || "UNCONFIGURED",
 
   // Hojas técnicas: se mantienen ocultas y protegidas por el formateador
-  hojasTecnicas: ["GuardiasProgramadas", "LogEliminaciones", "_BackupMigracionNiveles"],
+  hojasTecnicas: ["GuardiasProgramadas", "LogEliminaciones", "_BackupMigracionNiveles", "Postulantes_Autorizados", "ActividadesFormativas", "OBAC_PuenteNomina", "OBAC_Habilitaciones", "OBAC_Asignaciones"],
 
   // Direcciones de la hoja Config.
   // Nuevo layout por secciones (columna VALOR en C) con compatibilidad
@@ -162,6 +166,7 @@ function getConfig() {
       ok: true,
       cantidadGuardias: c.cantidadGuardias,
       mostrarAsistencia: c.mostrarAsistencia,
+      ambiente: CONFIG.ambiente,
       mes: c.mes,
       año: c.año,
       semanas: c.semanas

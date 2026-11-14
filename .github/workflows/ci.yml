@@ -22,6 +22,7 @@ jobs:
           while IFS= read -r f; do
             node --check "$f"
           done < <(find tools src -type f \( -name '*.js' -o -name '*.mjs' \) -print)
+          node tools/check-gs-syntax.mjs
       - name: Frontend function integrity
         run: node tools/check-funciones.mjs
       - name: Pure rules tests

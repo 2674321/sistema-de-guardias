@@ -85,3 +85,62 @@ function leerFilasGuardias() {
   }
   return out;
 }
+
+// Lee el padrón de Voluntarios sin depender de posiciones fijas. Los nombres
+// de encabezado admitidos se mantienen deliberadamente acotados: si el libro
+// real usa otro contrato, la inscripción queda pendiente/rechazada en lugar
+// de otorgar permisos por una coincidencia débil.
+function leerHabilitacionesVoluntarios() {
+  var sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName("Voluntarios");
+  if (!sh) return { ok: false, codigo: "PADRON_NO_DISPONIBLE", personas: [] };
+  var data = sh.getDataRange().getValues();
+  if (!data || data.length < 2) return { ok: false, codigo: "PADRON_VACIO", personas: [] };
+
+  var aliases = {
+    personaId: ["persona id", "persona_id", "id", "identificador"],
+    nombre: ["nombre", "nombre completo", "voluntario"],
+    email: ["email", "correo", "correo electronico", "e-mail"],
+    activo: ["activo", "estado", "vigente"],
+    categoria: ["categoria", "condicion", "calidad"],
+    cargo: ["cargo", "rol", "funcion"],
+    nivel: ["nivel", "nivel operativo", "clasificacion"],
+    maquinista: ["maquinista", "habilitado maquinista", "es maquinista"]
+  };
+  var idx = {};
+  data[0].forEach(function(h, i) {
+    var n = normalizarTextoIdentidad(h);
+    Object.keys(aliases).forEach(function(k) {
+      if (idx[k] === undefined && aliases[k].indexOf(n) !== -1) idx[k] = i;
+    });
+  });
+  if (idx.email === undefined || idx.activo === undefined) {
+    return { ok: false, codigo: "PADRON_CONTRATO_INCOMPLETO", personas: [] };
+  }
+
+  var personas = [];
+  for (var r = 1; r < data.length; r++) {
+    if (!data[r][idx.email]) continue;
+    var p = {};
+    Object.keys(aliases).forEach(function(k) {
+      p[k] = idx[k] === undefined ? "" : data[r][idx[k]];
+    });
+    personas.push(p);
+  }
+  return { ok: true, codigo: "OK", personas: personas };
+}
+
+function autorizarSolicitudGuardia(datos) {
+  try {
+    var padron = leerHabilitacionesVoluntarios();
+    if (!padron.ok) return { ok: false, estado: "REQUIERE_VALIDACION", codigo: padron.codigo };
+    return evaluarHabilitacionRegistro(padron.personas, {
+      email: datos && datos.email,
+      nombre: datos && datos.nombre,
+      cargo: datos && datos.cargo,
+      nivel: datos && datos.condicion
+    });
+  } catch (e) {
+    Logger.log("autorizarSolicitudGuardia: " + e);
+    return { ok: false, estado: "REQUIERE_VALIDACION", codigo: "PADRON_ERROR" };
+  }
+}

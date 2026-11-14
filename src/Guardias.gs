@@ -131,6 +131,8 @@ function esDiaDeGuardia(fechaStr) {
 //--------------------------------------------------------------------------------
 
 function listarGuardiasAdmin() {
+  var auth = autorizarAdmin_();
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: "Acceso administrativo no autorizado." };
   try {
     var filas = _leerFilasGuardiasProgramadas();
     var salida = filas.map(function(f) {
@@ -157,6 +159,8 @@ function listarGuardiasAdmin() {
 // legado Config C3/C4). Para volver a la config, el admin usa
 // derivarGuardiasDesdeConfig().
 function guardarGuardiasAdmin(guardiasRaw) {
+  var auth = autorizarAdmin_();
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: "Acceso administrativo no autorizado." };
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
     return { ok: false, error: "El sistema está ocupado. Espera unos segundos." };
@@ -201,14 +205,36 @@ function guardarGuardiasAdmin(guardiasRaw) {
 // Acción de migración manual: vuelca las guardias legadas (Config C3+C4) de
 // nuevo a la hoja (borrando lo actual). Útil para "restablecer desde Config".
 function derivarGuardiasDesdeConfig() {
+  var auth = autorizarAdmin_();
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: "Acceso administrativo no autorizado." };
   try {
     var config = obtenerConfigGeneral();
     var legado = guardiasDesdeLegacy(config.inicio, config.semanas);
-    var res = guardarGuardiasAdmin(legado.guardias);
+    var res = _guardarGuardiasAdminAutorizado_(legado.guardias);
     res.origen = { inicio: fechaStrCivil(config.inicio) || "", semanas: config.semanas };
     return res;
   } catch (e) {
     Logger.log("derivarGuardiasDesdeConfig: " + e);
     return { ok: false, error: e.message };
   }
+}
+
+// Interna para reutilizar la escritura después de una autorización ya hecha.
+function _guardarGuardiasAdminAutorizado_(guardiasRaw) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return { ok: false, error: "El sistema está ocupado. Espera unos segundos." };
+  try {
+    var normalizada = normalizarGuardias((guardiasRaw || []).map(function(f) {
+      return { id: f.id, inicio: f.inicio, duracion: f.duracion, activa: f.activa };
+    }));
+    if (!normalizada.guardias.length) return { ok: false, error: "No se puede guardar una lista vacía o inválida." };
+    var sh = _asegurarHojaGuardiasProgramadas();
+    var ult = sh.getLastRow();
+    if (ult > 1) sh.getRange(2, 1, ult - 1, 4).clearContent();
+    var filas = normalizada.guardias.map(function(g) { return [g.id, g.inicio, g.duracion, g.activa ? "SI" : "NO"]; });
+    sh.getRange(2, 1, filas.length, 4).setValues(filas);
+    invalidarCacheGuardias();
+    if (typeof invalidarCacheConfig === "function") invalidarCacheConfig();
+    return { ok: true, avisos: normalizada.avisos, total: normalizada.guardias.length };
+  } finally { try { lock.releaseLock(); } catch (e) {} }
 }

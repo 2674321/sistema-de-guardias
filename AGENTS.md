@@ -1,14 +1,13 @@
 # AGENTS.md — Sistema de Guardias (1ra Cía CBC, Coquimbo)
 
-## Flujo de trabajo (dev process — activo)
-- Modo **TDEV (proceso dev)**: tras cada iteración terminada y validada, ejecutar automáticamente:
-  1. `clasp push` (sube `src/` completo)
-  2. crear versión con `clasp version "<descripción>"` y actualizar el deployment live de la Web App:
-     - deployment: `AKfycbxZyIlFLu7kj0kJlJsksV9D9Zy4tATlTtCQW-zYTqvYLeL1mmGK4jAx_2VWzfEmDfZ0` (URL `https://script.google.com/macros/s/AKfycbxZyIlFLu7kj0kJlJsksV9D9Zy4tATlTtCQW-zYTqvYLeL1mmGK4jAx_2VWzfEmDfZ0/exec`)
-     - `clasp deploy -i <deploymentId> -V <nuevaVersión> -d "<descripción>"`
-  3. verificar respuesta HTTP 200 del `/exec`
-  4. `git add -A && git commit -m "<mensaje descriptivo>" && git push`
-- No es necesario mantener una versión estable: el deploy/commit/push son automáticos.
+## Flujo de trabajo seguro
+- El trabajo ordinario se realiza en una rama y con pruebas locales/sintéticas.
+- **Nunca** ejecutar automáticamente `clasp push`, crear versiones, cambiar deployments,
+  escribir en hojas reales, enviar correos reales ni hacer `git push`.
+- QA y producción usan proyectos, hojas y Script Properties separados.
+- Cualquier publicación requiere autorización explícita del propietario, inventario previo,
+  preflight, rollback y actualización del deployment existente por ID para conservar su URL.
+- Los IDs de hojas, scripts, deployments y las URLs operativas no se versionan.
 
 ## Verificación local (antes de desplegar)
 - Tests puros: `node tools/local-tests/run_tests.mjs` (suite `pruebasPuras()`, solo Reglas.gs + Exportar.js + Tests.gs)
