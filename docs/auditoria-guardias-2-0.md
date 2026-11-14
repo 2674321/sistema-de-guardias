@@ -20,7 +20,7 @@ Alcance: repositorio local, fuentes públicas y fixtures sintéticos. **Producci
 
 - Rama principal remota: `origin/main` en `201f0ac`.
 - Tags: `v1.0.0` → `3c8ffeb`; `v1.1.0` → `c5529b9`.
-- Baseline local: 69/69 pruebas puras, integridad de 70 funciones cliente/servidor y sintaxis JS correctas.
+- Baseline inicial: 69/69 pruebas puras y sintaxis JS correctas. Tras la implementación V2, la integridad alcanza 71 funciones cliente/servidor y 82/82 pruebas.
 - Stack: Apps Script V8, HtmlService, Sheets, MailApp, CacheService y LockService.
 - Manifest actual: `executeAs=USER_DEPLOYING`, `access=ANYONE_ANONYMOUS`.
 - `.clasp.json`: ausente. No se ejecutó `clasp pull`, `push`, `version` ni `deploy`.
