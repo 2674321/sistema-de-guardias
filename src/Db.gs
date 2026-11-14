@@ -132,13 +132,19 @@ function leerHabilitacionesVoluntarios() {
 function autorizarSolicitudGuardia(datos) {
   try {
     var padron = leerHabilitacionesVoluntarios();
-    if (!padron.ok) return { ok: false, estado: "REQUIERE_VALIDACION", codigo: padron.codigo };
-    return evaluarHabilitacionRegistro(padron.personas, {
+    var personas = padron.ok
+      ? padron.personas
+      : construirPadronCompatibilidadGuardias(leerFilasGuardias());
+    var resultado = evaluarHabilitacionRegistro(personas, {
       email: datos && datos.email,
       nombre: datos && datos.nombre,
       cargo: datos && datos.cargo,
       nivel: datos && datos.condicion
     });
+    if (!resultado.ok && !padron.ok && resultado.codigo === "IDENTIDAD_NO_ENCONTRADA") {
+      resultado.codigo = "IDENTIDAD_NUEVA_REQUIERE_PADRON";
+    }
+    return resultado;
   } catch (e) {
     Logger.log("autorizarSolicitudGuardia: " + e);
     return { ok: false, estado: "REQUIERE_VALIDACION", codigo: "PADRON_ERROR" };

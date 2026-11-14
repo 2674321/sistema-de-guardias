@@ -67,6 +67,13 @@ function registrarGuardia(datos) {
         errores: ["No fue posible verificar tu habilitación institucional para el rol solicitado. Contacta a Ayudantía para revisar el padrón."]
       };
     }
+    // La identidad visible y las capacidades se toman de la fuente validada,
+    // no del texto enviado por el navegador. El correo siempre queda
+    // normalizado; el nombre histórico/padrón evita suplantaciones visuales.
+    email = autorizacion.email || String(email || "").trim().toLowerCase();
+    nombre = autorizacion.nombre || nombre;
+    cargo = autorizacion.cargo || cargo;
+    nivel = autorizacion.nivel || nivel;
 
     // VALIDAR CANTIDADES Y REPETICIONES (regla central en Reglas.gs)
     var evalCantidad = evaluarCantidadFechas(fechas, [], obtenerConfigGeneral().cantidadGuardias);

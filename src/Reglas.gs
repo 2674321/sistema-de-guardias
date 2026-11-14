@@ -81,6 +81,30 @@ function _nivelAutorizadoSuficiente(nivelFuente, nivelSolicitado) {
   return fuente !== null && pedido !== null && orden[fuente] >= orden[pedido];
 }
 
+// Adapta el historial ya validado de Guardias al contrato de habilitaciones.
+// Se conserva solo el registro más reciente de cada correo. Esta ruta existe
+// para libros antiguos cuyo padrón Voluntarios aún no incluye Email/Nivel;
+// no intenta unir personas por nombre ni habilita correos nuevos.
+function construirPadronCompatibilidadGuardias(filas) {
+  var porEmail = {};
+  (filas || []).forEach(function(f) {
+    var email = normalizarTextoIdentidad(f && f.email);
+    if (!email || !esEmailValido(email)) return;
+    porEmail[email] = {
+      personaId: "guardias:" + email,
+      email: email,
+      nombre: String(f.nombre || "").trim(),
+      activo: "Si",
+      categoria: "Voluntario",
+      cargo: String(f.cargo || "").trim(),
+      nivel: f.nivel || f.nivelRaw || "",
+      maquinista: normalizarTextoIdentidad(f.cargo).indexOf("maquinista") !== -1 ? "Si" : "No",
+      fuente: "HISTORICO_GUARDIAS"
+    };
+  });
+  return Object.keys(porEmail).sort().map(function(email) { return porEmail[email]; });
+}
+
 // personas: [{email,nombre,activo,categoria,cargo,nivel,maquinista}]
 // solicitud: {email,nombre,cargo,nivel}
 // No compara por nombre: un nombre visible no es identidad estable.
@@ -143,7 +167,17 @@ function evaluarHabilitacionRegistro(personas, solicitud) {
     return salidaBase;
   }
 
-  return { ok: true, estado: "HABILITADO", codigo: "OK", personaId: String(p.personaId || email) };
+  return {
+    ok: true,
+    estado: "HABILITADO",
+    codigo: "OK",
+    personaId: String(p.personaId || email),
+    email: normalizarTextoIdentidad(p.email) || email,
+    nombre: String(p.nombre || p.nombrePresentacion || "").trim(),
+    cargo: cargo,
+    nivel: nivel,
+    fuente: String(p.fuente || "PADRON_VOLUNTARIOS")
+  };
 }
 
 //══════════════════════════════════════════

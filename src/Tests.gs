@@ -250,6 +250,19 @@ function pruebasPuras() {
     h.eq([ausente.codigo, duplicado.codigo, inactivo.codigo],
       ["IDENTIDAD_NO_ENCONTRADA", "IDENTIDAD_AMBIGUA", "PERSONA_NO_ACTIVA"]);
   });
+  h.t("Compatibilidad: historial usa el último rol por correo sin unir por nombre", function() {
+    var legado = construirPadronCompatibilidadGuardias([
+      { email: "persona@example.invalid", nombre: "Nombre anterior", cargo: "voluntario", nivel: "INICIAL" },
+      { email: "PERSONA@example.invalid", nombre: "Nombre oficial", cargo: "maquinista", nivel: "OPERATIVO" },
+      { email: "correo-invalido", nombre: "Ignorado", cargo: "voluntario", nivel: "INICIAL" }
+    ]);
+    h.eq(legado.length, 1);
+    h.eq([legado[0].nombre, legado[0].cargo, legado[0].maquinista, legado[0].fuente],
+      ["Nombre oficial", "maquinista", "Si", "HISTORICO_GUARDIAS"]);
+    var r = evaluarHabilitacionRegistro(legado,
+      { email: "persona@example.invalid", cargo: "maquinista", nivel: "INICIAL" });
+    h.eq([r.ok, r.nombre, r.fuente], [true, "Nombre oficial", "HISTORICO_GUARDIAS"]);
+  });
 
   // ── OBAC ──
   function entradaObac(cambios) {
