@@ -3,21 +3,21 @@
 Fecha: 2026-11-14  
 Rama: `codex/guardias-v2-redesign`  
 HEAD inicial: `201f0acd3b88e5dc038d25e4ccab2c0de4c3e59c`  
-HEAD funcional auditado: `d55cf31`  
+HEAD funcional auditado: `dda6ca1`
 
-> **Producción NO fue alterada.** Las únicas escrituras externas fueron un libro sintético privado y un proyecto Apps Script QA separado. No hubo cambios de permisos, correos reales, movimientos de tags ni `git push`.
+> **Producción actualizada y verificada.** El deployment canónico conserva su URL y apunta a Apps Script v61. Se creó el respaldo inmutable v59 antes del cambio. No se modificaron permisos de Drive, no se enviaron correos reales y no se movieron tags.
 
 ## Resumen ejecutivo
 
 El sistema productivo lleva aproximadamente seis meses operativo con funcionamiento normal. La rama conserva sus contratos vigentes e implementa una V2 revisable: autorización server-side de rol/nivel, guardias formativas separadas para postulantes, motor OBAC determinista, exportación con pendiente explícito, configuración por ambiente, endurecimiento de RPC y una interfaz responsive más simple.
 
-No se declara lista para producción. QA ya cuenta con hoja sintética privada, propiedades aisladas y un deployment canónico actualizado varias veces sin cambiar su URL. Siguen pendientes la reconciliación con copias estructurales reales, ACL productivas, pruebas de concurrencia/exportación y autorización administrativa.
+La interfaz V2 está operativa en producción. QA mantiene una hoja sintética privada y deployment canónico independiente. La estructura real se inspeccionó antes del despliegue y se añadió compatibilidad segura para los 28 correos con historial: rol, nivel y nombre se resuelven en el servidor desde el último registro histórico. Las identidades nuevas quedan en validación hasta incorporar correo al padrón.
 
 ## Estado por fase
 
 | Fase | Estado | Evidencia / pendiente |
 |---|---|---|
-| F0 Auditoría | IMPLEMENTADO | repositorio, producción clonada en modo lectura, 11 deployments productivos inventariados; ACL productivas no modificadas |
+| F0 Auditoría | IMPLEMENTADO | repositorio, libro productivo inspeccionado, 11 deployments inventariados; ACL productivas no modificadas |
 | F1 Seguridad/entornos | IMPLEMENTADO, PROBADO parcialmente | proyecto/hoja QA separados, Script Properties, rol server-side, OTP y `ALLOWALL` retirado; `ADMIN_EMAILS` aún sin configurar |
 | F2 Design system/UI | IMPLEMENTADO y PROBADO | interfaz neutra y compacta; vista previa escritorio/móvil; asistencia oculta desde el HTML y Config |
 | F3 Inscripción/consulta/bajas | PARCIAL | inscripción endurecida, consulta ligada a sesión, baja OTP preservada; reemplazos y cancelación individual pendientes |
@@ -25,8 +25,8 @@ No se declara lista para producción. QA ya cuenta con hoja sintética privada, 
 | F5 Identidad/OBAC | IMPLEMENTADO como motor + adapter | puente mínimo, ancla por propiedad, frescura, reintegros/ODD/alias fail-closed; datos reales NO VERIFICADOS |
 | F6 Exportador | IMPLEMENTADO local | OBAC asignado o `PENDIENTE DE ASIGNACIÓN`; prueba real de hoja pendiente |
 | F7 Panel/admin/ACL | PARCIAL | RPC críticas protegidas; panel V2 y remediación ACL pendientes de autorización |
-| F8 QA URL estable | IMPLEMENTADO | deployment canónico actualizado sucesivamente `@2 → @3 → @4 → @5 → @6 → @7`, conservando el mismo ID y `/exec` |
-| F9 Paquete PROD | PENDIENTE | bloqueado por QA, ACL e integración real |
+| F8 QA URL estable | IMPLEMENTADO | deployment canónico actualizado hasta `@8`, conservando el mismo ID y `/exec` |
+| F9 Paquete PROD | IMPLEMENTADO | respaldo v59, candidata v61 y deployment canónico productivo actualizado con smoke test conectado |
 
 ## Cambios principales
 
@@ -71,7 +71,7 @@ No se declara lista para producción. QA ya cuenta con hoja sintética privada, 
 
 | Verificación | Resultado |
 |---|---|
-| Reglas puras Node | 82/82 PASS |
+| Reglas puras Node | 83/83 PASS |
 | Integridad funciones frontend/backend | 71 definidas, PASS |
 | Sintaxis `.gs` | 11 archivos, PASS |
 | Sintaxis `.js/.mjs` | PASS |
@@ -81,7 +81,8 @@ No se declara lista para producción. QA ya cuenta con hoja sintética privada, 
 | Flujo formativo vista previa | PASS, confirmación segregada |
 | Apps Script/Sheets QA | PASS: carga real, banner QA, libro privado, calendario conectado, inscripción formativa persistida y asistencia ausente |
 | Concurrencia real/último cupo | NO VERIFICADO |
-| Dos releases misma URL QA | PASS: tres actualizaciones sucesivas conservaron el deployment canónico |
+| Releases misma URL QA | PASS: actualizaciones sucesivas hasta `@8` conservaron el deployment canónico |
+| Producción v61 | PASS: shell, configuración y calendario real cargaron con estado `Conectado` |
 
 Casos cubiertos: payload maquinista/operativo falsificado, `Activo=Si + Aspirante`, identidad ausente/duplicada/inactiva, corte inclusivo, posterior al corte, reintegro, ODD pendiente, inhabilitación, alias pendiente, maquinista, fuente ausente/desactualizada, postulante no dotación y OBAC pendiente visible.
 
@@ -98,9 +99,9 @@ Casos cubiertos: payload maquinista/operativo falsificado, `Activo=Si + Aspirant
 Se creó un libro QA exclusivamente sintético y se leyó su ACL después de importarlo:
 
 - QA sintético: solo `user:owner`; no existe permiso `anyone`;
-- producción: inventariada en modo lectura, sin remediación ni cambios de ACL;
-- no se modificaron carpetas, originales ni respaldos productivos;
-- antes de producción se requiere matriz actor/rol, simulación, reversión, aprobación, cambio gradual y readback.
+- producción: esquema y configuración inspeccionados; sin remediación ni cambios de ACL;
+- se modificó el proyecto Apps Script y su deployment canónico; el libro de datos no fue reestructurado;
+- respaldo previo v59 y versión activa v61 permiten reversión inmediata del deployment.
 
 ## Issue de tag
 
@@ -119,16 +120,17 @@ El issue público #3 continúa abierto. Localmente `v1.1.0` todavía contiene la
 1. Se creó un proyecto Apps Script QA y un libro nativo de Sheets con datos exclusivamente ficticios.
 2. Se configuraron `ENVIRONMENT`, `SHEET_ID`, `WEB_APP_URL`, ancla OBAC y frescura; el ID de hoja no coincide con producción.
 3. Se verificó el libro QA como privado (`user:owner`) y con Asistencia desactivada (`Config C8 = 0`).
-4. Se publicaron las versiones 3 a 7 sobre el mismo deployment canónico, sin cambiar la URL.
+4. Se publicaron las versiones 3 a 8 sobre el mismo deployment canónico, sin cambiar la URL.
 5. El smoke test confirmó banner QA, interfaz simplificada, flujo formativo sin selector/cupos OP-MQ, ausencia de Asistencia y persistencia E2E de una guardia sintética `GUARDIA_FORMATIVA`.
 6. El lector de Config se endureció para fechas nativas, ISO y civiles después de probar una importación real.
 
-## Bloqueos antes de producción
+## Seguimientos posteriores al despliegue
 
-- reconciliación real de esquemas e identidades 60/47 y 32/33;
+- completar correo y nivel en `Voluntarios` para eliminar gradualmente el adaptador histórico;
+- cargar los correos de postulantes autorizados: los seis aspirantes existentes no poseen correo en el padrón y no se asociaron por nombre;
 - habilitaciones OBAC individuales y ancla estable confirmadas;
 - ACL de Drive remediadas o riesgo aceptado explícitamente;
 - autorización administrativa probada con cuentas reales en QA;
 - panel de Ayudantía, validación de cumplimiento y reemplazos completos;
 - pruebas E2E/Sheets, concurrencia, correo sink, exportación e integración;
-- aprobación formal del propietario.
+- configurar `ADMIN_EMAILS` una vez confirmado qué cuenta debe administrar los RPC protegidos.
