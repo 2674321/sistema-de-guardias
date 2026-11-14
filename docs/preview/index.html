@@ -149,6 +149,10 @@
     .participation-grid button[aria-pressed="true"] { border-color:var(--ink); background:var(--ink); color:white; box-shadow:inset 0 -3px 0 var(--gold); }
     .participation-note { margin:-8px 0 20px; padding:10px 12px; border-left:3px solid var(--gold); background:#fbf7ee; color:var(--ink-soft); font-size:12px; line-height:1.5; }
     body[data-participacion="postulante"] .operativo-only { display:none !important; }
+    body[data-participacion="postulante"] #cargo-status-badge,
+    body[data-participacion="postulante"] #op-banner,
+    body[data-participacion="postulante"] .day-cuentas,
+    body[data-participacion="postulante"] .dc-body { display:none !important; }
     .pdf-btn {
       background: none;
       border: 1px solid rgba(255,255,255,0.3);
@@ -2274,7 +2278,14 @@ function _aplicarConfig(cfg){
 }
 
 function seleccionarTipoPersona(tipo){
+  var tipoAnterior = estado.tipoPersona;
   estado.tipoPersona = tipo === "postulante" ? "postulante" : "voluntario";
+  if(estado.tipoPersona === "postulante" && tipoAnterior !== "postulante"){
+    estado._condicionOperativa = estado.condicion;
+    estado.condicion = null;
+  } else if(estado.tipoPersona === "voluntario" && tipoAnterior === "postulante"){
+    estado.condicion = estado._condicionOperativa || null;
+  }
   document.body.setAttribute("data-participacion", estado.tipoPersona);
   var bv = document.getElementById("tipo-voluntario");
   var bp = document.getElementById("tipo-postulante");
@@ -2292,7 +2303,9 @@ function seleccionarTipoPersona(tipo){
     if(fl) fl.textContent = "Fechas de guardia";
     if(btn) btn.textContent = "Registrar guardias";
   }
+  _pintarNivel();
   renderResumen();
+  if(estado.ocupacion && Object.keys(estado.ocupacion).length) renderCalendario();
 }
 //══════════════════════════════════════
 
@@ -2864,6 +2877,7 @@ function crearFechaString(año,mes,dia){
 
 function obtenerClaseDia(data){
   if(!data || !data.habilitado) return "day blocked";
+  if(estado.tipoPersona === "postulante") return "day low";
 
   const total = (data.voluntarios || 0) + (data.maquinistas || 0);
   const cumplido = (data.maquinistas || 0) >= 1 && (data.operativos || 0) >= 2;
@@ -3320,15 +3334,15 @@ function enviar(){
           mostrarError((resp && resp.errores || ["No fue posible programar la actividad."]).join("<br>"));
           return;
         }
-        _btnEstado(btn, "ok-state", "✓ ACTIVIDAD PROGRAMADA");
+        _btnEstado(btn, "ok-state", "✓ GUARDIA REGISTRADA");
         document.getElementById("exito").style.display = "block";
         document.querySelector("#exito p").textContent = "Guardias formativas registradas.";
-        limpiarFormulario();
+        limpiarFormulario(true);
       })
       .withFailureHandler(function(err){
         document.getElementById("spinner").style.display = "none";
         btn.disabled = false; window._enviando = false;
-        mostrarError("No se pudo programar la actividad: " + escHtml(err && err.message || err));
+        mostrarError("No se pudo registrar la guardia formativa: " + escHtml(err && err.message || err));
       })
       .registrarActividadFormativa({
         nombre: nombre,
@@ -3424,7 +3438,9 @@ function enviar(){
 // LIMPIAR FORMULARIO
 //══════════════════════════════════════
 
-function limpiarFormulario(){
+function limpiarFormulario(conservarTipo){
+
+  var tipoAnterior = estado.tipoPersona;
 
   estado.seleccionadas = [];
   var maxOpt = window._maxDias || 4;
@@ -3438,8 +3454,9 @@ function limpiarFormulario(){
   });
 
   estado.condicion = null;
+  if(!conservarTipo) estado._condicionOperativa = null;
   _pintarNivel();
-  seleccionarTipoPersona("voluntario");
+  seleccionarTipoPersona(conservarTipo ? tipoAnterior : "voluntario");
   document.querySelectorAll(".field-err").forEach(function(e){ e.textContent = ""; });
 
   for(var i=1;i<=4;i++){
@@ -4257,6 +4274,7 @@ function guardarCambiosAsistencia(){
 
 function estadoDe(data){
   if(!data || !data.habilitado) return { nivel: "off", texto: "Cerrado", corto: "Cerrado" };
+  if(estado.tipoPersona === "postulante") return { nivel: "ok", texto: "Disponible", corto: "DISPONIBLE" };
   var maq = data.maquinistas || 0;
   var ops = data.operativos || 0;
   if(maq >= REGLAS_UI.cupoMaq && ops >= REGLAS_UI.cupoOp)

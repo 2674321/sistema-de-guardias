@@ -25,7 +25,7 @@ No se declara lista para producción. QA ya cuenta con hoja sintética privada, 
 | F5 Identidad/OBAC | IMPLEMENTADO como motor + adapter | puente mínimo, ancla por propiedad, frescura, reintegros/ODD/alias fail-closed; datos reales NO VERIFICADOS |
 | F6 Exportador | IMPLEMENTADO local | OBAC asignado o `PENDIENTE DE ASIGNACIÓN`; prueba real de hoja pendiente |
 | F7 Panel/admin/ACL | PARCIAL | RPC críticas protegidas; panel V2 y remediación ACL pendientes de autorización |
-| F8 QA URL estable | IMPLEMENTADO | deployment canónico actualizado sucesivamente `@2 → @3 → @4 → @5 → @6`, conservando el mismo ID y `/exec` |
+| F8 QA URL estable | IMPLEMENTADO | deployment canónico actualizado sucesivamente `@2 → @3 → @4 → @5 → @6 → @7`, conservando el mismo ID y `/exec` |
 | F9 Paquete PROD | PENDIENTE | bloqueado por QA, ACL e integración real |
 
 ## Cambios principales
@@ -119,8 +119,8 @@ El issue público #3 continúa abierto. Localmente `v1.1.0` todavía contiene la
 1. Se creó un proyecto Apps Script QA y un libro nativo de Sheets con datos exclusivamente ficticios.
 2. Se configuraron `ENVIRONMENT`, `SHEET_ID`, `WEB_APP_URL`, ancla OBAC y frescura; el ID de hoja no coincide con producción.
 3. Se verificó el libro QA como privado (`user:owner`) y con Asistencia desactivada (`Config C8 = 0`).
-4. Se publicaron las versiones 3 a 6 sobre el mismo deployment canónico, sin cambiar la URL.
-5. El smoke test confirmó banner QA, interfaz simplificada, flujo formativo sin selector, ausencia de Asistencia y persistencia E2E de una guardia sintética `GUARDIA_FORMATIVA`.
+4. Se publicaron las versiones 3 a 7 sobre el mismo deployment canónico, sin cambiar la URL.
+5. El smoke test confirmó banner QA, interfaz simplificada, flujo formativo sin selector/cupos OP-MQ, ausencia de Asistencia y persistencia E2E de una guardia sintética `GUARDIA_FORMATIVA`.
 6. El lector de Config se endureció para fechas nativas, ISO y civiles después de probar una importación real.
 
 ## Bloqueos antes de producción

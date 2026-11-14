@@ -14,7 +14,7 @@ Alcance: repositorio local, fuentes públicas y fixtures sintéticos. **Producci
 | Documentación de deployments | VERIFICADO | Apps Script distingue versión inmutable de deployment editable; actualizar el deployment conserva ID/URL |
 | Libros Guardias/Ayudantía | IDENTIFICADOS, NO MODIFICADOS | IDs productivos contrastados; las pruebas de escritura usan un libro QA sintético separado |
 | Permisos de Drive | VERIFICADO SOLO EN QA | libro sintético con único permiso `user:owner`; ACL productivas no se modificaron |
-| Deployments Apps Script | VERIFICADO | 11 deployments productivos inventariados en modo lectura; deployment QA canónico actualizado hasta `@6` |
+| Deployments Apps Script | VERIFICADO | 11 deployments productivos inventariados en modo lectura; deployment QA canónico actualizado hasta `@7` |
 
 ## Baseline
 
@@ -115,7 +115,7 @@ Apps Script documenta que una versión es inmutable y un deployment posee ID/URL
 | Ambiente | Script ID | Deployment ID | URL | Sheet | Estado |
 |---|---|---|---|---|---|
 | Preview pública | N/A | GitHub Pages | histórica `/preview/` | ninguno | VERIFICADO en repo, sintético |
-| QA funcional | VERIFICADO | canónico estable `@6` | `/exec` estable | sintética privada | ACTIVO |
+| QA funcional | VERIFICADO | canónico estable `@7` | `/exec` estable | sintética privada | ACTIVO |
 | Producción | VERIFICADO en modo lectura | 11 deployments inventariados | canónica histórica contrastada | real | NO TOCADO |
 
 Las propiedades obligatorias por proyecto son `ENVIRONMENT`, `SHEET_ID`, `WEB_APP_URL`, `ADMIN_EMAILS`, `OBAC_ANCHOR_PERSON_ID` y opcionalmente `OBAC_SOURCE_MAX_AGE_HOURS`. QA debe fallar el preflight si el ID de hoja coincide con producción o si el banner de ambiente no es `QA`.
@@ -139,5 +139,5 @@ El issue público #3 sigue abierto. La inspección local confirma que `v1.1.0` c
 - Sintaxis de archivos `.js`/`.mjs`: PASS.
 - `git diff --check`: PASS.
 - QA visual local: escritorio y 320/360/375/390/430 px; sin overflow horizontal; flujo formativo confirmado.
-- QA Apps Script: libro sintético privado, banner QA, Asistencia oculta, registro formativo E2E persistido y deployment estable actualizado hasta `@6`.
+- QA Apps Script: libro sintético privado, banner QA, Asistencia oculta, registro formativo E2E persistido y deployment estable actualizado hasta `@7`.
 - Producción, ACL productivas, correos y Git remoto: **NO MODIFICADOS**.

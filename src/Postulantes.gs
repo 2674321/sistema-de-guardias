@@ -68,7 +68,7 @@ function registrarActividadFormativa(datos) {
     return { ok: true, estado: "PROGRAMADA", creadas: nuevas.length };
   } catch (e) {
     Logger.log("registrarActividadFormativa: " + e);
-    return { ok: false, errorCode: "ERROR_INTERNO", errores: ["No se pudo programar la actividad."] };
+    return { ok: false, errorCode: "ERROR_INTERNO", errores: ["No se pudo registrar la guardia formativa."] };
   } finally {
     try { lock.releaseLock(); } catch (e2) {}
   }
