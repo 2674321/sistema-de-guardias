@@ -4,6 +4,17 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) ·
 
 ## [No publicado]
 
+### Guardias 2.0 — rama local de revisión
+
+- Autorización server-side de identidad, cargo y nivel contra el padrón `Voluntarios`; payloads autodeclarados dejan de otorgar rol.
+- Modelo separado para postulantes y actividades formativas, sin modificar `Guardias!A:I` ni contar actividades como dotación.
+- Motor OBAC puro, determinista y fail-closed; el exportador muestra responsable validado o `PENDIENTE DE ASIGNACIÓN`.
+- Configuración por ambiente mediante Script Properties (`ENVIRONMENT`, `SHEET_ID`, `WEB_APP_URL`); se retiraron IDs operativos del código y la prueba de carga ya no tiene URL por defecto.
+- Rediseño institucional azul petróleo/rojo/ámbar, banner de ambiente y selector de participación con demo sintética.
+- Auditoría, modelo de datos, sistema visual y runbook de deployments documentados.
+
+> Estado: implementado y probado localmente; no desplegado ni conectado a libros reales.
+
 ### Cierre del proyecto (documentación / publicación)
 
 - **Demo pública** en GitHub Pages (`docs/demo/`) con datos ficticios, desacoplada del backend real (sin `google.script.run` ni accesos a Sheets).

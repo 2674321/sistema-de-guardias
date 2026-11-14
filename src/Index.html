@@ -12,22 +12,23 @@
     html { scroll-behavior: smooth; }
 
     :root {
-      --ink:       #0e0e0e;
-      --ink-mid:   #2a2a2a;
-      --ink-soft:  #6b6b6b;
-      --ink-faint: #b0b0b0;
-      --paper:     #f7f5f2;
-      --paper-dark:#eeebe6;
+      --ink:       #122b3a;
+      --ink-mid:   #163548;
+      --ink-soft:  #5d6a73;
+      --ink-faint: #89959d;
+      --paper:     #f7f9fa;
+      --paper-dark:#e9eef1;
       --card:      #ffffff;
       --rule:      #dedad4;
-      --red:       #9b1a1a;
-      --red-deep:  #6e1010;
+      --red:       #b7423c;
+      --red-deep:  #8d2e2a;
       --red-pale:  #f5e8e8;
       --red-tint:  #fdf3f3;
       --blue:      #1a3a9b;
       --blue-pale: #e8edf5;
       --blue-tint: #f3f5fd;
-      --green:     #1a6b3a;
+      --green:     #267965;
+      --gold:      #c09248;
       --green-pale:#e8f5ee;
       --orange:      #9b5a1a;
       --orange-pale: #f5ede8;
@@ -39,7 +40,7 @@
       --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
       --shadow-md: 0 4px 12px rgba(0,0,0,0.07);
       --shadow-lg: 0 8px 32px rgba(0,0,0,0.06);
-      --radius: 6px;
+      --radius: 10px;
     }
 
     body {
@@ -55,7 +56,7 @@
       MASTHEAD
     ══════════════════════════════════════*/
     .masthead {
-      background: linear-gradient(135deg, var(--ink) 0%, #1a1a1a 100%);
+      background: linear-gradient(135deg, var(--ink) 0%, var(--ink-mid) 100%);
       color: white;
       padding: 0 40px;
       display: flex;
@@ -141,6 +142,15 @@
       color: #fff;
       text-decoration: underline;
     }
+    .env-banner { display:none; padding:8px 20px; text-align:center; font-family:var(--mono); font-size:10px; letter-spacing:1.5px; text-transform:uppercase; background:#fff3cd; color:#654b17; border-bottom:1px solid #ead49b; }
+    .env-banner.visible { display:block; }
+    .participation-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px; }
+    .participation-grid button { min-height:48px; padding:10px 12px; border:1px solid var(--rule); border-radius:8px; background:var(--card); color:var(--ink-soft); font:600 12px var(--sans); cursor:pointer; text-align:left; }
+    .participation-grid button[aria-pressed="true"] { border-color:var(--ink); background:var(--ink); color:white; box-shadow:inset 0 -3px 0 var(--gold); }
+    .participation-note { margin:-8px 0 20px; padding:10px 12px; border-left:3px solid var(--gold); background:#fbf7ee; color:var(--ink-soft); font-size:12px; line-height:1.5; }
+    .formativo-fields { display:none; }
+    body[data-participacion="postulante"] .formativo-fields { display:block; }
+    body[data-participacion="postulante"] .operativo-only { display:none !important; }
     .pdf-btn {
       background: none;
       border: 1px solid rgba(255,255,255,0.3);
@@ -1481,6 +1491,7 @@
     <button class="pdf-btn" onclick="generarGuardias()">Guardias</button>
   </div>
 </header>
+<div id="env-banner" class="env-banner" role="status" aria-live="polite"></div>
 
 <div id="hoja-modal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;" role="dialog" aria-modal="true" aria-labelledby="hoja-modal-title">
   <div style="background:#fff;border-radius:12px;max-width:420px;width:90%;padding:26px 24px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.35);font-family:'Helvetica Neue',Arial,sans-serif;">
@@ -1553,7 +1564,24 @@
         <span class="field-hint" id="email-hint"></span>
       </div>
 
-      <div class="field field-op">
+      <div class="sep"><span class="sep-label">Tipo de participación</span></div>
+      <div class="participation-grid" role="group" aria-label="Tipo de participación">
+        <button type="button" id="tipo-voluntario" aria-pressed="true" onclick="seleccionarTipoPersona('voluntario')">Voluntario habilitado<br><small>Guardia operativa</small></button>
+        <button type="button" id="tipo-postulante" aria-pressed="false" onclick="seleccionarTipoPersona('postulante')">Postulante<br><small>Actividad formativa · no dotación</small></button>
+      </div>
+      <div class="participation-note" id="participation-note">Tu rol y nivel serán verificados por el servidor contra el padrón institucional.</div>
+      <div class="formativo-fields">
+        <div class="field">
+          <label class="field-label" for="tipo-actividad">Tipo de actividad</label>
+          <select id="tipo-actividad">
+            <option value="TURNO_FORMATIVO">Turno formativo</option>
+            <option value="ACOMPANAMIENTO">Acompañamiento</option>
+            <option value="OBSERVACION">Observación</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field field-op operativo-only">
         <label class="field-label">Nivel de bombero</label>
         <div class="seg seg-nivel" id="seg-nivel" role="group" aria-label="Nivel de bombero">
           <button type="button" id="opt-in" data-nivel="INICIAL" onclick="seleccionarCond('inicial')" aria-pressed="true"><span class="ndot nd-ini"></span>Inicial</button>
@@ -1563,7 +1591,7 @@
         <span class="nivel-nota" id="nivel-nota">Sin restricciones de cupo</span>
       </div>
 
-      <div class="sep"><span class="sep-label">Fechas de guardia</span></div>
+      <div class="sep"><span class="sep-label" id="fechas-label">Fechas de guardia</span></div>
 
       <div class="field">
         <label class="field-label">Cantidad de guardias</label>
@@ -1579,7 +1607,7 @@
         <div class="date-cell">
           <span class="field-label">Fecha 01</span>
           <input type="date" id="fecha1" onchange="actualizarCal()">
-          <div class="cargo-tog" id="cargo-tog-1">
+          <div class="cargo-tog operativo-only" id="cargo-tog-1">
             <button class="ctog-btn" id="ctog1-v" onclick="seleccionarCargoDia(1,'voluntario')" title="Voluntario">Voluntario</button>
             <button class="ctog-btn" id="ctog1-m" onclick="seleccionarCargoDia(1,'maquinista')" title="Maquinista">Maquinista</button>
           </div>
@@ -1587,7 +1615,7 @@
         <div class="date-cell" id="date-cell-2">
           <span class="field-label">Fecha 02</span>
           <input type="date" id="fecha2" onchange="actualizarCal()">
-          <div class="cargo-tog" id="cargo-tog-2">
+          <div class="cargo-tog operativo-only" id="cargo-tog-2">
             <button class="ctog-btn" id="ctog2-v" onclick="seleccionarCargoDia(2,'voluntario')" title="Voluntario">Voluntario</button>
             <button class="ctog-btn" id="ctog2-m" onclick="seleccionarCargoDia(2,'maquinista')" title="Maquinista">Maquinista</button>
           </div>
@@ -1597,7 +1625,7 @@
         <div class="date-cell" id="date-cell-3">
           <span class="field-label">Fecha 03</span>
           <input type="date" id="fecha3" onchange="actualizarCal()">
-          <div class="cargo-tog" id="cargo-tog-3">
+          <div class="cargo-tog operativo-only" id="cargo-tog-3">
             <button class="ctog-btn" id="ctog3-v" onclick="seleccionarCargoDia(3,'voluntario')" title="Voluntario">Voluntario</button>
             <button class="ctog-btn" id="ctog3-m" onclick="seleccionarCargoDia(3,'maquinista')" title="Maquinista">Maquinista</button>
           </div>
@@ -1605,7 +1633,7 @@
         <div class="date-cell" id="date-cell-4">
           <span class="field-label">Fecha 04</span>
           <input type="date" id="fecha4" onchange="actualizarCal()">
-          <div class="cargo-tog" id="cargo-tog-4">
+          <div class="cargo-tog operativo-only" id="cargo-tog-4">
             <button class="ctog-btn" id="ctog4-v" onclick="seleccionarCargoDia(4,'voluntario')" title="Voluntario">Voluntario</button>
             <button class="ctog-btn" id="ctog4-m" onclick="seleccionarCargoDia(4,'maquinista')" title="Maquinista">Maquinista</button>
           </div>
@@ -1834,6 +1862,8 @@ const estado = {
 
   condicion: null,
 
+  tipoPersona: "voluntario",
+
   numDias: 4,
 
   ocupacion: {},
@@ -1907,6 +1937,17 @@ function _aplicarConfig(cfg){
   if(!cfg || !cfg.ok) return;
   window._cfg = cfg;
 
+  var ambiente = String(cfg.ambiente || "UNCONFIGURED").toUpperCase();
+  var eb = document.getElementById("env-banner");
+  if(eb && ambiente !== "PROD" && ambiente !== "PRODUCCION"){
+    eb.textContent = ambiente === "QA" ? "Entorno de pruebas · datos ficticios" : ambiente === "DEMO" ? "Entorno de demostración · datos ficticios · no guarda información" : "Entorno sin configurar · registros deshabilitados";
+    eb.classList.add("visible");
+  }
+  if(ambiente === "UNCONFIGURED"){
+    var btnRegistro = document.getElementById("btnEnviar");
+    if(btnRegistro){ btnRegistro.disabled = true; btnRegistro.textContent = "Entorno sin configurar"; }
+  }
+
   window._maxDias = Math.min(cfg.cantidadGuardias || 4, 4);
   seleccionarNumDias(window._maxDias);
 
@@ -1918,6 +1959,28 @@ function _aplicarConfig(cfg){
     var chip = document.querySelector("[data-nav-asistencia]");
     if(chip) chip.remove();
   }
+}
+
+function seleccionarTipoPersona(tipo){
+  estado.tipoPersona = tipo === "postulante" ? "postulante" : "voluntario";
+  document.body.setAttribute("data-participacion", estado.tipoPersona);
+  var bv = document.getElementById("tipo-voluntario");
+  var bp = document.getElementById("tipo-postulante");
+  if(bv) bv.setAttribute("aria-pressed", String(estado.tipoPersona === "voluntario"));
+  if(bp) bp.setAttribute("aria-pressed", String(estado.tipoPersona === "postulante"));
+  var nota = document.getElementById("participation-note");
+  var fl = document.getElementById("fechas-label");
+  var btn = document.getElementById("btnEnviar");
+  if(estado.tipoPersona === "postulante"){
+    if(nota) nota.textContent = "Actividad formativa o de acompañamiento. No constituye guardia, no integra dotación y requiere identidad y autorización verificadas.";
+    if(fl) fl.textContent = "Fechas de actividad formativa";
+    if(btn) btn.textContent = "Programar actividad formativa";
+  } else {
+    if(nota) nota.textContent = "Tu rol y nivel serán verificados por el servidor contra el padrón institucional.";
+    if(fl) fl.textContent = "Fechas de guardia";
+    if(btn) btn.textContent = "Registrar guardias";
+  }
+  renderResumen();
 }
 //══════════════════════════════════════
 
@@ -2276,7 +2339,8 @@ function _resolverCalendario(reqId, data){
     _aplicarConfig({
       ok: true,
       cantidadGuardias: (data.configuracion || {}).cantidadGuardias || 4,
-      mostrarAsistencia: !((data.configuracion || {}).mostrarAsistencia === false)
+      mostrarAsistencia: !((data.configuracion || {}).mostrarAsistencia === false),
+      ambiente: (data.configuracion || {}).ambiente || "UNCONFIGURED"
     });
 
     renderCalendario();
@@ -2777,8 +2841,9 @@ function renderResumen(){
     var nombre = DIAS[(d.getDay() + 6) % 7] + " " + fp.d;
     return '<span class="resumen-fech">' + nombre + '</span>';
   }).join("");
-  box.innerHTML = pills +
-    '<span class="resumen-meta">Nivel ' + nivelTxt + '</span>';
+  box.innerHTML = pills + (estado.tipoPersona === "postulante"
+    ? '<span class="resumen-meta">Actividad formativa · no dotación</span>'
+    : '<span class="resumen-meta">Nivel ' + nivelTxt + '</span>');
 }
 
 
@@ -2898,8 +2963,9 @@ function validarFormulario(){
       mostrarError("Selecciona al menos 1 día en el calendario.");
     }
   }
-  // cada fecha debe tener un cargo
+  // Cada guardia operativa debe tener cargo. Una actividad formativa nunca lo usa.
   var sinCargo = estado.seleccionadas.filter(function(f){
+    if(estado.tipoPersona === "postulante") return false;
     for(var si=1;si<=4;si++){
       var inp = document.getElementById("fecha" + si);
       if(inp && inp.value === f && inp.dataset.cargo) return false;
@@ -2931,6 +2997,37 @@ function enviar(){
   var nombre = document.getElementById("nombre").value.trim();
   var email = document.getElementById("email").value.trim();
   var condicion = estado.condicion || "";
+
+  if(estado.tipoPersona === "postulante"){
+    document.getElementById("spinner").style.display = "block";
+    google.script.run
+      .withSuccessHandler(function(resp){
+        document.getElementById("spinner").style.display = "none";
+        btn.disabled = false; window._enviando = false;
+        if(!resp || !resp.ok){
+          _btnEstado(btn, "err-state", "✗ REQUIERE VALIDACIÓN");
+          mostrarError((resp && resp.errores || ["No fue posible programar la actividad."]).join("<br>"));
+          return;
+        }
+        _btnEstado(btn, "ok-state", "✓ ACTIVIDAD PROGRAMADA");
+        document.getElementById("exito").style.display = "block";
+        document.querySelector("#exito p").textContent = "Actividad formativa programada; queda pendiente de validación de cumplimiento.";
+        limpiarFormulario();
+      })
+      .withFailureHandler(function(err){
+        document.getElementById("spinner").style.display = "none";
+        btn.disabled = false; window._enviando = false;
+        _btnEstado(btn, "err-state", "✗ ERROR DE CONEXIÓN");
+        mostrarError("No se pudo programar la actividad: " + escHtml(err && err.message || err));
+      })
+      .registrarActividadFormativa({
+        nombre: nombre,
+        email: email,
+        tipoActividad: document.getElementById("tipo-actividad").value,
+        fechas: estado.seleccionadas.slice()
+      });
+    return;
+  }
 
   // agrupar fechas por cargo
   var grupos = {};
@@ -3033,6 +3130,7 @@ function limpiarFormulario(){
 
   estado.condicion = null;
   _pintarNivel();
+  seleccionarTipoPersona("voluntario");
   document.querySelectorAll(".field-err").forEach(function(e){ e.textContent = ""; });
 
   for(var i=1;i<=4;i++){
@@ -3070,8 +3168,8 @@ function mostrarError(texto){
   box.style.display =
     "block";
 
-  box.innerHTML =
-    `<p>${texto}</p>`;
+  box.textContent = String(texto == null ? "" : texto).replace(/<br\s*\/?\s*>/gi, "\n");
+  box.style.whiteSpace = "pre-line";
 
 }
 
@@ -3349,11 +3447,11 @@ function mostrarDetalleDia(fecha){
           var l = estadoLabels[est] || est;
           estadoBadge = "<span style='font-family:var(--mono);font-size:8px;background:" + c + ";color:white;padding:1px 8px;border-radius:3px;margin-left:auto;letter-spacing:0.5px;'>" + l + "</span>";
         }
-        var reemp = g.estado === "R" && g.reemplazoNombre ? " → " + g.reemplazoNombre : "";
+        var reemp = g.estado === "R" && g.reemplazoNombre ? " → " + escHtml(g.reemplazoNombre) : "";
         html += "<div style='display:flex;align-items:center;gap:8px;padding:6px 12px;margin-bottom:4px;border-radius:var(--radius);background:" + bg + ";color:white;font-family:var(--sans);font-size:13px;font-weight:500;'>" +
           "<span style='font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;opacity:0.7;flex-shrink:0;'>" + label + "</span>" +
           opBadge +
-          "<span>" + g.nombre + "</span>" + reemp + estadoBadge + "</div>";
+          "<span>" + escHtml(g.nombre) + "</span>" + reemp + estadoBadge + "</div>";
       });
       // advertencia si no cumple requisitos
       var tieneMaq = gs.some(function(g){ return g.cargo.indexOf("maquinista") !== -1; });

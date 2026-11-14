@@ -10,7 +10,7 @@
 
 Sistema de calendarización y gestión de guardias para la 1ª Compañía del Cuerpo de Bomberos de Coquimbo. Construido sobre **Google Apps Script** (backend + web app) con **Google Sheets** como base de datos.
 
-> **Estado:** Producción estable · v1.1.0 · [Ver demo](https://2674321.github.io/sistema-de-guardias/demo/)
+> **Estado productivo documentado:** v1.1.0. La rama Guardias 2.0 está en revisión local y no ha sido desplegada. [Ver demo](https://2674321.github.io/sistema-de-guardias/demo/)
 
 ## Demo en línea (datos ficticios)
 
@@ -61,6 +61,7 @@ Web App (Index.html, SPA) ──google.script.run──► Backend Apps Script �
 | Frontend | `src/Index.html` |
 | Contrato calendario | `src/Código.js` (`obtenerCalendario`, contrato `cal-1`) |
 | Configuración | `src/Config.gs` |
+| Postulantes / actividades | `src/Postulantes.gs` |
 | Reglas puras | `src/Reglas.gs` |
 | Acceso a datos | `src/Db.gs` |
 | Seguridad (baja) | `src/Seguridad.gs` |
@@ -101,13 +102,14 @@ clasp pull                  # Apps Script → repo
 clasp push                  # repo → Apps Script
 ```
 
-`.clasp.json` (raíz) apunta al proyecto con `rootDir: src`.
+`.clasp.json` no se versiona. Cada ambiente debe configurar su proyecto con `rootDir: src` y Script Properties separadas: `ENVIRONMENT`, `SHEET_ID` y `WEB_APP_URL`.
 
 ### Pruebas
 
 ```bash
-node tools/local-tests/run_tests.mjs    # suite pura (69 casos)
+node tools/local-tests/run_tests.mjs    # suite pura (82 casos)
 node tools/check-funciones.mjs          # funciones llamadas vs definidas (frontend)
+node tools/check-gs-syntax.mjs          # sintaxis de todos los archivos Apps Script .gs
 node tools/prueba-carga.mjs [URL]       # latencia del shell (no abusiva)
 ```
 
