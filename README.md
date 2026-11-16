@@ -62,11 +62,11 @@ Web App (Index.html, SPA) ──google.script.run──► Backend Apps Script �
 | Contrato calendario | `src/Código.js` (`obtenerCalendario`, contrato `cal-1`) |
 | Configuración | `src/Config.gs` |
 | Reglas puras | `src/Reglas.gs` |
-| Acceso a datos | `src/Db.gs` |
+| Acceso a datos | `src/Db.js` |
 | Seguridad (baja) | `src/Seguridad.gs` |
 | Migraciones | `src/Migracion.gs` |
 | Administración | `src/Admin.gs` (menú hoja) |
-| Estadísticas / PDF | `src/Estadisticas.js` · `src/Exportar.js` |
+| Estadísticas / calendario acumulativo | `src/Estadisticas.js` · `src/Exportar.js` |
 | Validación baja | `src/ValidacionEliminacion.js` |
 | Diagnóstico | `src/Diagnostico.gs` · `src/Tests.gs` |
 
@@ -79,6 +79,15 @@ Web App (Index.html, SPA) ──google.script.run──► Backend Apps Script �
 - **Baja protegida** con código de un solo uso enviado al correo (anti-suplantación).
 - **Estadísticas** diarias/mensuales/ranking y **exportación PDF** mensual.
 - **Estados de conexión** (● Conectado · ◐ Sincronizando · ⚠ Lento · ✕ Sin conexión) con fallback al último calendario válido.
+
+## Calendario acumulativo
+
+El calendario operativo es **un único Google Sheets** llamado `Calendario de Guardias - Acumulativo`, con una pestaña por ciclo. El generador conserva los ciclos anteriores y actualiza solo el ciclo vigente.
+
+- Desde la hoja oficial: menú **🚒 GUARDIAS CBC → Guardias → Generar calendario de guardias (Sheet)**.
+- Ante fallos, el menú identifica la etapa y el detalle técnico. La versión anterior de una pestaña no se borra hasta que la nueva está preparada.
+- En GitHub, `src/Exportar.js` contiene el generador; se retiraron funciones de la exportación individual antigua.
+- **Importante:** una modificación de GitHub no actualiza automáticamente el Apps Script publicado. Antes de verificar el resultado en producción, sincronizar el código y actualizar el despliegue vigente.
 
 ## Configuración (hoja `Config`)
 
@@ -118,7 +127,7 @@ En Apps Script: menú → Pruebas → *Ejecutar tests*.
 1. `clasp push`
 2. `clasp deploy -i <DEPLOYMENT_ID> -d "descripción"` — re-despliega **la misma URL** en una versión nueva.
 
-Deployment vigente (App Script v58, commit `1cd8f58`): menú **GUARDIAS CBC** → *Sistema* → *Ver URL de la app*, o el campo **About** de este repositorio.
+La versión de Apps Script que realmente se está ejecutando debe verificarse en **Implementar → Administrar implementaciones**. No asumir que coincide con la rama `main`. Para consultar la URL vigente: menú **GUARDIAS CBC** → *Sistema* → *Ver URL de la app*.
 
 ## Versionado
 
