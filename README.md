@@ -84,7 +84,7 @@ Web App (Index.html, SPA) ──google.script.run──► Backend Apps Script �
 
 El calendario operativo es **un único Google Sheets** llamado `Calendario de Guardias - Acumulativo`, con una pestaña por ciclo. El generador conserva los ciclos anteriores y actualiza solo el ciclo vigente.
 
-- Desde la hoja oficial: menú **🚒 GUARDIAS CBC → Guardias → Generar calendario de guardias (Sheet)**.
+- Desde la hoja oficial: menú **🚒 GUARDIAS CBC → Guardias → Generar calendario de guardias (Sheet)**. Se abre el diálogo `AdminGenerarCalendario.html`, que llama asincrónicamente a `generarHojaGuardias()` y muestra éxito o errores con su detalle.
 - Ante fallos, el menú identifica la etapa y el detalle técnico. La versión anterior de una pestaña no se borra hasta que la nueva está preparada.
 - En GitHub, `src/Exportar.js` contiene el generador; se retiraron funciones de la exportación individual antigua.
 - **Importante:** una modificación de GitHub no actualiza automáticamente el Apps Script publicado. Antes de verificar el resultado en producción, sincronizar el código y actualizar el despliegue vigente.
