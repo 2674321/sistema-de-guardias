@@ -52,14 +52,7 @@
     var H = {};
 
     function mensajeAdmin(r){
-      // Mensajes diferenciados por causa (el detalle vive en el servidor).
-      var cod = (r && r.errorCode) || "";
-      if (cod === "IDENTIDAD_NO_DISPONIBLE")
-        return "No se pudo verificar tu identidad de Google. Reabre este panel desde el menú 🚒 GUARDIAS CBC de la hoja, con tu cuenta de administrador.";
-      if (cod === "TOKEN_INVALIDO")
-        return "Tu sesión administrativa expiró. Cierra este panel y reábrelo desde el menú 🚒 GUARDIAS CBC.";
-      if (cod === "ADMIN_NO_AUTORIZADO")
-        return "Tu cuenta (" + ADMIN + ") no está en la lista de administradores. El propietario puede agregarla desde el menú: ⚙️ Configuración → Administradores del sistema.";
+      // El servidor no exige credencial; queda para diagnósticos de lectura.
       return (r && r.error) || "Error desconocido.";
     }
 
@@ -195,7 +188,7 @@
         return;
       }
       document.getElementById("sub").innerHTML =
-        'Administrador: <strong>' + esc(ADMIN) + '</strong>' +
+        'Administración local' +
         ' · Fuente: <span class="badge ' + (o.fuente === "programadas" ? "b-pgm" : "b-leg") + '">' +
         (o.fuente === "programadas" ? "guardias programadas (hoja)" : "legado (Config)") + '</span>' +
         ' · Total: ' + o.total;
