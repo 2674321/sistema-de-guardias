@@ -3,7 +3,9 @@
 // Única fuente de constantes y de lectura de la hoja Config.
 //══════════════════════════════════════════
 
-const SHEET_ID = "1pvDXSzGwySOPK9hDIHgGjbb4XMY7wQDk3RTC5QSPsWs";
+// Recursos por ambiente. Nunca se versionan IDs de hojas o URLs operativas.
+// Configurar en Script Properties: SHEET_ID, WEB_APP_URL y ENVIRONMENT.
+const SHEET_ID = PropertiesService.getScriptProperties().getProperty("SHEET_ID") || "";
 const SHEET_NAME = "Guardias";
 var _configCache = null;
 var _DIAG = true; // [DIAG] instrumentación temporal de auditoría
@@ -21,11 +23,13 @@ const CONFIG = {
   codigoEliminacionTtlSeg: 600,    // Vigencia del código de baja (10 min)
   codigoEliminacionMaxIntentos: 5,
 
-  // URL vigente del web app (actualizar al crear un deployment nuevo)
-  webAppUrl: "https://script.google.com/macros/s/AKfycbxZyIlFLu7kj0kJlJsksV9D9Zy4tATlTtCQW-zYTqvYLeL1mmGK4jAx_2VWzfEmDfZ0/exec",
+  // URL canónica del deployment existente en este ambiente.
+  webAppUrl: PropertiesService.getScriptProperties().getProperty("WEB_APP_URL") || "",
+
+  ambiente: PropertiesService.getScriptProperties().getProperty("ENVIRONMENT") || "UNCONFIGURED",
 
   // Hojas técnicas: se mantienen ocultas y protegidas por el formateador
-  hojasTecnicas: ["GuardiasProgramadas", "LogEliminaciones", "_BackupMigracionNiveles"],
+  hojasTecnicas: ["GuardiasProgramadas", "LogEliminaciones", "_BackupMigracionNiveles", "Postulantes_Autorizados", "ActividadesFormativas", "OBAC_PuenteNomina", "OBAC_Habilitaciones", "OBAC_Asignaciones"],
 
   // Direcciones de la hoja Config.
   // Nuevo layout por secciones (columna VALOR en C) con compatibilidad
@@ -86,11 +90,10 @@ function _leerCeldaConfig(sheet, clave) {
 function obtenerInicioSemanaConfig() {
   var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("Config");
   var val = _leerCeldaConfig(sheet, "inicio").valor;
-  if (val instanceof Date) {
-    // Mediodía local: inmune a cambios de hora y a la hora grabada en la celda
-    return new Date(val.getFullYear(), val.getMonth(), val.getDate(), 12);
-  }
-  return new Date(String(val).trim() + "T12:00:00");
+  var partes = fechaPartesDe(val);
+  if (!partes) return new Date(NaN);
+  // Mediodía local: inmune a UTC, cambios de hora y a la hora grabada.
+  return new Date(partes.y, partes.m - 1, partes.d, 12);
 }
 
 function obtenerConfigGeneral() {
@@ -110,8 +113,8 @@ function obtenerConfigGeneral() {
   var rLimite = _leerCeldaConfig(sheet, "fechaLimite");
   var fechaLimite = null;
   if (rLimite.valor) {
-    if (rLimite.valor instanceof Date) fechaLimite = rLimite.valor;
-    else fechaLimite = new Date(String(rLimite.valor).trim() + "T12:00:00");
+    var limitePartes = fechaPartesDe(rLimite.valor);
+    if (limitePartes) fechaLimite = new Date(limitePartes.y, limitePartes.m - 1, limitePartes.d, 12);
   }
 
   var rSemanas = _leerCeldaConfig(sheet, "semanas");
@@ -162,6 +165,7 @@ function getConfig() {
       ok: true,
       cantidadGuardias: c.cantidadGuardias,
       mostrarAsistencia: c.mostrarAsistencia,
+      ambiente: CONFIG.ambiente,
       mes: c.mes,
       año: c.año,
       semanas: c.semanas

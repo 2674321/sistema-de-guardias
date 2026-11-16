@@ -1,0 +1,22 @@
+{
+  "name": "Sistema de Guardias",
+  "short_name": "Sistema de Guardias",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#102840",
+  "theme_color": "#102840",
+  "icons": [
+    {
+      "src": "icon-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

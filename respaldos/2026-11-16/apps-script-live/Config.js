@@ -1,0 +1,241 @@
+//══════════════════════════════════════════
+// CONFIGURACIÓN CENTRAL DEL SISTEMA
+// Única fuente de constantes y de lectura de la hoja Config.
+//══════════════════════════════════════════
+
+// Recursos por ambiente. Nunca se versionan IDs de hojas o URLs operativas.
+// Configurar en Script Properties: SHEET_ID, WEB_APP_URL y ENVIRONMENT.
+const SHEET_ID = PropertiesService.getScriptProperties().getProperty("SHEET_ID") || "";
+const SHEET_NAME = "Guardias";
+var _configCache = null;
+var _DIAG = true; // [DIAG] instrumentación temporal de auditoría
+
+const CONFIG = {
+  niveles: ["INICIAL", "OPERATIVO", "PROFESIONAL"],
+
+  guardiasMinPorInscripcion: 1,
+  guardiasCantidadDefault: 4,      // Sobreescribible en hoja Config
+  guardiasMaxHistoricoMes: 4,      // No se recortan registros históricos de 4
+
+  diasEliminacionDefault: 3,
+  semanasHabilitadasDefault: [0, 2],
+
+  codigoEliminacionTtlSeg: 600,    // Vigencia del código de baja (10 min)
+  codigoEliminacionMaxIntentos: 5,
+
+  // URL canónica del deployment existente en este ambiente.
+  webAppUrl: PropertiesService.getScriptProperties().getProperty("WEB_APP_URL") || "",
+
+  ambiente: PropertiesService.getScriptProperties().getProperty("ENVIRONMENT") || "UNCONFIGURED",
+
+  // Hojas técnicas: se mantienen ocultas y protegidas por el formateador
+  hojasTecnicas: ["GuardiasProgramadas", "LogEliminaciones", "_BackupMigracionNiveles", "Postulantes_Autorizados", "ActividadesFormativas", "OBAC_PuenteNomina", "OBAC_Habilitaciones", "OBAC_Asignaciones"],
+
+  // Direcciones de la hoja Config.
+  // Nuevo layout por secciones (columna VALOR en C) con compatibilidad
+  // de lectura hacia las celdas legadas B* mientras existan datos allí.
+  celdasConfig: {
+    inicio:          { nueva: "C3", legada: "B3" },
+    semanas:         { nueva: "C4", legada: "B8" },
+    cantidadGuardias:{ nueva: "C5", legada: "B10" },
+    fechaLimite:     { nueva: "C6", legada: "B7" },
+    diasEliminacion: { nueva: "C7", legada: "B6" },
+    mostrarAsistencia:{ nueva: "C8", legada: "B9" }
+  }
+};
+
+//══════════════════════════════════════════
+// DETECCIÓN DE CORREO DEL VISITANTE
+//
+// Mecanismo seguro y compatible: Session.getActiveUser().
+// En despliegues ANYONE_ANONYMOUS normalmente devuelve vacío;
+// puede devolver el correo cuando Google lo autoriza
+// (p.ej. mismo dominio Workspace o sesión autorizada).
+// NUNCA se usa getEffectiveUser() como correo del visitante:
+// ese es el propietario del despliegue, no la persona que navega.
+// Si no hay correo: la app sigue funcionando con ingreso manual.
+//══════════════════════════════════════════
+
+function detectarCorreoUsuario() {
+  try {
+    var email = String(Session.getActiveUser().getEmail() || "").trim();
+    if (!email || !esEmailValido(email)) {
+      return { ok: false, motivo: "no_disponible" };
+    }
+    return { ok: true, correo: email };
+  } catch (e) {
+    Logger.log("detectarCorreoUsuario: " + e);
+    return { ok: false, motivo: "indisponible" };
+  }
+}
+
+//══════════════════════════════════════════
+// LECTURA DE LA HOJA Config (layout nuevo por secciones + legado B*)
+// Nuevo:  C3 inicio · C4 semanas · C5 cantidad · C6 fecha límite
+//         C7 días eliminación · C8 mostrar asistencia
+// Legado: B3 · B8 · B10 · B7 · B6 · B9 (se usa solo si la celda nueva está vacía)
+//══════════════════════════════════════════
+
+function _leerCeldaConfig(sheet, clave) {
+  var dir = CONFIG.celdasConfig[clave];
+  var nueva = sheet.getRange(dir.nueva).getValue();
+  if (nueva !== "" && nueva !== null) return { valor: nueva, origen: "nueva" };
+  try {
+    var vieja = sheet.getRange(dir.legada).getValue();
+    if (vieja !== "" && vieja !== null) return { valor: vieja, origen: "legada" };
+  } catch (e) { /* celda legada inexistente */ }
+  return { valor: "", origen: "vacía" };
+}
+
+function obtenerInicioSemanaConfig() {
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("Config");
+  var val = _leerCeldaConfig(sheet, "inicio").valor;
+  var partes = fechaPartesDe(val);
+  if (!partes) return new Date(NaN);
+  // Mediodía local: inmune a UTC, cambios de hora y a la hora grabada.
+  return new Date(partes.y, partes.m - 1, partes.d, 12);
+}
+
+function obtenerConfigGeneral() {
+  if (_configCache) return _configCache;
+  var _t0 = Date.now(); // [DIAG]
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("Config");
+  var inicio = obtenerInicioSemanaConfig();
+  if (_DIAG) Logger.log("[DIAG] config: apertura+inicio " + (Date.now() - _t0) + "ms");
+
+  var rDias = _leerCeldaConfig(sheet, "diasEliminacion");
+  var diasEliminacion = CONFIG.diasEliminacionDefault;
+  if (rDias.valor !== "") {
+    var n = Number(rDias.valor);
+    if (!isNaN(n) && n >= 0) diasEliminacion = n;
+  }
+
+  var rLimite = _leerCeldaConfig(sheet, "fechaLimite");
+  var fechaLimite = null;
+  if (rLimite.valor) {
+    var limitePartes = fechaPartesDe(rLimite.valor);
+    if (limitePartes) fechaLimite = new Date(limitePartes.y, limitePartes.m - 1, limitePartes.d, 12);
+  }
+
+  var rSemanas = _leerCeldaConfig(sheet, "semanas");
+  var semanas = CONFIG.semanasHabilitadasDefault.slice();
+  if (rSemanas.valor !== "") {
+    var parts = parseSemanas(rSemanas.valor);
+    if (parts.length > 0) semanas = parts;
+  }
+
+  var rCantidad = _leerCeldaConfig(sheet, "cantidadGuardias");
+  var rAsistenciaNueva = sheet.getRange(CONFIG.celdasConfig.mostrarAsistencia.nueva).getValue();
+  var rAsistenciaLegada = null;
+  try { rAsistenciaLegada = sheet.getRange(CONFIG.celdasConfig.mostrarAsistencia.legada).getValue(); } catch (e) {}
+
+  _configCache = {
+    inicio: inicio,
+    mes: inicio.getMonth(),
+    año: inicio.getFullYear(),
+    diasEliminacion: diasEliminacion,
+    fechaLimite: fechaLimite,
+    semanas: semanas,
+    cantidadGuardias: resolverCantidadGuardias(rCantidad.valor, "", CONFIG.guardiasCantidadDefault),
+    mostrarAsistencia: resolverMostrarAsistencia(rAsistenciaNueva, rAsistenciaLegada),
+    _origenes: { diasEliminacion: rDias.origen, fechaLimite: rLimite.origen, semanas: rSemanas.origen, cantidadGuardias: rCantidad.origen }
+  };
+  if (_DIAG) Logger.log("[DIAG] config: total " + (Date.now() - _t0) + "ms"); // [DIAG]
+  return _configCache;
+}
+
+function invalidarCacheConfig() {
+  _configCache = null;
+  // Un cambio de configuración afecta el snapshot del calendario y las guardias:
+  if (typeof invalidarCacheGuardias === "function") invalidarCacheGuardias();
+  if (typeof invalidarCacheCalendario === "function") invalidarCacheCalendario();
+}
+
+// Endpoint público para el frontend
+// NOTA IMPORTANTE: aquí NO se llama a _autoInstalarTriggerMenu().
+// Usar ScriptApp dentro de getConfig exigía el alcance script.scriptapp
+// autorizado, y mientras el propietario no re-consintiera, TODAS las
+// llamadas google.script.run fallaban (pantalla cargando infinito).
+// La instalación del menú vive en: menú Mantenimiento o función
+// instalarTriggerMenuAdmin ejecutada una vez desde el editor.
+function getConfig() {
+  try {
+    var c = obtenerConfigGeneral();
+    return {
+      ok: true,
+      cantidadGuardias: c.cantidadGuardias,
+      mostrarAsistencia: c.mostrarAsistencia,
+      ambiente: CONFIG.ambiente,
+      mes: c.mes,
+      año: c.año,
+      semanas: c.semanas
+    };
+  } catch (e) {
+    Logger.log("getConfig: " + e);
+    return { ok: false, error: e.message };
+  }
+}
+
+//══════════════════════════════════════════
+// AUTO-INSTALACIÓN DEL MENÚ EN LA HOJA
+// El proyecto es un script independiente: su onOpen simple nunca se
+// dispara al abrir la hoja. Se necesita un disparador instalable.
+// Este helper lo crea automáticamente la primera vez que la web app
+// corre con permisos suficientes; si falta el alcance script.scriptapp,
+// falla en silencio y queda listo para instalarse a mano desde el editor
+// (función instalarTriggerMenuAdmin).
+//══════════════════════════════════════════
+
+function _autoInstalarTriggerMenu() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    if (props.getProperty("MENU_TRIGGER_OK")) return;
+
+    // Límite de intentos para no insistir eternamente sin permiso
+    var intentos = Number(props.getProperty("MENU_TRIGGER_INTENTOS") || 0);
+    if (intentos >= 5) return;
+
+    var yaEsta = ScriptApp.getProjectTriggers().some(function(t) {
+      return t.getHandlerFunction() === "menuAdministrativo";
+    });
+
+    if (!yaEsta) {
+      var ss = SpreadsheetApp.openById(SHEET_ID);
+      ScriptApp.newTrigger("menuAdministrativo").forSpreadsheet(ss).onOpen().create();
+    }
+
+    props.setProperty("MENU_TRIGGER_OK", new Date().toISOString());
+    props.deleteProperty("MENU_TRIGGER_INTENTOS");
+    Logger.log("Menú GUARDIAS CBC: disparador onOpen asegurado.");
+  } catch (e) {
+    try {
+      var p2 = PropertiesService.getScriptProperties();
+      p2.setProperty("MENU_TRIGGER_INTENTOS", String(Number(p2.getProperty("MENU_TRIGGER_INTENTOS") || 0) + 1));
+    } catch (e2) {}
+    Logger.log("Auto-instalación del menú pendiente de autorización: " + e.message);
+  }
+}
+
+// ¿La fecha pertenece a una semana de guardia?
+// Antes: diff por milisegundos / 7 sobre la semana del inico (fallaba con DST →
+//   el día 14 se computaba como 13 y se habilitaba 15/09→21/09 en vez de 14/09→20/09).
+// Ahora: pertenencia al rango de las guardias explícitas (fuente única,
+//   GuardiasProgramadas + migración desde C3/C4). Aritmética cívica pura.
+function esSemanaHabilitada(fechaStr) {
+  try {
+    return esDiaDeGuardia(fechaStr);
+  } catch (e) {
+    Logger.log("esSemanaHabilitada: " + e);
+    return false;
+  }
+}
+
+//══════════════════════════════════════════
+// ETIQUETAS DE LA HOJA Config (ejecutar desde menú)
+//══════════════════════════════════════════
+
+//══════════════════════════════════════════
+// La escritura del layout de la hoja Config (etiquetas por sección,
+// validaciones y formato) vive en Admin.gs → prepararConfiguracion() /
+// aplicarFormatoCompleto().
+//══════════════════════════════════════════

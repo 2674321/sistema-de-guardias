@@ -12,22 +12,23 @@
     html { scroll-behavior: smooth; }
 
     :root {
-      --ink:       #0e0e0e;
-      --ink-mid:   #2a2a2a;
-      --ink-soft:  #6b6b6b;
-      --ink-faint: #b0b0b0;
-      --paper:     #f7f5f2;
-      --paper-dark:#eeebe6;
+      --ink:       #122b3a;
+      --ink-mid:   #163548;
+      --ink-soft:  #5d6a73;
+      --ink-faint: #89959d;
+      --paper:     #f7f9fa;
+      --paper-dark:#e9eef1;
       --card:      #ffffff;
       --rule:      #dedad4;
-      --red:       #9b1a1a;
-      --red-deep:  #6e1010;
+      --red:       #b7423c;
+      --red-deep:  #8d2e2a;
       --red-pale:  #f5e8e8;
       --red-tint:  #fdf3f3;
       --blue:      #1a3a9b;
       --blue-pale: #e8edf5;
       --blue-tint: #f3f5fd;
-      --green:     #1a6b3a;
+      --green:     #267965;
+      --gold:      #c09248;
       --green-pale:#e8f5ee;
       --orange:      #9b5a1a;
       --orange-pale: #f5ede8;
@@ -39,7 +40,7 @@
       --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
       --shadow-md: 0 4px 12px rgba(0,0,0,0.07);
       --shadow-lg: 0 8px 32px rgba(0,0,0,0.06);
-      --radius: 6px;
+      --radius: 10px;
     }
 
     body {
@@ -55,7 +56,7 @@
       MASTHEAD
     ══════════════════════════════════════*/
     .masthead {
-      background: linear-gradient(135deg, var(--ink) 0%, #1a1a1a 100%);
+      background: linear-gradient(135deg, var(--ink) 0%, var(--ink-mid) 100%);
       color: white;
       padding: 0 40px;
       display: flex;
@@ -141,6 +142,17 @@
       color: #fff;
       text-decoration: underline;
     }
+    .env-banner { display:none; padding:8px 20px; text-align:center; font-family:var(--mono); font-size:10px; letter-spacing:1.5px; text-transform:uppercase; background:#fff3cd; color:#654b17; border-bottom:1px solid #ead49b; }
+    .env-banner.visible { display:block; }
+    .participation-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px; }
+    .participation-grid button { min-height:48px; padding:10px 12px; border:1px solid var(--rule); border-radius:8px; background:var(--card); color:var(--ink-soft); font:600 12px var(--sans); cursor:pointer; text-align:left; }
+    .participation-grid button[aria-pressed="true"] { border-color:var(--ink); background:var(--ink); color:white; box-shadow:inset 0 -3px 0 var(--gold); }
+    .participation-note { margin:-8px 0 20px; padding:10px 12px; border-left:3px solid var(--gold); background:#fbf7ee; color:var(--ink-soft); font-size:12px; line-height:1.5; }
+    body[data-participacion="postulante"] .operativo-only { display:none !important; }
+    body[data-participacion="postulante"] #cargo-status-badge,
+    body[data-participacion="postulante"] #op-banner,
+    body[data-participacion="postulante"] .day-cuentas,
+    body[data-participacion="postulante"] .dc-body { display:none !important; }
     .pdf-btn {
       background: none;
       border: 1px solid rgba(255,255,255,0.3);
@@ -1457,6 +1469,45 @@
     @media (min-width: 1000px){
       #cal-grid:not(.cal-lista){ min-width: 0; }
     }
+
+    /* V2 simple: una base neutra, un acento y color sólo para estados. */
+    :root{
+      --ink:#202a30; --ink-mid:#202a30; --ink-soft:#5f696f; --ink-faint:#8a9297;
+      --paper:#f5f6f6; --paper-dark:#eef0f1; --card:#ffffff; --rule:#dfe3e5;
+      --red:#a63b37; --red-deep:#87302d; --red-pale:#f6e9e8; --red-tint:#fbf5f4;
+      --blue:#3f5967; --blue-pale:#e9eef0; --blue-tint:#f4f6f7;
+      --green:#39705f; --green-pale:#e9f2ee; --gold:#9b7a42;
+      --orange:#8a5b3c; --orange-pale:#f2ece8; --orange-tint:#f8f5f2; --orange-deep:#70462f;
+      --shadow-sm:none; --shadow-md:0 4px 18px rgba(23,35,42,.06); --shadow-lg:0 8px 28px rgba(23,35,42,.08);
+      --radius:12px;
+    }
+    body{ background:var(--paper); }
+    .masthead{ background:var(--ink); padding:0 24px; overflow:visible; }
+    .masthead::before,.masthead::after{ display:none; }
+    .masthead-inner{ max-width:880px; padding:13px 0; }
+    .masthead-logo{ width:42px; height:42px; border:1px solid rgba(255,255,255,.35); box-shadow:none; }
+    .masthead-eyebrow{ color:rgba(255,255,255,.58); letter-spacing:1.4px; }
+    .masthead-title{ font-family:var(--sans); font-size:20px; font-weight:600; letter-spacing:-.2px; }
+    .masthead-right a{ color:rgba(255,255,255,.72); font-weight:500; }
+    .env-banner.visible{ background:var(--paper-dark); color:var(--ink-soft); border-bottom-color:var(--rule); }
+    .pdf-btn{ border-color:rgba(255,255,255,.22); text-transform:none; letter-spacing:.4px; }
+    .chipnav{ display:none !important; }
+    .page-body{ max-width:880px; padding:22px 20px 52px; gap:16px; }
+    .panel{ border-color:var(--rule); box-shadow:none; }
+    .panel-head,.panel-del .panel-head{ background:var(--card); border-bottom:1px solid var(--rule); padding:13px 20px; }
+    .panel-head-num,.panel-del .panel-head-num{ color:var(--ink-faint); }
+    .panel-head-title{ font-family:var(--sans); font-size:14px; font-weight:600; letter-spacing:0; text-transform:none; color:var(--ink); }
+    .panel-body{ padding:20px; }
+    .sep{ margin:5px 0 14px; }
+    .sep-label{ letter-spacing:.8px; }
+    .participation-grid{ margin-bottom:12px; }
+    .participation-grid button{ min-height:44px; border-radius:9px; }
+    .participation-grid button[aria-pressed="true"]{ background:var(--ink); border-color:var(--ink); box-shadow:none; }
+    .participation-note{ margin:0 0 18px; padding:9px 11px; border:0; border-radius:8px; background:var(--paper-dark); font-size:11px; line-height:1.4; }
+    .submit-btn,.del-btn-confirmar{ border-radius:9px; box-shadow:none; }
+    .op-banner{ border-left-color:var(--ink-faint); background:var(--paper-dark); }
+    .legend{ opacity:.82; }
+    footer{ max-width:880px !important; }
   </style>
 </head>
 <body style="min-height:100vh;">
@@ -1471,16 +1522,17 @@
     <div class="masthead-left">
       <img class="masthead-logo" src="https://drive.google.com/thumbnail?id=1KGkEIbJWCCy8qYYWf-bjmTE7PC5UznAI&sz=w200" alt="Logo 1ra Compañía CBC">
       <div class="masthead-texts">
-        <span class="masthead-eyebrow">1ra Compañía CBC</span>
-        <span class="masthead-title">Guardias 1ra Compañía Coquimbo</span>
+        <span class="masthead-eyebrow">1ra Compañía CBC · Coquimbo</span>
+        <span class="masthead-title">Guardias</span>
       </div>
     </div>
     <div class="masthead-right">
       <a href="mailto:ayudantec1@bomberosdecoquimbo.cl">✉ ayudantec1@bomberosdecoquimbo.cl</a>
     </div>
-    <button class="pdf-btn" onclick="generarGuardias()">Guardias</button>
+    <button class="pdf-btn" onclick="abrirCalendarioGuardias(this)">Guardias</button>
   </div>
 </header>
+<div id="env-banner" class="env-banner" role="status" aria-live="polite"></div>
 
 <div id="hoja-modal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;" role="dialog" aria-modal="true" aria-labelledby="hoja-modal-title">
   <div style="background:#fff;border-radius:12px;max-width:420px;width:90%;padding:26px 24px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.35);font-family:'Helvetica Neue',Arial,sans-serif;">
@@ -1518,7 +1570,7 @@
   <a href="#panel-inscripcion" data-secc="panel-inscripcion">01 · Inscripción</a>
   <a href="#panel-disponibilidad" data-secc="panel-disponibilidad">02 · Disponibilidad</a>
   <a href="#panel-baja" data-secc="panel-baja">03 · Mi baja</a>
-  <a href="#panel-asistencia" data-secc="panel-asistencia" data-nav-asistencia>04 · Asistencia</a>
+  <a href="#panel-asistencia" data-secc="panel-asistencia" data-nav-asistencia hidden>04 · Asistencia</a>
 </nav>
 
 <nav class="bottomnav" id="bottomnav" aria-label="Navegación principal">
@@ -1526,7 +1578,7 @@
   <button type="button" data-go="#panel-inscripcion" aria-label="Inscripción">➕<span>Inscribirse</span></button>
   <button type="button" data-go="#panel-disponibilidad" aria-label="Disponibilidad de guardias">📅<span>Guardias</span></button>
   <button type="button" data-go="#panel-baja" aria-label="Dar de baja mis guardias">👤<span>Mi baja</span></button>
-  <button type="button" data-go="#panel-asistencia" data-bn-asistencia aria-label="Asistencia">🩺<span>Asistencia</span></button>
+  <button type="button" data-go="#panel-asistencia" data-bn-asistencia aria-label="Asistencia" hidden>🩺<span>Asistencia</span></button>
 </nav>
 
 <div class="page-body">
@@ -1553,7 +1605,14 @@
         <span class="field-hint" id="email-hint"></span>
       </div>
 
-      <div class="field field-op">
+      <div class="sep"><span class="sep-label">Tipo de participación</span></div>
+      <div class="participation-grid" role="group" aria-label="Tipo de participación">
+        <button type="button" id="tipo-voluntario" aria-pressed="true" onclick="seleccionarTipoPersona('voluntario')">Voluntario<br><small>Guardia operativa</small></button>
+        <button type="button" id="tipo-postulante" aria-pressed="false" onclick="seleccionarTipoPersona('postulante')">Postulante<br><small>Guardia formativa</small></button>
+      </div>
+      <div class="participation-note" id="participation-note">La habilitación se verifica automáticamente.</div>
+
+      <div class="field field-op operativo-only">
         <label class="field-label">Nivel de bombero</label>
         <div class="seg seg-nivel" id="seg-nivel" role="group" aria-label="Nivel de bombero">
           <button type="button" id="opt-in" data-nivel="INICIAL" onclick="seleccionarCond('inicial')" aria-pressed="true"><span class="ndot nd-ini"></span>Inicial</button>
@@ -1563,7 +1622,7 @@
         <span class="nivel-nota" id="nivel-nota">Sin restricciones de cupo</span>
       </div>
 
-      <div class="sep"><span class="sep-label">Fechas de guardia</span></div>
+      <div class="sep"><span class="sep-label" id="fechas-label">Fechas de guardia</span></div>
 
       <div class="field">
         <label class="field-label">Cantidad de guardias</label>
@@ -1579,7 +1638,7 @@
         <div class="date-cell">
           <span class="field-label">Fecha 01</span>
           <input type="date" id="fecha1" onchange="actualizarCal()">
-          <div class="cargo-tog" id="cargo-tog-1">
+          <div class="cargo-tog operativo-only" id="cargo-tog-1">
             <button class="ctog-btn" id="ctog1-v" onclick="seleccionarCargoDia(1,'voluntario')" title="Voluntario">Voluntario</button>
             <button class="ctog-btn" id="ctog1-m" onclick="seleccionarCargoDia(1,'maquinista')" title="Maquinista">Maquinista</button>
           </div>
@@ -1587,7 +1646,7 @@
         <div class="date-cell" id="date-cell-2">
           <span class="field-label">Fecha 02</span>
           <input type="date" id="fecha2" onchange="actualizarCal()">
-          <div class="cargo-tog" id="cargo-tog-2">
+          <div class="cargo-tog operativo-only" id="cargo-tog-2">
             <button class="ctog-btn" id="ctog2-v" onclick="seleccionarCargoDia(2,'voluntario')" title="Voluntario">Voluntario</button>
             <button class="ctog-btn" id="ctog2-m" onclick="seleccionarCargoDia(2,'maquinista')" title="Maquinista">Maquinista</button>
           </div>
@@ -1597,7 +1656,7 @@
         <div class="date-cell" id="date-cell-3">
           <span class="field-label">Fecha 03</span>
           <input type="date" id="fecha3" onchange="actualizarCal()">
-          <div class="cargo-tog" id="cargo-tog-3">
+          <div class="cargo-tog operativo-only" id="cargo-tog-3">
             <button class="ctog-btn" id="ctog3-v" onclick="seleccionarCargoDia(3,'voluntario')" title="Voluntario">Voluntario</button>
             <button class="ctog-btn" id="ctog3-m" onclick="seleccionarCargoDia(3,'maquinista')" title="Maquinista">Maquinista</button>
           </div>
@@ -1605,7 +1664,7 @@
         <div class="date-cell" id="date-cell-4">
           <span class="field-label">Fecha 04</span>
           <input type="date" id="fecha4" onchange="actualizarCal()">
-          <div class="cargo-tog" id="cargo-tog-4">
+          <div class="cargo-tog operativo-only" id="cargo-tog-4">
             <button class="ctog-btn" id="ctog4-v" onclick="seleccionarCargoDia(4,'voluntario')" title="Voluntario">Voluntario</button>
             <button class="ctog-btn" id="ctog4-m" onclick="seleccionarCargoDia(4,'maquinista')" title="Maquinista">Maquinista</button>
           </div>
@@ -1627,7 +1686,7 @@
   </div>
 
   <!-- PANEL 02: CALENDARIO -->
-  <div class="panel" style="background:#edeae4;" id="panel-disponibilidad">
+  <div class="panel" id="panel-disponibilidad">
     <div class="panel-head">
       <span class="panel-head-num">02</span>
       <span class="panel-head-title">Disponibilidad</span>
@@ -1645,7 +1704,7 @@
       </span>
 
       <div id="op-banner" class="op-banner">
-        <span class="op-banner-text">Requisitos despacho: 1 maquinista · 2 bomberos operativos / profesionales</span>
+        <span class="op-banner-text">Referencia: 1 maquinista · 2 operativos</span>
       </div>
 
       <div class="cal-scroll" id="cal-scroll">
@@ -1695,10 +1754,7 @@
     </div>
     <div class="panel-body">
 
-      <p class="del-desc">
-        Si necesitas corregir tus guardias del mes, ingresa tu correo electrónico para consultar tus guardias.
-        Puedes eliminar todos tus registros del mes en curso y volver a inscribirte.
-      </p>
+      <p class="del-desc">Consulta y corrige tus guardias del mes.</p>
 
 
       <div class="del-inner">
@@ -1766,7 +1822,7 @@
   </div>
 
   <!-- PANEL 04: ASISTENCIA -->
-  <div class="panel panel-full" id="panel-asistencia">
+  <div class="panel panel-full" id="panel-asistencia" hidden>
     <div class="panel-head">
       <span class="panel-head-num">04</span>
       <span class="panel-head-title">Asistencia</span>
@@ -1811,11 +1867,7 @@
 
 <footer style="max-width:960px;margin:0 auto;padding:0 24px 32px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <span style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-faint);">
-    Guardias 1ra Cía Coquimbo &mdash; v1.0.0
-  </span>
-  <span style="width:32px;height:1px;background:var(--rule);display:block;flex-shrink:0;"></span>
-  <span style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-faint);">
-    Patricio Varela C.
+    Guardias 1ra Cía Coquimbo &mdash; v2.0
   </span>
 </footer>
 
@@ -1833,6 +1885,8 @@ const estado = {
   cargo: null,
 
   condicion: null,
+
+  tipoPersona: "voluntario",
 
   numDias: 4,
 
@@ -1907,17 +1961,61 @@ function _aplicarConfig(cfg){
   if(!cfg || !cfg.ok) return;
   window._cfg = cfg;
 
+  var ambiente = String(cfg.ambiente || "UNCONFIGURED").toUpperCase();
+  var eb = document.getElementById("env-banner");
+  if(eb && ambiente !== "PROD" && ambiente !== "PRODUCCION"){
+    eb.textContent = ambiente === "QA" ? "Entorno de pruebas · datos ficticios" : ambiente === "PREVIEW" ? "Entorno de vista previa · datos ficticios · no guarda información" : "Entorno sin configurar · registros deshabilitados";
+    eb.classList.add("visible");
+  }
+  if(ambiente === "UNCONFIGURED"){
+    var btnRegistro = document.getElementById("btnEnviar");
+    if(btnRegistro){ btnRegistro.disabled = true; btnRegistro.textContent = "Entorno sin configurar"; }
+  }
+
   window._maxDias = Math.min(cfg.cantidadGuardias || 4, 4);
   seleccionarNumDias(window._maxDias);
 
-  // Panel Asistencia: 1 visible · 0 desaparece por completo
+  // Asistencia parte oculta y solo se habilita cuando Config C8 vale 1.
   var mostrar = !!cfg.mostrarAsistencia;
   var pa = document.getElementById("panel-asistencia");
-  if(!mostrar){
-    if(pa) pa.remove();
-    var chip = document.querySelector("[data-nav-asistencia]");
-    if(chip) chip.remove();
+  var chip = document.querySelector("[data-nav-asistencia]");
+  var bn = document.querySelector("[data-bn-asistencia]");
+  [pa, chip, bn].forEach(function(el){
+    if(!el) return;
+    if(mostrar) el.removeAttribute("hidden");
+    else el.remove();
+  });
+}
+
+function seleccionarTipoPersona(tipo){
+  var tipoAnterior = estado.tipoPersona;
+  estado.tipoPersona = tipo === "postulante" ? "postulante" : "voluntario";
+  if(estado.tipoPersona === "postulante" && tipoAnterior !== "postulante"){
+    estado._condicionOperativa = estado.condicion;
+    estado.condicion = null;
+  } else if(estado.tipoPersona === "voluntario" && tipoAnterior === "postulante"){
+    estado.condicion = estado._condicionOperativa || null;
   }
+  document.body.setAttribute("data-participacion", estado.tipoPersona);
+  var bv = document.getElementById("tipo-voluntario");
+  var bp = document.getElementById("tipo-postulante");
+  if(bv) bv.setAttribute("aria-pressed", String(estado.tipoPersona === "voluntario"));
+  if(bp) bp.setAttribute("aria-pressed", String(estado.tipoPersona === "postulante"));
+  var nota = document.getElementById("participation-note");
+  var fl = document.getElementById("fechas-label");
+  var btn = document.getElementById("btnEnviar");
+  if(estado.tipoPersona === "postulante"){
+    if(nota) nota.textContent = "Guardia mensual formativa. No integra la dotación operativa.";
+    if(fl) fl.textContent = "Fechas de guardia formativa";
+    if(btn) btn.textContent = "Registrar guardias formativas";
+  } else {
+    if(nota) nota.textContent = "La habilitación se verifica automáticamente.";
+    if(fl) fl.textContent = "Fechas de guardia";
+    if(btn) btn.textContent = "Registrar guardias";
+  }
+  _pintarNivel();
+  renderResumen();
+  if(estado.ocupacion && Object.keys(estado.ocupacion).length) renderCalendario();
 }
 //══════════════════════════════════════
 
@@ -2276,7 +2374,8 @@ function _resolverCalendario(reqId, data){
     _aplicarConfig({
       ok: true,
       cantidadGuardias: (data.configuracion || {}).cantidadGuardias || 4,
-      mostrarAsistencia: !((data.configuracion || {}).mostrarAsistencia === false)
+      mostrarAsistencia: (data.configuracion || {}).mostrarAsistencia === true,
+      ambiente: (data.configuracion || {}).ambiente || "UNCONFIGURED"
     });
 
     renderCalendario();
@@ -2489,6 +2588,7 @@ function crearFechaString(año,mes,dia){
 
 function obtenerClaseDia(data){
   if(!data || !data.habilitado) return "day blocked";
+  if(estado.tipoPersona === "postulante") return "day low";
 
   const total = (data.voluntarios || 0) + (data.maquinistas || 0);
   const cumplido = (data.maquinistas || 0) >= 1 && (data.operativos || 0) >= 2;
@@ -2777,8 +2877,9 @@ function renderResumen(){
     var nombre = DIAS[(d.getDay() + 6) % 7] + " " + fp.d;
     return '<span class="resumen-fech">' + nombre + '</span>';
   }).join("");
-  box.innerHTML = pills +
-    '<span class="resumen-meta">Nivel ' + nivelTxt + '</span>';
+  box.innerHTML = pills + (estado.tipoPersona === "postulante"
+    ? '<span class="resumen-meta">Guardia formativa</span>'
+    : '<span class="resumen-meta">Nivel ' + nivelTxt + '</span>');
 }
 
 
@@ -2898,8 +2999,9 @@ function validarFormulario(){
       mostrarError("Selecciona al menos 1 día en el calendario.");
     }
   }
-  // cada fecha debe tener un cargo
+  // Cada guardia operativa debe tener cargo. Una guardia formativa nunca lo usa.
   var sinCargo = estado.seleccionadas.filter(function(f){
+    if(estado.tipoPersona === "postulante") return false;
     for(var si=1;si<=4;si++){
       var inp = document.getElementById("fecha" + si);
       if(inp && inp.value === f && inp.dataset.cargo) return false;
@@ -2931,6 +3033,36 @@ function enviar(){
   var nombre = document.getElementById("nombre").value.trim();
   var email = document.getElementById("email").value.trim();
   var condicion = estado.condicion || "";
+
+  if(estado.tipoPersona === "postulante"){
+    document.getElementById("spinner").style.display = "block";
+    google.script.run
+      .withSuccessHandler(function(resp){
+        document.getElementById("spinner").style.display = "none";
+        btn.disabled = false; window._enviando = false;
+        if(!resp || !resp.ok){
+          _btnEstado(btn, "err-state", "✗ REQUIERE VALIDACIÓN");
+          mostrarError((resp && resp.errores || ["No fue posible programar la actividad."]).join("<br>"));
+          return;
+        }
+        _btnEstado(btn, "ok-state", "✓ GUARDIA REGISTRADA");
+        document.getElementById("exito").style.display = "block";
+        document.querySelector("#exito p").textContent = "Guardias formativas registradas.";
+        limpiarFormulario(true);
+      })
+      .withFailureHandler(function(err){
+        document.getElementById("spinner").style.display = "none";
+        btn.disabled = false; window._enviando = false;
+        _btnEstado(btn, "err-state", "✗ ERROR DE CONEXIÓN");
+        mostrarError("No se pudo registrar la guardia formativa: " + escHtml(err && err.message || err));
+      })
+      .registrarActividadFormativa({
+        nombre: nombre,
+        email: email,
+        fechas: estado.seleccionadas.slice()
+      });
+    return;
+  }
 
   // agrupar fechas por cargo
   var grupos = {};
@@ -3018,7 +3150,9 @@ function enviar(){
 // LIMPIAR FORMULARIO
 //══════════════════════════════════════
 
-function limpiarFormulario(){
+function limpiarFormulario(conservarTipo){
+
+  var tipoAnterior = estado.tipoPersona;
 
   estado.seleccionadas = [];
   var maxOpt = window._maxDias || 4;
@@ -3032,7 +3166,9 @@ function limpiarFormulario(){
   });
 
   estado.condicion = null;
+  if(!conservarTipo) estado._condicionOperativa = null;
   _pintarNivel();
+  seleccionarTipoPersona(conservarTipo ? tipoAnterior : "voluntario");
   document.querySelectorAll(".field-err").forEach(function(e){ e.textContent = ""; });
 
   for(var i=1;i<=4;i++){
@@ -3070,8 +3206,8 @@ function mostrarError(texto){
   box.style.display =
     "block";
 
-  box.innerHTML =
-    `<p>${texto}</p>`;
+  box.textContent = String(texto == null ? "" : texto).replace(/<br\s*\/?\s*>/gi, "\n");
+  box.style.whiteSpace = "pre-line";
 
 }
 
@@ -3349,11 +3485,11 @@ function mostrarDetalleDia(fecha){
           var l = estadoLabels[est] || est;
           estadoBadge = "<span style='font-family:var(--mono);font-size:8px;background:" + c + ";color:white;padding:1px 8px;border-radius:3px;margin-left:auto;letter-spacing:0.5px;'>" + l + "</span>";
         }
-        var reemp = g.estado === "R" && g.reemplazoNombre ? " → " + g.reemplazoNombre : "";
+        var reemp = g.estado === "R" && g.reemplazoNombre ? " → " + escHtml(g.reemplazoNombre) : "";
         html += "<div style='display:flex;align-items:center;gap:8px;padding:6px 12px;margin-bottom:4px;border-radius:var(--radius);background:" + bg + ";color:white;font-family:var(--sans);font-size:13px;font-weight:500;'>" +
           "<span style='font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;opacity:0.7;flex-shrink:0;'>" + label + "</span>" +
           opBadge +
-          "<span>" + g.nombre + "</span>" + reemp + estadoBadge + "</div>";
+          "<span>" + escHtml(g.nombre) + "</span>" + reemp + estadoBadge + "</div>";
       });
       // advertencia si no cumple requisitos
       var tieneMaq = gs.some(function(g){ return g.cargo.indexOf("maquinista") !== -1; });
@@ -3425,6 +3561,30 @@ function generarGuardias(){
   mostrarModal("hoja-opciones");
 }
 
+function abrirCalendarioGuardias(btn){
+  var texto = btn ? btn.textContent : "Guardias";
+  var ventana = null;
+  try { ventana = window.open("about:blank", "_blank"); } catch(e) {}
+  if(btn){ btn.disabled = true; btn.textContent = "Abriendo..."; }
+  google.script.run
+    .withSuccessHandler(function(resp){
+      if(btn){ btn.disabled = false; btn.textContent = texto; }
+      if(resp && resp.ok && resp.url){
+        if(ventana) ventana.location.href = resp.url;
+        else window.open(resp.url, "_blank", "noopener");
+        return;
+      }
+      if(ventana) ventana.close();
+      alert((resp && resp.error) || "El calendario compartido aún no está disponible.");
+    })
+    .withFailureHandler(function(){
+      if(btn){ btn.disabled = false; btn.textContent = texto; }
+      if(ventana) ventana.close();
+      alert("No se pudo abrir el calendario compartido.");
+    })
+    .obtenerCalendarioCompartido();
+}
+
 function generarGuardiasRapido(){
   _generarGuardiasHoja({});
 }
@@ -3481,6 +3641,13 @@ function _generarGuardiasHoja(oficiales){
       if(!resp || !resp.ok){
         if(resp && resp.error === "No existen guardias programadas para generar."){
           alert(resp.error);
+        } else if(resp && (resp.errorCode === "IDENTIDAD_NO_DISPONIBLE" || resp.errorCode === "ADMIN_NO_AUTORIZADO" || resp.errorCode === "TOKEN_INVALIDO")){
+          // Separación pública/administrativo: la generación del Sheet es una
+          // operación administrativa; en la web app pública no hay identidad.
+          alert("La generación del calendario de guardias es una operación administrativa.\n\n" +
+                "Hazla desde la hoja de cálculo: menú 🚒 GUARDIAS CBC → 👨‍🚒 Guardias →\n" +
+                "«Generar calendario de guardias (Sheet)».");
+          if(resp && console) console.error("[Guardias] autorización:", resp.errorCode);
         } else {
           alert("No se pudo generar el calendario de guardias."
             + (resp && resp.detalle ? "\n\n[DEV] " + resp.detalle : ""));
@@ -3850,6 +4017,7 @@ function guardarCambiosAsistencia(){
 
 function estadoDe(data){
   if(!data || !data.habilitado) return { nivel: "off", texto: "Cerrado", corto: "Cerrado" };
+  if(estado.tipoPersona === "postulante") return { nivel: "ok", texto: "Disponible", corto: "DISPONIBLE" };
   var maq = data.maquinistas || 0;
   var ops = data.operativos || 0;
   if(maq >= REGLAS_UI.cupoMaq && ops >= REGLAS_UI.cupoOp)

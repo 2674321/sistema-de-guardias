@@ -3,8 +3,7 @@
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("Index")
-    .setTitle("Guardias 1ra Compañía Coquimbo")
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .setTitle("Guardias 1ra Compañía Coquimbo");
 }
 
 // Asegura el layout de la hoja Guardias (9 columnas A–I). Auto-reparación
@@ -57,6 +56,25 @@ function registrarGuardia(datos) {
       errores.push("Cargo inválido.");
     }
 
+    // La UI expresa una intención; el servidor decide la habilitación real.
+    // Fallo seguro: sin identidad única o evidencia suficiente no se escribe.
+    var autorizacion = autorizarSolicitudGuardia(datos);
+    if (!autorizacion.ok) {
+      return {
+        ok: false,
+        errorCode: autorizacion.codigo || "HABILITACION_NO_VERIFICADA",
+        estado: autorizacion.estado || "REQUIERE_VALIDACION",
+        errores: ["No fue posible verificar tu habilitación institucional para el rol solicitado. Contacta a Ayudantía para revisar el padrón."]
+      };
+    }
+    // La identidad visible y las capacidades se toman de la fuente validada,
+    // no del texto enviado por el navegador. El correo siempre queda
+    // normalizado; el nombre histórico/padrón evita suplantaciones visuales.
+    email = autorizacion.email || String(email || "").trim().toLowerCase();
+    nombre = autorizacion.nombre || nombre;
+    cargo = autorizacion.cargo || cargo;
+    nivel = autorizacion.nivel || nivel;
+
     // VALIDAR CANTIDADES Y REPETICIONES (regla central en Reglas.gs)
     var evalCantidad = evaluarCantidadFechas(fechas, [], obtenerConfigGeneral().cantidadGuardias);
     errores = errores.concat(evalCantidad.errores.filter(function(m) {
@@ -66,13 +84,17 @@ function registrarGuardia(datos) {
     // Leer datos una sola vez (optimización)
     var dataAll = sheet.getDataRange().getValues();
 
-    // BUSCAR DUPLICADOS DENTRO DEL CICLO (28 días desde la primera guardia;
-    // aritmética cívica: inmune a cambios de hora/DST)
+    // BUSCAR DUPLICADOS DENTRO DEL CICLO (28 días desde el ancla del ciclo
+    // ACTIVO; aritmética cívica: inmune a cambios de hora/DST). El ancla NO es
+    // guardias[0] a secas: si la tabla acumula ciclos históricos, se toma la
+    // guardia que cubre hoy o la próxima futura (Reglas.gs → anclaCicloActual).
     var emailBuscado = String(email).trim().toLowerCase();
     var _diasCiclo = (function() {
       try {
         var oc = obtenerGuardias();
-        if (oc.guardias.length) return diasDeCicloDesde(oc.guardias[0].inicio, 28);
+        var hoyKey = _fechaKeyHoy_();
+        var ancla = anclaCicloActual(oc.guardias, hoyKey);
+        if (ancla) return diasDeCicloDesde(ancla, 28);
       } catch (e) {}
       var _cfg = obtenerConfigGeneral();
       var _iniStr = fechaStrCivil(_cfg.inicio);
@@ -260,6 +282,7 @@ function registrarGuardia(datos) {
     } catch (e) { Logger.log("Actualización Asistencia tras registro: " + e); }
 
     _bumpCalVersion();
+    try { actualizarCalendarioCompartido_(); } catch (eCal) { Logger.log("refresco calendario compartido: " + eCal); }
     return { ok: true };
   } catch (e) {
     Logger.log("registrarGuardia: " + e);
@@ -274,6 +297,12 @@ function registrarGuardia(datos) {
 //══════════════════════════════════════════
 
 function buscarGuardiasPorEmail(email) {
+  var auth = autorizarCorreoSesion_(email);
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: "No fue posible verificar que este correo pertenezca a tu sesión." };
+  return _buscarGuardiasPorEmailInterno(email);
+}
+
+function _buscarGuardiasPorEmailInterno(email) {
   try {
     var sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
     var datos = sh.getDataRange().getValues();
@@ -483,6 +512,7 @@ function eliminarGuardiasPorEmail(email, codigo) {
     } catch (e) { Logger.log("LogEliminaciones: " + e); }
 
     _bumpCalVersion();
+    try { actualizarCalendarioCompartido_(); } catch (eCal) { Logger.log("refresco calendario compartido: " + eCal); }
     return { ok: true, eliminadas: eliminadas, filasEliminadas: filasEliminar.length };
   } catch (err) {
     Logger.log("eliminarGuardiasPorEmail: " + err);
@@ -526,6 +556,9 @@ function obtenerGuardiasDelDia(fechaStr) {
         }
       }
     }
+
+    // Una persona repetida en filas históricas cuenta y se muestra una sola vez.
+    resultado = deduplicarGuardiasPorEmail(resultado);
 
     // Cargar asistencia para cada guardia
     try {
@@ -605,6 +638,8 @@ function inicializarHojaAsistencia() {
 }
 
 function guardarAsistencias(email, registros) {
+  var auth = autorizarCorreoSesion_(email);
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: "No fue posible verificar tu identidad para modificar asistencia." };
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
     return { ok: false, error: "El sistema está ocupado. Espera unos segundos e inténtalo de nuevo." };
@@ -705,6 +740,8 @@ function guardarAsistencias(email, registros) {
 }
 
 function obtenerGuardiasConAsistencia(email) {
+  var auth = autorizarCorreoSesion_(email);
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: "No fue posible verificar tu identidad para consultar asistencia." };
   try {
     var config = obtenerConfigGeneral();
     var mes = config.mes;
@@ -822,13 +859,16 @@ function obtenerCalendario(mes, año) {
   var t0 = Date.now();
   var diag = { build: VERSION_CONTRATO_CALENDARIO, cache: "MISS" };
 
-  // ── Caché corta (120 s), solo respuestas ok; se invalida por versión ──
+  // ── Parámetros explícitos: mes/año válidos se respetan; inválidos → config ──
+  var paramsValidos = mesAñoValidos(mes, año);
+
+  // ── Caché corta (120 s), por mes/año; solo respuestas ok; se invalida por versión ──
+  var claveCache = "CAL_" + _calVersionActual() + "_" + (paramsValidos ? (Number(mes) + "_" + Number(año)) : "cfg");
   try {
-    var cruda = CacheService.getScriptCache().get("CAL_" + _calVersionActual());
+    var cruda = CacheService.getScriptCache().get(claveCache);
     if (cruda) {
       var hit = JSON.parse(cruda);
-      if (hit && hit.ok === true && hit.ocupacion &&
-          (mes == null || Number(hit.mes) === Number(mes))) {
+      if (hit && hit.ok === true && hit.ocupacion) {
         diag.cache = "HIT";
         diag.totalMs = Date.now() - t0;
         hit.diagnostico = diag;
@@ -856,8 +896,12 @@ function obtenerCalendario(mes, año) {
       config.año = hoy.getFullYear();
       if (!Array.isArray(config.semanas) || !config.semanas.length) config.semanas = [0];
     }
-    mes = config.mes;
-    año = config.año;
+    // Respeta el mes/año solicitado cuando son válidos (navegación entre meses
+    // sin inventar fechas); si no, usa el mes activo de Config.
+    if (!paramsValidos) {
+      mes = config.mes;
+      año = config.año;
+    }
     diag.configMs = Date.now() - tConfig;
     diag.avisos = avisos;
 
@@ -895,6 +939,7 @@ function obtenerCalendario(mes, año) {
       configuracion: {
         cantidadGuardias: config.cantidadGuardias,
         mostrarAsistencia: !!config.mostrarAsistencia,
+        ambiente: CONFIG.ambiente,
         semanas: config.semanas,
         diasEliminacion: config.diasEliminacion,
         fechaLimite: config.fechaLimite
@@ -915,7 +960,7 @@ function obtenerCalendario(mes, año) {
     diag.requestId = "req-" + t0 + "-" + Math.floor(Math.random() * 1000);
     payload.diagnostico = diag;
 
-    try { CacheService.getScriptCache().put("CAL_" + _calVersionActual(), json, 120); } catch (e) {}
+    try { CacheService.getScriptCache().put(claveCache, json, 120); } catch (e) {}
 
     _logServicio("obtenerCalendario", diag.requestId, diag.totalMs, "info",
       "cache=" + diag.cache + " filas=" + diag.filasLeidas + (avisos.length ? " avisos=" + avisos.length : ""));
@@ -935,6 +980,11 @@ function obtenerCalendario(mes, año) {
   }
 }
 
+// Fecha de HOY como clave cívica "YYYY-MM-DD" (zona del script, inmune a DST).
+function _fechaKeyHoy_() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+}
+
 // ¿fechaKey es día de guardia? — pertenencia al rango de las guardias
 // explícitas (fuente única). Aritmética cívica: inmune a DST.
 // Mantiene la firma anterior (config) por compatibilidad; config no se usa.
@@ -951,15 +1001,18 @@ function _semanaHabilitadaDe(fechaKey, config) {
 // luego un solo pase de Asistencia cruzando por índice email→guardia.
 function _construirSnapshotCalendario(dataAll, asisData, config, mes, año) {
   var ocupacion = {};
+  var vistosPorDia = {};
   // Días del ciclo: 28 días CÍVICOS desde el inicio de la primera guardia
   // (o desde config.inicio si aún no hay guardias programadas). Nunca se
   // suman milisegundos de 24h: eso deriva la fecha al cruzar un cambio de
   // hora (DST).
   var guardias = obtenerGuardias().guardias;
-  var anchorStr = (guardias.length ? guardias[0].inicio : null) || fechaStrCivil(config.inicio);
-  if (!anchorStr) return { ocupacion: {}, mes: mes, año: año };
+  // Ancla del ciclo ACTIVO (cubre hoy o próximo futuro), no guardias[0]:
+  // permite rotar de ciclo sin quedar anclado a un ciclo antiguo.
+  var anclaStr = anclaCicloActual(guardias, _fechaKeyHoy_()) || fechaStrCivil(config.inicio);
+  if (!anclaStr) return { ocupacion: {}, mes: mes, año: año };
 
-  diasDeCicloDesde(anchorStr, 28).forEach(function(fk) {
+  diasDeCicloDesde(anclaStr, 28).forEach(function(fk) {
     ocupacion[fk] = {
       voluntarios: 0, maquinistas: 0, operativos: 0, iniciales: 0,
       habilitado: false, cumplido: false, guardias: []
@@ -990,6 +1043,9 @@ function _construirSnapshotCalendario(dataAll, asisData, config, mes, año) {
 
       var dia = ocupacion[key];
       if (!dia) continue; // registro de otro mes: queda indexado para asistencia
+      var clavePersonaDia = key + "|" + email;
+      if (vistosPorDia[clavePersonaDia]) continue;
+      vistosPorDia[clavePersonaDia] = true;
 
       dia.guardias.push({
         nombre: String(fila[1] || ""),

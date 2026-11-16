@@ -39,6 +39,7 @@
     <div class="bar">
       <button onclick="agregarFila()">+ Añadir guardia</button>
       <button class="sec" onclick="derivar()">&#128260 Derivar desde Config</button>
+      <button class="sec" onclick="generarHoja()">📄 Calendario (Sheet)</button>
       <span style="flex:1"></span>
       <button class="sec" onclick="google.script.host.close()">Cerrar</button>
       <button onclick="guardar()">&#128190 Guardar</button>
@@ -46,7 +47,30 @@
   </div>
 
   <script>
+    var TOKEN = "<?= tokenAdmin ?>";
+    var ADMIN = "<?= correoAdmin ?>";
     var H = {};
+
+    function mensajeAdmin(r){
+      // Mensajes diferenciados por causa (el detalle vive en el servidor).
+      var cod = (r && r.errorCode) || "";
+      if (cod === "IDENTIDAD_NO_DISPONIBLE")
+        return "No se pudo verificar tu identidad de Google. Reabre este panel desde el menú 🚒 GUARDIAS CBC de la hoja, con tu cuenta de administrador.";
+      if (cod === "TOKEN_INVALIDO")
+        return "Tu sesión administrativa expiró. Cierra este panel y reábrelo desde el menú 🚒 GUARDIAS CBC.";
+      if (cod === "ADMIN_NO_AUTORIZADO")
+        return "Tu cuenta (" + ADMIN + ") no está en la lista de administradores. El propietario puede agregarla desde el menú: ⚙️ Configuración → Administradores del sistema.";
+      return (r && r.error) || "Error desconocido.";
+    }
+
+    function textoDiff(diff){
+      if(!diff) return "";
+      var p = [];
+      if(diff.altas && diff.altas.length) p.push("Altas: " + diff.altas.map(function(g){ return g.inicio; }).join(", "));
+      if(diff.bajas && diff.bajas.length) p.push("Bajas: " + diff.bajas.map(function(g){ return g.inicio; }).join(", "));
+      if(diff.cambios && diff.cambios.length) p.push("Modificadas: " + diff.cambios.length);
+      return p.join(" · ");
+    }
 
     function mesLargo(ini){
       try{
@@ -114,7 +138,16 @@
     function mostrarAv(lista, r){
       var d = document.getElementById("avisos");
       d.innerHTML = "";
-      if(r && r.total !== undefined) d.innerHTML = '<div class="info">✔ Guardado: ' + r.total + ' guardia(s).</div>';
+      if(r && r.ok === false){
+        d.innerHTML = '<div class="aviso">⚠️ ' + esc(mensajeAdmin(r)) + '</div>';
+        return;
+      }
+      if(r && r.total !== undefined){
+        var t = '✔ Guardado: ' + r.total + ' guardia(s).';
+        var dx = textoDiff(r.diff);
+        if(dx) t += ' <span style="color:#666">(' + esc(dx) + ')</span>';
+        d.innerHTML = '<div class="info">' + t + '</div>';
+      }
       (lista || []).forEach(function(a){
         d.innerHTML += '<div class="aviso">⚠️ ' + esc(a) + '</div>';
       });
@@ -124,33 +157,46 @@
       document.getElementById("avisos").innerHTML = '<div class="info">Guardando…</div>';
       google.script.run
         .withSuccessHandler(function(r){
-          if(!r.ok){ mostrarAv([r.error || "Error al guardar"]); return; }
+          if(!r || !r.ok){ mostrarAv([], r || {errorCode:"INTERNO", error:"Error al guardar"}); return; }
           mostrarAv(r.avisos || [], r);
-          google.script.run.withSuccessHandler(cargar).listarGuardiasAdmin();
+          google.script.run.withSuccessHandler(cargar).listarGuardiasAdmin(TOKEN);
         })
-        .guardarGuardiasAdmin(recolectar());
+        .guardarGuardiasAdmin(TOKEN, recolectar());
     }
 
     function derivar(){
-      if(!confirm("Reemplazará las guardias actuales por las de la configuración (Config). ¿Continuar?")) return;
+      if(!confirm("Reemplazará las guardias actuales por las de la configuración (Config C3/C4).\n\nLa tabla actual queda respaldada y se restaurará si la escritura falla.\n\n¿Continuar?")) return;
       document.getElementById("avisos").innerHTML = '<div class="info">Derivando…</div>';
       google.script.run
         .withSuccessHandler(function(r){
-          if(!r.ok){ mostrarAv([r.error || "Error"]); return; }
+          if(!r || !r.ok){ mostrarAv([], r || {errorCode:"INTERNO", error:"Error"}); return; }
           mostrarAv(r.avisos || [], r);
-          google.script.run.withSuccessHandler(cargar).listarGuardiasAdmin();
+          google.script.run.withSuccessHandler(cargar).listarGuardiasAdmin(TOKEN);
         })
-        .derivarGuardiasDesdeConfig();
+        .derivarGuardiasDesdeConfig(TOKEN);
+    }
+
+    function generarHoja(){
+      document.getElementById("avisos").innerHTML = '<div class="info">Generando calendario de guardias (Sheet)…</div>';
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(!r || !r.ok){ mostrarAv([], r || {errorCode:"INTERNO", error:"No se pudo generar"}); return; }
+          var d = document.getElementById("avisos");
+          d.innerHTML = '<div class="info">📄 Calendario listo (' + esc(r.estado === "actualizado" ? "período actualizado" : "creado") + '): ' +
+            '<a href="' + esc(r.url) + '" target="_blank">abrir documento</a></div>';
+        })
+        .generarHojaGuardias(null, TOKEN);
     }
 
     function cargar(o){
       if(!o || !o.ok){
         document.getElementById("avisos").innerHTML =
-          '<div class="aviso">⚠️ ' + esc((o && o.error) || "No se pudo leer la hoja") + '</div>';
+          '<div class="aviso">⚠️ ' + esc(o ? mensajeAdmin(o) : "No se pudo leer la hoja") + '</div>';
         return;
       }
       document.getElementById("sub").innerHTML =
-        'Fuente: <span class="badge ' + (o.fuente === "programadas" ? "b-pgm" : "b-leg") + '">' +
+        'Administrador: <strong>' + esc(ADMIN) + '</strong>' +
+        ' · Fuente: <span class="badge ' + (o.fuente === "programadas" ? "b-pgm" : "b-leg") + '">' +
         (o.fuente === "programadas" ? "guardias programadas (hoja)" : "legado (Config)") + '</span>' +
         ' · Total: ' + o.total;
       var d = document.getElementById("avisos");
@@ -161,7 +207,7 @@
       render(o.guardias);
     }
 
-    google.script.run.withSuccessHandler(cargar).listarGuardiasAdmin();
+    google.script.run.withSuccessHandler(cargar).listarGuardiasAdmin(TOKEN);
   </script>
 </body>
 </html>

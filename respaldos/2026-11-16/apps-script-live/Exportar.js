@@ -1,0 +1,729 @@
+//════════════════════════════════════════════════════════════════
+// EXPORTAR CALENDARIO → GOOGLE SHEET (no PDF)
+//
+// Replica la estructura y el estilo visual de
+// Formato_calendario_guardia_xlsx.py (formato de referencia):
+//   • Título: "Guardia Nocturna (dd de MES al dd de MES del YYYY)"
+//     — desde el inicio de la primera guardia hasta el fin de la última.
+//   • Encabezado de 2 filas, 5 subcolumnas por día:
+//       Fecha Guardia | Cumple (Si | No) | Cubre (x2)
+//   • Bloques semanales de 7 días cívicos:
+//       semana de GUARDIA → fila de día roja  (#C00000 / fondo #F8CBAD)
+//       semana de DESCANSO → fila de día azul (#2E74B5 / fondo #DDEBF7)
+//       por bloque: OBAC · Maquinista · VOLUNTARIOS · Oficial de
+//   • Asistencia precargada por persona/fecha:
+//       C → "X" en Si · NC → "X" en No · R → "X" en primer Cubre · P → "P" en Si
+//   • Fechas SIEMPRE cívicas (Date.UTC): inmunes a cambios de hora/DST.
+//
+// Separación DATOS vs PRESENTACIÓN:
+//   _modeloHojaGuardias() y los helpers _* son PURAS (testeables en Node).
+//   generarHojaGuardias() solo orquesta servicios de Apps Script:
+//   leer datos → SpreadsheetApp.create() → aplicar modelo → carpeta Drive.
+//
+// OBAC queda pendiente de forma explícita si no existe una fuente validada.
+// Oficial de Semana conserva una fuente y semántica independientes.
+// (cargos `voluntario`/`maquinista`). La estructura queda preparada para
+// incorporarlos vía _oficialesPosibles() cuando exista la fuente.
+//════════════════════════════════════════════════════════════════
+
+var _CARPETA_CALENDARIOS = "Calendario de Guardias";
+var _HOJA_NOMBRE = "Calendario Guardia";
+var _HOJA_META = "__calendario_meta__";
+var _PROP_PREFIJO = "CAL_GUARDIA_ARCHIVO_";
+var _PROP_ARCHIVO_ACUMULATIVO = "CAL_GUARDIA_ARCHIVO_ACUMULATIVO";
+var _NOMBRE_ARCHIVO_ACUMULATIVO = "Calendario de Guardias - Acumulativo";
+
+var _COL_LABEL = 1;
+var _N_DIAS = 7;
+var _N_SUB = 5; // Fecha Guardia | Cumple-Si | Cumple-No | Cubre | Cubre
+var _TOTAL_COLS = _COL_LABEL + _N_DIAS * _N_SUB; // 36
+
+var _MESES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
+                 "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+var _DIAS_ES = ["DOMINGO", "LUNES", "MARTES", "MI\u00C9RCOLES", "JUEVES", "VIERNES", "S\u00C1BADO"];
+
+var _C_ROJO_HDR = "#C00000";
+var _C_ROJO_BG = "#F8CBAD";
+var _C_AZUL_HDR = "#2E74B5";
+var _C_AZUL_BG = "#DDEBF7";
+var _C_AMARILLO = "#FFFF00";
+var _C_BLANCO = "#FFFFFF";
+var _C_NEGRO = "#000000";
+var _FONT = "Calibri";
+
+//────────────────────────────────────────────
+// HELPERS CÍVICOS (puros)
+//────────────────────────────────────────────
+
+function _formatFechaLarga(key) {
+  var fp = fechaPartesDe(key);
+  if (!fp) return key;
+  var cap = _MESES_ES[fp.m - 1];
+  return fp.d + " de " + cap.charAt(0).toUpperCase() + cap.slice(1);
+}
+function _formatFechaLargaCorto(key) {
+  var fp = fechaPartesDe(key);
+  if (!fp) return key;
+  return fp.d + " de " + _MESES_ES[fp.m - 1];
+}
+function _formatFechaCorta(key) {
+  var fp = fechaPartesDe(key);
+  if (!fp) return key;
+  return pad2(fp.d) + "-" + pad2(fp.m) + "-" + pad2(fp.y % 100);
+}
+function _diaSemana(key) {
+  var fp = fechaPartesDe(key);
+  if (!fp) return "";
+  return _DIAS_ES[new Date(Date.UTC(fp.y, fp.m - 1, fp.d)).getUTCDay()];
+}
+function _ordenarGuardiasPorInicio(guardias) {
+  return guardias.slice().sort(function(a, b) {
+    return a.inicio < b.inicio ? -1 : a.inicio > b.inicio ? 1 : 0;
+  });
+}
+// Conversión de unidades: el formato original (.xlsx) define los anchos en
+// "caracteres" de Excel; Google Sheets los espera en píxeles.
+// Fórmula estándar (fuente Calibri 11): px ≈ ancho × 7 + 5.
+function _pxDesdeAnchoXls(w) {
+  return Math.round(w * 7 + 5);
+}
+// Los altos del .xlsx vienen en puntos (openpyxl); Sheets espera píxeles.
+// px = pt × 96/72
+function _pxDesdePunto(pt) {
+  return Math.round(pt * 96 / 72);
+}
+function _tituloHojaDesde(guardias) {
+  if (!guardias.length) return "";
+  var inicio = guardias[0].inicio;
+  var fin = _finCalendario(guardias);
+  return "Guardia Nocturna (" + _formatFechaLarga(inicio) + " al " +
+         _formatFechaLargaCorto(fin) + " del " + fechaPartesDe(fin).y + ")";
+}
+function _nombreArchivoGuardias(guardias) {
+  if (!guardias.length) return "Calendario de Guardias";
+  return "Calendario de Guardias - " + _formatFechaCorta(guardias[0].inicio) +
+         " a " + _formatFechaCorta(_finCalendario(guardias));
+}
+
+//────────────────────────────────────────────
+// MODELO PURA DE LA HOJA (testeable en Node)
+//────────────────────────────────────────────
+
+// Días del calendario: primer inicio → último fin + la semana de receso que
+// sigue a la última guardia (patrón G-D-G-D del formato de referencia, p. ej.
+// 31/08 al 27/09). Cada 7 días cierra un bloque semanal completo.
+function _diasCalendario(guardias) {
+  var orden = _ordenarGuardiasPorInicio(guardias);
+  var dias = [];
+  if (!orden.length) return dias;
+  var inicio = orden[0].inicio;
+  var fin = sumarDiasCivil(orden[orden.length - 1].fin, _N_DIAS);
+  for (var k = inicio; k <= fin; k = sumarDiasCivil(k, 1)) {
+    dias.push({ key: k, nombre: _diaSemana(k), corta: _formatFechaCorta(k), esGuardia: esDiaGuardiaEn(orden, k) });
+  }
+  return dias;
+}
+
+// Última fecha cubierta por la hoja (calendario con semanas completas).
+function _finCalendario(guardias) {
+  var dias = _diasCalendario(guardias);
+  if (!dias.length) return "";
+  return dias[dias.length - 1].key;
+}
+
+// "YYYY_MM" del mes al que pertenece una fecha cívica (key YYYY-MM-DD).
+function _claveAñoMes(fechaKey) {
+  var fp = fechaPartesDe(fechaKey);
+  return fp ? (fp.y + "_" + pad2(fp.m)) : "????_??";
+}
+
+// Identificador ESTABLE del período: mes en que termina el calendario cubierto.
+// Ej.: 31/08→27/09 → "CALENDARIO_GUARDIAS_2026_09". Es la llave que permite
+// reutilizar el mismo archivo al regenerar el mismo período y separar meses.
+function _periodoClave(guardias) {
+  var orden = _ordenarGuardiasPorInicio(guardias);
+  if (!orden.length) return "";
+  return "CALENDARIO_GUARDIAS_" + _claveAñoMes(_finCalendario(orden));
+}
+
+// Bloques de 7 días (guardia / descanso) tal como se pintan en la hoja.
+function _bloquesCalendario(guardias) {
+  var dias = _diasCalendario(guardias);
+  var bloques = [];
+  for (var b = 0; b < dias.length; b += _N_DIAS) {
+    var bloque = dias.slice(b, b + _N_DIAS);
+    if (!bloque.length) continue;
+    bloques.push({ inicio: bloque[0].key, fin: bloque[bloque.length - 1].key, esGuardia: bloque[0].esGuardia });
+  }
+  return bloques;
+}
+
+function _modeloHojaGuardias(guardias, personas, asisEstado, oficiales, obacPorDia) {
+  if (!guardias || !guardias.length) {
+    return { ok: false, error: "No existen guardias programadas para generar." };
+  }
+  var orden = _ordenarGuardiasPorInicio(guardias);
+  var dias = _diasCalendario(orden);
+  if (!dias.length) return { ok: false, error: "No existen guardias programadas para generar." };
+
+  var bloques = [];
+  for (var b = 0; b < dias.length; b += _N_DIAS) bloques.push(dias.slice(b, b + _N_DIAS));
+
+  var porDia = (oficiales && oficiales.porDia) || {};
+  obacPorDia = obacPorDia || {};
+  var notaOficial = (oficiales && oficiales.nota) || "No existe fuente de datos suficiente para determinar el oficial.";
+
+  var GRID = [];
+  var merges = [];
+  var estilos = [];
+  var indice = {};
+  var altoFilas = { 1: _pxDesdePunto(22), 3: _pxDesdePunto(15), 4: _pxDesdePunto(15) };
+
+  function setVal(r, c, v) {
+    if (!GRID[r - 1]) GRID[r - 1] = [];
+    GRID[r - 1][c - 1] = v;
+  }
+  function addMerge(r1, c1, r2, c2) { merges.push({ r1: r1, c1: c1, r2: r2, c2: c2 }); }
+  function addStyle(s) { estilos.push(s); }
+  function baseDia(i) { return _COL_LABEL + 1 + i * _N_SUB; }
+
+  // ── Título
+  setVal(1, 1, _tituloHojaDesde(orden));
+  addMerge(1, 1, 1, _TOTAL_COLS);
+  addStyle({ r1: 1, c1: 1, r2: 1, c2: _TOTAL_COLS, bold: true, size: 13, align: "center", valign: "middle", wrap: true });
+  altoFilas[1] = _pxDesdePunto(22);
+
+  // ── Encabezado general (una sola vez), filas 3 y 4
+  addMerge(3, 1, 4, 1);
+  for (var d = 0; d < _N_DIAS; d++) {
+    var base = baseDia(d);
+    addMerge(3, base, 4, base);
+    setVal(3, base, "Fecha\nGuardia");
+    addStyle({ r1: 3, c1: base, r2: 4, c2: base, bold: true, size: 8, align: "center", valign: "middle", wrap: true });
+    addMerge(3, base + 1, 3, base + 2);
+    setVal(3, base + 1, "Cumple");
+    addStyle({ r1: 3, c1: base + 1, r2: 3, c2: base + 2, bold: true, size: 8, align: "center", valign: "middle" });
+    setVal(4, base + 1, "Si");
+    setVal(4, base + 2, "No");
+    addStyle({ r1: 4, c1: base + 1, r2: 4, c2: base + 2, bold: true, size: 8, align: "center", valign: "middle" });
+    addMerge(3, base + 3, 3, base + 4);
+    setVal(3, base + 3, "Cubre");
+    addStyle({ r1: 3, c1: base + 3, r2: 3, c2: base + 4, bold: true, size: 8, align: "center", valign: "middle" });
+  }
+
+  // anchos de columna en PÍXELES (equivalente al .xlsx: etiqueta 11 · 15 · 4,2)
+  var anchoColumnas = {};
+  anchoColumnas[_COL_LABEL] = _pxDesdeAnchoXls(11);
+  for (var d2 = 0; d2 < _N_DIAS; d2++) {
+    var b2 = baseDia(d2);
+    anchoColumnas[b2] = _pxDesdeAnchoXls(15);
+    anchoColumnas[b2 + 1] = _pxDesdeAnchoXls(4.2);
+    anchoColumnas[b2 + 2] = _pxDesdeAnchoXls(4.2);
+    anchoColumnas[b2 + 3] = _pxDesdeAnchoXls(4.2);
+    anchoColumnas[b2 + 4] = _pxDesdeAnchoXls(4.2);
+  }
+
+  function maqDe(dd) { return (personas[dd.key] || []).filter(function(p) { return p.esMaq; }); }
+  function volsDe(dd) { return (personas[dd.key] || []).filter(function(p) { return !p.esMaq; }); }
+
+  function filaDatosPersona(r, i, dd, lista, bg) {
+    var base = baseDia(i);
+    addStyle({ r1: r, c1: base, r2: r, c2: base, bg: bg, size: 8, align: "center", valign: "middle", wrap: true });
+    addStyle({ r1: r, c1: base + 1, r2: r, c2: base + _N_SUB - 1, bg: bg, size: 8, align: "center", valign: "middle", bold: true });
+    var Si = "", No = "", Cubre1 = "", Cubre2 = "";
+    lista.forEach(function(p) {
+      var est = asisEstado[p.email + "|" + dd.key];
+      if (est === "C") Si = "X";
+      else if (est === "NC") No = "X";
+      else if (est === "R") Cubre1 = "X";
+      else if (est === "P") Si = "P";
+    });
+    setVal(r, base, lista.map(function(p) { return p.nombre; }).join(", ") || "");
+    setVal(r, base + 1, Si);
+    setVal(r, base + 2, No);
+    setVal(r, base + 3, Cubre1);
+    setVal(r, base + 4, Cubre2);
+  }
+
+  // ── Bloques semanales
+  var row = 5;
+  bloques.forEach(function(bloque) {
+    var roja = !!bloque[0].esGuardia;
+    var hdr = roja ? _C_ROJO_HDR : _C_AZUL_HDR;
+    var bg = roja ? _C_ROJO_BG : _C_AZUL_BG;
+    var maxVol = 1;
+    bloque.forEach(function(dd) { var v = volsDe(dd); if (v.length > maxVol) maxVol = v.length; });
+
+    var rDia = row, rObac = row + 1, rMaq = row + 2, rVol0 = row + 3;
+    var rOf = row + 3 + maxVol;
+
+    // fila de día
+    bloque.forEach(function(dd, i) {
+      var base = baseDia(i);
+      addMerge(rDia, base, rDia, base + _N_SUB - 1);
+      setVal(rDia, base, dd.nombre + "\n" + dd.corta);
+      addStyle({ r1: rDia, c1: base, r2: rDia, c2: base + _N_SUB - 1, bg: hdr, bold: true, size: 8, color: _C_BLANCO, align: "center", valign: "middle", wrap: true });
+    });
+    altoFilas[rDia] = _pxDesdePunto(20);
+
+    var volRows = [];
+    for (var v = 0; v < maxVol; v++) volRows.push(rVol0 + v);
+
+    bloque.forEach(function(dd, i) { indice[dd.key] = { dia: rDia, obac: rObac, maq: rMaq, vol: volRows, oficial: rOf, roja: roja, inicio: bloque[0].key }; });
+
+    // OBAC: asignación validada o pendiente explícito; nunca celda vacía.
+    setVal(rObac, _COL_LABEL, "OBAC");
+    addStyle({ r1: rObac, c1: _COL_LABEL, r2: rObac, c2: _COL_LABEL, bold: true, size: 8, align: "left", valign: "middle" });
+    for (var i2 = 0; i2 < _N_DIAS; i2++) {
+      var b3 = baseDia(i2);
+      var diaObac = bloque[i2] && obacPorDia[bloque[i2].key];
+      var asignado = diaObac && (diaObac.estado === "ASIGNADO_AUTOMATICO" || diaObac.estado === "ASIGNADO_MANUAL") && diaObac.nombrePresentacion;
+      setVal(rObac, b3, asignado ? diaObac.nombrePresentacion : "PENDIENTE DE ASIGNACIÓN");
+      addStyle({ r1: rObac, c1: b3, r2: rObac, c2: b3 + _N_SUB - 1, bg: asignado ? bg : _C_AMARILLO, size: 8, align: "center", valign: "middle", wrap: true, bold: !asignado });
+    }
+
+    // Maquinista
+    setVal(rMaq, _COL_LABEL, "Maquinista");
+    addStyle({ r1: rMaq, c1: _COL_LABEL, r2: rMaq, c2: _COL_LABEL, bold: true, size: 8, align: "left", valign: "middle" });
+    bloque.forEach(function(dd, i) { filaDatosPersona(rMaq, i, dd, maqDe(dd), bg); });
+
+    // Voluntarios (etiqueta vertical; 1 fila por voluntario máximo del bloque)
+    addMerge(rVol0, _COL_LABEL, rVol0 + maxVol - 1, _COL_LABEL);
+    setVal(rVol0, _COL_LABEL, "VOLUNTARIOS");
+    addStyle({ r1: rVol0, c1: _COL_LABEL, r2: rVol0 + maxVol - 1, c2: _COL_LABEL, bold: true, size: 8, align: "center", valign: "middle", rotate: 90, wrap: true });
+    for (var v2 = 0; v2 < maxVol; v2++) {
+      var rv = rVol0 + v2;
+      bloque.forEach(function(dd, i) {
+        var lista2 = volsDe(dd);
+        filaDatosPersona(rv, i, dd, lista2[v2] ? [lista2[v2]] : [], bg);
+      });
+    }
+
+    // Oficial de (dato del bloque; hoy sin fuente → en blanco)
+    setVal(rOf, _COL_LABEL, "Oficial de Semana:");
+    addStyle({ r1: rOf, c1: _COL_LABEL, r2: rOf, c2: _COL_LABEL, bold: true, size: 8, align: "left", valign: "middle", bg: _C_AMARILLO });
+    var nombreOf = "";
+    bloque.forEach(function(dd) { if (!nombreOf && porDia[dd.key]) nombreOf = porDia[dd.key]; });
+    addMerge(rOf, _COL_LABEL + 1, rOf, _TOTAL_COLS);
+    setVal(rOf, _COL_LABEL + 1, nombreOf);
+    addStyle({ r1: rOf, c1: _COL_LABEL + 1, r2: rOf, c2: _TOTAL_COLS, bold: true, size: 9, align: "left", valign: "middle", bg: _C_AMARILLO });
+
+    row = rOf + 1;
+  });
+
+  var totalFilas = GRID.length;
+  for (var ir = 1; ir <= totalFilas; ir++) {
+    if (!GRID[ir - 1]) GRID[ir - 1] = [];
+    for (var ic = 1; ic <= _TOTAL_COLS; ic++) {
+      if (GRID[ir - 1][ic - 1] === undefined) GRID[ir - 1][ic - 1] = "";
+    }
+  }
+
+  return {
+    ok: true,
+    nombre: _nombreArchivoGuardias(orden),
+    titulo: _tituloHojaDesde(orden),
+    valores: GRID,
+    merges: merges,
+    estilos: estilos,
+    indice: indice,
+    anchoColumnas: anchoColumnas,
+    altoFilas: altoFilas,
+    freezeRows: 4,
+    freezeCols: 1,
+    areaBorde: { r1: 1, c1: 1, r2: totalFilas, c2: _TOTAL_COLS },
+    notaOficial: notaOficial
+  };
+}
+
+// Expande el mapa de oficiales por SEMANA (lunes de inicio) a día a día del bloque.
+// Ej.: { "2026-09-14": "102" } → 14..20/09 quedan asignados a "102".
+function _porDiaDesdeOficialesSemana(guardias, oficialesSemana) {
+  var porDia = {};
+  if (!oficialesSemana) return porDia;
+  (guardias || []).forEach(function(g) {
+    var nombre = String(oficialesSemana[g.inicio] || "").trim();
+    if (!nombre) return;
+    for (var k = g.inicio; k <= g.fin; k = sumarDiasCivil(k, 1)) porDia[k] = nombre;
+  });
+  return porDia;
+}
+
+// Oficial de guardia a partir de registros con cargo "oficial".
+// Hoy no existe ese cargo → porDia vacío y nota informativa.
+function _oficialesPosibles(guardias, registros) {
+  var porDia = {};
+  (registros || []).forEach(function(r) {
+    var cargo = String(r.cargo || "").toLowerCase();
+    if (cargo.indexOf("oficial") === -1) return;
+    (r.fechas || []).forEach(function(fecha) {
+      var fp = fechaPartesDe(fecha);
+      if (!fp) return;
+      porDia[fp.y + "-" + pad2(fp.m) + "-" + pad2(fp.d)] = r.nombre;
+    });
+  });
+  return {
+    porDia: porDia,
+    nota: Object.keys(porDia).length ? "" : "No existe fuente de datos suficiente para determinar el oficial."
+  };
+}
+
+//────────────────────────────────────────────
+// ORQUESTADOR SERVER (Apps Script)
+//────────────────────────────────────────────
+
+function generarHojaGuardias(oficialesSemana) {
+  var auth = autorizarAdmin_();
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: "Acceso administrativo no autorizado." };
+  return _generarHojaGuardiasInterna_(oficialesSemana, true);
+}
+
+function _generarHojaGuardiasInterna_(oficialesSemana, crearSiFalta) {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var guardias = _ordenarGuardiasPorInicio(obtenerGuardias().guardias);
+    if (!guardias.length) {
+      return { ok: false, error: "No existen guardias programadas para generar." };
+    }
+    var inicio = guardias[0].inicio;
+    var fin = guardias[guardias.length - 1].fin;
+
+    var registros = leerFilasGuardias();
+    var personas = {};
+    registros.forEach(function(f) {
+      var esMaq = String(f.cargo || "").toLowerCase().indexOf("maquinista") !== -1;
+      var esVol = String(f.cargo || "").toLowerCase().indexOf("voluntario") !== -1;
+      if (!esMaq && !esVol) return;
+      (f.fechas || []).forEach(function(fecha) {
+        var fp = fechaPartesDe(fecha);
+        if (!fp) return;
+        var keyF = fp.y + "-" + pad2(fp.m) + "-" + pad2(fp.d);
+        if (keyF < inicio || keyF > fin) return;
+        if (!personas[keyF]) personas[keyF] = [];
+        var ya = personas[keyF].some(function(p) { return p.email === f.email; });
+        if (ya) return;
+        personas[keyF].push({ nombre: f.nombre, email: f.email, nivel: f.nivel || "INICIAL", esMaq: esMaq, esVol: esVol });
+      });
+    });
+
+    // Asistencia: email|fecha → estado (C/P/NC/R)
+    var asisEstado = {};
+    try {
+      var asisSh = ss.getSheetByName("Asistencia");
+      if (asisSh) {
+        var asisData = asisSh.getDataRange().getValues();
+        var asisByEmail = {};
+        for (var i = 1; i < asisData.length; i++) {
+          var em = String(asisData[i][0] || "").trim().toLowerCase();
+          if (em) asisByEmail[em] = asisData[i];
+        }
+        registros.forEach(function(f) {
+          var rowA = asisByEmail[f.email];
+          if (!rowA) return;
+          (f.fechas || []).forEach(function(fecha, gi) {
+            var fp = fechaPartesDe(fecha);
+            if (!fp) return;
+            var keyF = fp.y + "-" + pad2(fp.m) + "-" + pad2(fp.d);
+            if (keyF < inicio || keyF > fin) return;
+            var est = String(rowA[3 + gi * 3] || "").trim();
+            if (est) asisEstado[f.email + "|" + keyF] = est;
+          });
+        });
+      }
+    } catch (e) { Logger.log("generarHojaGuardias/asistencia: " + e); }
+
+    var porDia = _porDiaDesdeOficialesSemana(_bloquesCalendario(guardias), oficialesSemana);
+    var porDiaAuto = _oficialesPosibles(guardias, registros).porDia;
+    Object.keys(porDiaAuto).forEach(function(k) { if (!porDia[k]) porDia[k] = porDiaAuto[k]; });
+    var oficiales = {
+      porDia: porDia,
+      nota: Object.keys(porDia).length ? "" : "No existe fuente de datos suficiente para determinar el oficial."
+    };
+    // Adapter privado: si el puente mínimo autorizado no está disponible,
+    // resolverObacParaCalendario devuelve pendiente para cada fecha.
+    var obacPorDia = resolverObacParaCalendario(personas);
+    var modelo = _modeloHojaGuardias(guardias, personas, asisEstado, oficiales, obacPorDia);
+    if (!modelo.ok) return { ok: false, error: modelo.error };
+
+    var clave = _periodoClave(guardias);
+    var archivo = _buscarCalendarioAcumulativo_();
+
+    var estado;
+    if (archivo) {
+      // Un único documento conserva todos los períodos; solo se reconstruye
+      // la pestaña del ciclo activo y las anteriores permanecen disponibles.
+      _actualizarPestanaAcumulativa_(archivo, clave, guardias, modelo);
+      try { DriveApp.getFileById(archivo.getId()).setName(_NOMBRE_ARCHIVO_ACUMULATIVO); } catch (eNombre) {}
+      estado = "actualizado";
+    } else {
+      if (!crearSiFalta) return { ok: false, errorCode: "CALENDARIO_NO_CONFIGURADO" };
+      archivo = SpreadsheetApp.create(_NOMBRE_ARCHIVO_ACUMULATIVO);
+      var sheet = archivo.getSheets()[0];
+      try {
+        sheet.setName(_nombrePestanaPeriodo_(guardias));
+        _prepararHojaModelo_(sheet, modelo);
+        _metaGuardarAcumulativo_(archivo, clave, sheet.getName());
+        PropertiesService.getScriptProperties().setProperty(_PROP_ARCHIVO_ACUMULATIVO, archivo.getId());
+      } catch (eCreate) {
+        // Evitar archivos huérfanos a medio construir.
+        try { DriveApp.getFileById(archivo.getId()).setTrashed(true); } catch (eTrash) {}
+        throw eCreate;
+      }
+      estado = "creado";
+    }
+
+    var ubicacion = "Raíz de Google Drive";
+    try {
+      _moverACarpetaCalendarios(archivo);
+      ubicacion = "Carpeta Drive \"" + _CARPETA_CALENDARIOS + "\"";
+    } catch (e2) {
+      Logger.log("generarHojaGuardias/carpeta (best-effort): " + e2);
+      ubicacion = "Raíz de Google Drive (carpeta \"" + _CARPETA_CALENDARIOS + "\" no disponible: " + e2 + ")";
+    }
+
+    return { ok: true, url: archivo.getUrl(), nombre: _NOMBRE_ARCHIVO_ACUMULATIVO, titulo: modelo.titulo, ubicacion: ubicacion, notaOficial: modelo.notaOficial, clave: clave, estado: estado };
+  } catch (e) {
+    Logger.log("generarHojaGuardias: " + e);
+    return { ok: false, error: "No se pudo generar el calendario de guardias.", detalle: String(e) };
+  }
+}
+
+// Lectura pública de la URL: el archivo destino contiene solo la proyección
+// de calendario y sus propios permisos de visualización; nunca expone la hoja
+// operativa ni el libro de Ayudantía.
+function obtenerCalendarioCompartido() {
+  try {
+    var archivo = _buscarCalendarioAcumulativo_();
+    if (!archivo) return { ok: false, errorCode: "CALENDARIO_NO_CONFIGURADO", error: "El calendario compartido aún no está configurado." };
+    return { ok: true, url: archivo.getUrl(), nombre: _NOMBRE_ARCHIVO_ACUMULATIVO };
+  } catch (e) {
+    return { ok: false, errorCode: "CALENDARIO_NO_DISPONIBLE", error: "No se pudo abrir el calendario compartido." };
+  }
+}
+
+function actualizarCalendarioCompartido_() {
+  try {
+    var id = PropertiesService.getScriptProperties().getProperty(_PROP_ARCHIVO_ACUMULATIVO) || "";
+    if (!id) return { ok: true, omitido: true };
+    return _generarHojaGuardiasInterna_({}, false);
+  } catch (e) {
+    Logger.log("actualizarCalendarioCompartido_: " + e);
+    return { ok: false, error: String(e) };
+  }
+}
+
+// Semanas (bloques de 7 días) para el formulario "Agregar oficial de semana".
+function obtenerOficialSemanas() {
+  try {
+    var bloques = _bloquesCalendario(obtenerGuardias().guardias);
+    if (!bloques.length) {
+      return { ok: false, error: "No existen guardias programadas para generar." };
+    }
+    var semanas = bloques.map(function(b) {
+      return {
+        inicio: b.inicio,
+        fin: b.fin,
+        esGuardia: b.esGuardia,
+        etiqueta: _formatFechaCorta(b.inicio) + " \u2013 " + _formatFechaCorta(b.fin) +
+                   (b.esGuardia ? "" : " (descanso)")
+      };
+    });
+    return { ok: true, semanas: semanas };
+  } catch (e) {
+    Logger.log("obtenerOficialSemanas: " + e);
+    return { ok: false, error: String(e) };
+  }
+}
+
+function _aplicarModelo(sheet, m) {
+  var nf = m.valores.length;
+  if (sheet.getMaxColumns() < _TOTAL_COLS) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), _TOTAL_COLS - sheet.getMaxColumns());
+  }
+  if (sheet.getMaxRows() < nf) {
+    sheet.insertRowsAfter(sheet.getMaxRows(), nf - sheet.getMaxRows());
+  }
+  if (nf && m.valores[0] && m.valores[0].length) {
+    sheet.getRange(1, 1, nf, m.valores[0].length).setValues(m.valores);
+  }
+  m.merges.forEach(function(me) {
+    try { sheet.getRange(me.r1, me.c1, me.r2 - me.r1 + 1, me.c2 - me.c1 + 1).merge(); } catch (e) { Logger.log("merge: " + e); }
+  });
+  m.estilos.forEach(function(s) {
+    try {
+      var rng = sheet.getRange(s.r1, s.c1, s.r2 - s.r1 + 1, s.c2 - s.c1 + 1);
+      if (s.bg) rng.setBackground(s.bg);
+      var f = SpreadsheetApp.newTextStyle();
+      if (s.bold) f.setBold(true);
+      f.setFontFamily(_FONT);
+      f.setFontSize(s.size || 8);
+      if (s.color) f.setForegroundColor(s.color);
+      rng.setTextStyle(f.build());
+      rng.setVerticalAlignment(s.valign || "middle");
+      rng.setHorizontalAlignment(s.align || "center");
+      if (s.wrap) rng.setWrap(true);
+      if (s.rotate) rng.setTextRotation(s.rotate);
+    } catch (e) { Logger.log("estilo: " + e); }
+  });
+  try {
+    sheet.getRange(m.areaBorde.r1, m.areaBorde.c1, m.areaBorde.r2 - m.areaBorde.r1 + 1, m.areaBorde.c2 - m.areaBorde.c1 + 1)
+        .setBorder(true, true, true, true, true, true, _C_NEGRO, SpreadsheetApp.BorderStyle.SOLID);
+  } catch (e) { Logger.log("bordes: " + e); }
+  Object.keys(m.anchoColumnas).forEach(function(c) { sheet.setColumnWidth(parseInt(c, 10), m.anchoColumnas[c]); });
+  Object.keys(m.altoFilas).forEach(function(r) { sheet.setRowHeight(parseInt(r, 10), m.altoFilas[r]); });
+  try { sheet.setFrozenRows(m.freezeRows); } catch (e) { Logger.log("freeze filas: " + e); }
+  try { sheet.setFrozenColumns(m.freezeCols); } catch (e) { Logger.log("freeze columnas: " + e); }
+  _configurarImpresion(sheet);
+}
+
+function _moverACarpetaCalendarios(archivo) {
+  var carpeta = null;
+  var it = DriveApp.getFoldersByName(_CARPETA_CALENDARIOS);
+  if (it.hasNext()) carpeta = it.next();
+  else carpeta = DriveApp.createFolder(_CARPETA_CALENDARIOS);
+  var archivoDrive = DriveApp.getFileById(archivo.getId());
+  archivoDrive.moveTo(carpeta);
+}
+
+//────────────────────────────────────────────
+// CONTROL DEL DOCUMENTO GENERADO (una hoja por período)
+//────────────────────────────────────────────
+
+// Escribe la clave del período dentro del propio documento (hoja oculta).
+function _metaGuardar(ss, clave) {
+  try {
+    var sh = ss.getSheetByName(_HOJA_META);
+    if (!sh) sh = ss.insertSheet(_HOJA_META, ss.getSheets().length);
+    sh.hideSheet();
+    sh.getRange("A1").setValue(clave);
+    sh.getRange("B1").setValue(String(new Date().toISOString()));
+  } catch (e) { Logger.log("meta guardar: " + e); }
+}
+
+function _metaLeer(ss) {
+  try {
+    var sh = ss.getSheetByName(_HOJA_META);
+    if (!sh) return "";
+    return String(sh.getRange("A1").getValue() || "").trim();
+  } catch (e) { return ""; }
+}
+
+function _propGuardar(clave, id) {
+  try { PropertiesService.getScriptProperties().setProperty(_PROP_PREFIJO + clave, id); } catch (e) {}
+}
+function _propLeer(clave) {
+  try { return PropertiesService.getScriptProperties().getProperty(_PROP_PREFIJO + clave) || ""; } catch (e) { return ""; }
+}
+
+function _buscarCalendarioAcumulativo_() {
+  var id = "";
+  try { id = PropertiesService.getScriptProperties().getProperty(_PROP_ARCHIVO_ACUMULATIVO) || ""; } catch (e) {}
+  if (id) {
+    try { return SpreadsheetApp.openById(id); } catch (e2) { Logger.log("calendario acumulativo: referencia inválida"); }
+  }
+  try {
+    var carpetas = DriveApp.getFoldersByName(_CARPETA_CALENDARIOS);
+    if (!carpetas.hasNext()) return null;
+    var archivos = carpetas.next().getFilesByName(_NOMBRE_ARCHIVO_ACUMULATIVO);
+    if (!archivos.hasNext()) return null;
+    var archivo = SpreadsheetApp.openById(archivos.next().getId());
+    PropertiesService.getScriptProperties().setProperty(_PROP_ARCHIVO_ACUMULATIVO, archivo.getId());
+    return archivo;
+  } catch (e3) { return null; }
+}
+
+function _nombrePestanaPeriodo_(guardias) {
+  var orden = _ordenarGuardiasPorInicio(guardias || []);
+  if (!orden.length) return _HOJA_NOMBRE;
+  var a = fechaPartesDe(orden[0].inicio);
+  var b = fechaPartesDe(_finCalendario(orden));
+  var ma = _MESES_ES[a.m - 1].slice(0, 3);
+  var mb = _MESES_ES[b.m - 1].slice(0, 3);
+  return (ma === mb ? ma : ma + "-" + mb) + " " + b.y;
+}
+
+function _prepararHojaModelo_(sheet, modelo) {
+  try { sheet.getDataRange().breakApart(); } catch (e) {}
+  try { sheet.clear(); } catch (e2) {}
+  _aplicarModelo(sheet, modelo);
+}
+
+function _metaGuardarAcumulativo_(ss, clave, nombreHoja) {
+  try {
+    var sh = ss.getSheetByName(_HOJA_META);
+    if (!sh) sh = ss.insertSheet(_HOJA_META, ss.getSheets().length);
+    if (sh.getLastRow() === 0) sh.getRange(1, 1, 1, 3).setValues([["periodo", "hoja", "actualizado_en"]]);
+    var data = sh.getDataRange().getValues();
+    var fila = 0;
+    for (var i = 1; i < data.length; i++) if (String(data[i][0]) === clave) { fila = i + 1; break; }
+    var valores = [[clave, nombreHoja, new Date()]];
+    if (fila) sh.getRange(fila, 1, 1, 3).setValues(valores);
+    else sh.getRange(sh.getLastRow() + 1, 1, 1, 3).setValues(valores);
+    sh.hideSheet();
+  } catch (e) { Logger.log("meta acumulativa: " + e); }
+}
+
+function _actualizarPestanaAcumulativa_(ss, clave, guardias, modelo) {
+  var nombre = _nombrePestanaPeriodo_(guardias);
+  var objetivo = ss.getSheetByName(nombre);
+  if (!objetivo) objetivo = ss.insertSheet(nombre, Math.max(0, ss.getSheets().length - 1));
+  _prepararHojaModelo_(objetivo, modelo);
+  _metaGuardarAcumulativo_(ss, clave, nombre);
+}
+
+// Busca el archivo del período: primero por referencia guardada, luego en la
+// carpeta Drive (por nombre exacto + metadato interno). Devuelve null si no existe.
+function _buscarCalendario(clave, nombre) {
+  var id = _propLeer(clave);
+  if (id) {
+    try {
+      var ss = SpreadsheetApp.openById(id);
+      if (_metaLeer(ss) === clave) return ss;
+    } catch (e) { Logger.log("buscar: referencia inválida, se ignora"); }
+  }
+  try {
+    var it = DriveApp.getFoldersByName(_CARPETA_CALENDARIOS);
+    if (!it.hasNext()) return null;
+    var carpeta = it.next();
+    var archivos = carpeta.getFilesByName(nombre);
+    while (archivos.hasNext()) {
+      var f = archivos.next();
+      try {
+        var ss2 = SpreadsheetApp.openById(f.getId());
+        var meta = _metaLeer(ss2);
+        // Metadato coincide, o archivo nuestro aún sin metadato (versión previa a meta).
+        if (meta === clave || (meta === "" && f.getName() === nombre)) {
+          _propGuardar(clave, f.getId());
+          return ss2;
+        }
+      } catch (e2) { continue; }
+    }
+  } catch (e) { Logger.log("buscar: carpeta no disponible"); }
+  return null;
+}
+
+// Actualiza el archivo existente para que represente exactamente la última
+// generación (sin datos/merges/estilos viejos ni filas sobrantes).
+function _reconstruirCalendario(ss, nombre, modelo) {
+  var objetivo = null;
+  ss.getSheets().forEach(function(h) {
+    if (h.getSheetName() === _HOJA_META) return;
+    if (!objetivo) { objetivo = h; } else { try { ss.deleteSheet(h); } catch (e2) { Logger.log("hoja sobrante: " + e2); } }
+  });
+  if (!objetivo) objetivo = ss.insertSheet(_HOJA_NOMBRE, 0);
+  objetivo.activate();
+  objetivo.clear();
+  try { objetivo.setFrozenRows(0); objetivo.setFrozenColumns(0); } catch (e3) {}
+  objetivo.setName(_HOJA_NOMBRE);
+  _aplicarModelo(objetivo, modelo);
+}
+
+function _configurarImpresion(sheet) {
+  // Configuración razonable si luego se imprime la hoja (sin generar PDF).
+  try {
+    var ps = sheet.getPageSetup();
+    try { ps.setOrientation(SpreadsheetApp.PageOrientation.LANDSCAPE); } catch (e2) {}
+    try { ps.setFitToWidth(1); ps.setFitToHeight(0); } catch (e3) {}
+    try { ps.setMarginTop(0.3); ps.setMarginBottom(0.3); ps.setMarginLeft(0.3); ps.setMarginRight(0.3); } catch (e4) {}
+  } catch (e) { Logger.log("configurarImpresion: " + e); }
+}

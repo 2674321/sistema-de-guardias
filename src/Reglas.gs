@@ -47,12 +47,273 @@ function consumeCupoOperativo(nivel) {
   return REGLAS.nivelesCupoOperativo.indexOf(nivel) !== -1;
 }
 
+// Una persona puede aparecer en más de una fila histórica del mismo período.
+// Para disponibilidad y exportación cuenta una sola vez por día. Solo se
+// deduplica cuando existe una identidad estable (correo); filas sin correo se
+// conservan para no fusionar personas por nombre.
+function deduplicarGuardiasPorEmail(filas) {
+  var vistos = {};
+  return (filas || []).filter(function(f) {
+    var email = normalizarTextoIdentidad(f && f.email);
+    if (!email) return true;
+    if (vistos[email]) return false;
+    vistos[email] = true;
+    return true;
+  });
+}
+
 //══════════════════════════════════════════
 // VALIDADORES Y RESOLUTORES PUROS
 //══════════════════════════════════════════
 
 function esEmailValido(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email == null ? "" : email).trim());
+}
+
+//══════════════════════════════════════════
+// AUTORIZACIÓN DE IDENTIDAD Y ROL — núcleo puro
+//
+// El navegador solo declara una intención. La autorización se resuelve con
+// un registro institucional leído por el servidor. Ante datos incompletos,
+// duplicados o contradictorios se falla de forma segura.
+//══════════════════════════════════════════
+
+function normalizarTextoIdentidad(valor) {
+  return String(valor == null ? "" : valor).trim().toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function valorAfirmativo(valor) {
+  var v = normalizarTextoIdentidad(valor);
+  return v === "si" || v === "s" || v === "1" || v === "true" || v === "activo" || v === "habilitado";
+}
+
+function _nivelAutorizadoSuficiente(nivelFuente, nivelSolicitado) {
+  var orden = { INICIAL: 0, OPERATIVO: 1, PROFESIONAL: 2 };
+  var fuente = normalizarNivel(nivelFuente);
+  var pedido = normalizarNivel(nivelSolicitado);
+  return fuente !== null && pedido !== null && orden[fuente] >= orden[pedido];
+}
+
+// Adapta el historial ya validado de Guardias al contrato de habilitaciones.
+// Se conserva solo el registro más reciente de cada correo. Esta ruta existe
+// para libros antiguos cuyo padrón Voluntarios aún no incluye Email/Nivel;
+// no intenta unir personas por nombre ni habilita correos nuevos.
+function construirPadronCompatibilidadGuardias(filas) {
+  var porEmail = {};
+  (filas || []).forEach(function(f) {
+    var email = normalizarTextoIdentidad(f && f.email);
+    if (!email || !esEmailValido(email)) return;
+    porEmail[email] = {
+      personaId: "guardias:" + email,
+      email: email,
+      nombre: String(f.nombre || "").trim(),
+      activo: "Si",
+      categoria: "Voluntario",
+      cargo: String(f.cargo || "").trim(),
+      nivel: f.nivel || f.nivelRaw || "",
+      maquinista: normalizarTextoIdentidad(f.cargo).indexOf("maquinista") !== -1 ? "Si" : "No",
+      fuente: "HISTORICO_GUARDIAS"
+    };
+  });
+  return Object.keys(porEmail).sort().map(function(email) { return porEmail[email]; });
+}
+
+// personas: [{email,nombre,activo,categoria,cargo,nivel,maquinista}]
+// solicitud: {email,nombre,cargo,nivel}
+// No compara por nombre: un nombre visible no es identidad estable.
+function evaluarHabilitacionRegistro(personas, solicitud) {
+  solicitud = solicitud || {};
+  var email = normalizarTextoIdentidad(solicitud.email);
+  var cargo = normalizarTextoIdentidad(solicitud.cargo);
+  var nivel = normalizarNivel(solicitud.nivel);
+  var salidaBase = { ok: false, estado: "REQUIERE_VALIDACION", codigo: "HABILITACION_NO_VERIFICADA" };
+
+  if (!email || !esEmailValido(email)) {
+    salidaBase.codigo = "IDENTIDAD_INVALIDA";
+    return salidaBase;
+  }
+  if (cargo !== "voluntario" && cargo !== "maquinista") {
+    salidaBase.codigo = "ROL_INVALIDO";
+    return salidaBase;
+  }
+  if (nivel === null) {
+    salidaBase.codigo = "NIVEL_INVALIDO";
+    return salidaBase;
+  }
+
+  var coincidencias = (personas || []).filter(function(p) {
+    return normalizarTextoIdentidad(p && p.email) === email;
+  });
+  if (coincidencias.length !== 1) {
+    salidaBase.codigo = coincidencias.length > 1 ? "IDENTIDAD_AMBIGUA" : "IDENTIDAD_NO_ENCONTRADA";
+    return salidaBase;
+  }
+
+  var p = coincidencias[0] || {};
+  if (!valorAfirmativo(p.activo)) {
+    salidaBase.codigo = "PERSONA_NO_ACTIVA";
+    return salidaBase;
+  }
+
+  var categoria = normalizarTextoIdentidad(p.categoria);
+  var cargoFuente = normalizarTextoIdentidad(p.cargo);
+  var textoCondicion = categoria + " " + cargoFuente;
+  if (/\b(aspirante|postulante|brigadier|pendiente)\b/.test(textoCondicion)) {
+    salidaBase.codigo = "CONDICION_NO_OPERATIVA";
+    return salidaBase;
+  }
+
+  // El padrón debe acreditar una condición voluntaria; Activo=Si por sí solo
+  // no habilita una guardia operativa.
+  if (textoCondicion.indexOf("voluntario") === -1 && cargoFuente.indexOf("maquinista") === -1) {
+    salidaBase.codigo = "CONDICION_NO_ACREDITADA";
+    return salidaBase;
+  }
+
+  if (cargo === "maquinista") {
+    if (!valorAfirmativo(p.maquinista) && cargoFuente.indexOf("maquinista") === -1) {
+      salidaBase.codigo = "MAQUINISTA_NO_HABILITADO";
+      return salidaBase;
+    }
+  } else if (nivel !== "INICIAL" && !_nivelAutorizadoSuficiente(p.nivel, nivel)) {
+    salidaBase.codigo = "NIVEL_NO_HABILITADO";
+    return salidaBase;
+  }
+
+  return {
+    ok: true,
+    estado: "HABILITADO",
+    codigo: "OK",
+    personaId: String(p.personaId || email),
+    email: normalizarTextoIdentidad(p.email) || email,
+    nombre: String(p.nombre || p.nombrePresentacion || "").trim(),
+    cargo: cargo,
+    nivel: nivel,
+    fuente: String(p.fuente || "PADRON_VOLUNTARIOS")
+  };
+}
+
+//══════════════════════════════════════════
+// OBAC — resolución determinista y segura
+//══════════════════════════════════════════
+
+function _vigenteEnFecha(desde, hasta, fecha) {
+  var f = fechaStrCivil(fecha);
+  if (!f) return false;
+  var d = desde ? fechaStrCivil(desde) : null;
+  var h = hasta ? fechaStrCivil(hasta) : null;
+  return (!d || d <= f) && (!h || h >= f);
+}
+
+// entrada: {fecha,dotacion,nomina,habilitaciones,anclaPersonaId,fuenteTimestamp,versionReglas,permitirMaquinistaObac}
+// La tabla de habilitaciones es obligatoria: el corte de antigüedad limita
+// candidatos, pero nunca concede por sí mismo una autorización individual.
+function resolverObacDia(entrada) {
+  entrada = entrada || {};
+  var fecha = fechaStrCivil(entrada.fecha);
+  var base = {
+    fecha: fecha || String(entrada.fecha || ""),
+    obacId: "",
+    nombrePresentacion: "",
+    estado: "OBAC_PENDIENTE",
+    motivo: "",
+    candidatosEvaluados: 0,
+    fuente: String(entrada.fuente || ""),
+    timestampFuente: String(entrada.fuenteTimestamp || ""),
+    versionReglas: String(entrada.versionReglas || "obac-1")
+  };
+  if (!fecha) { base.motivo = "FECHA_INVALIDA"; return base; }
+  if (!entrada.fuenteTimestamp) { base.motivo = "FUENTE_SIN_TIMESTAMP"; return base; }
+  if (entrada.fuenteVigente === false) { base.motivo = "FUENTE_DESACTUALIZADA"; return base; }
+
+  var nomina = entrada.nomina || [];
+  var anclaId = String(entrada.anclaPersonaId || "");
+  var anclas = nomina.filter(function(n) { return String(n.personaId || "") === anclaId; });
+  if (anclas.length !== 1 || !isFinite(Number(anclas[0].orden))) {
+    base.motivo = anclas.length > 1 ? "ANCLA_AMBIGUA" : "ANCLA_NO_ENCONTRADA";
+    return base;
+  }
+  var ordenCorte = Number(anclas[0].orden);
+  var nominaPorId = {};
+  nomina.forEach(function(n) {
+    var id = String(n.personaId || "");
+    if (!id) return;
+    if (!nominaPorId[id]) nominaPorId[id] = [];
+    nominaPorId[id].push(n);
+  });
+  var habilPorId = {};
+  (entrada.habilitaciones || []).forEach(function(h) {
+    var id = String(h.personaId || "");
+    if (!id || !_vigenteEnFecha(h.vigenteDesde, h.vigenteHasta, fecha)) return;
+    if (!habilPorId[id]) habilPorId[id] = [];
+    habilPorId[id].push(h);
+  });
+
+  var candidatos = [];
+  (entrada.dotacion || []).forEach(function(d) {
+    var id = String(d.personaId || "");
+    if (!id || String(d.identidadEstado || "") !== "VERIFICADA") return;
+    var condicion = normalizarTextoIdentidad(d.condicionInstitucional);
+    if (/aspirante|postulante|brigadier|pendiente/.test(condicion)) return;
+    if (!entrada.permitirMaquinistaObac && normalizarTextoIdentidad(d.rolGuardia).indexOf("maquinista") !== -1) return;
+    var ns = nominaPorId[id] || [];
+    var hs = habilPorId[id] || [];
+    base.candidatosEvaluados++;
+    if (ns.length !== 1 || hs.length !== 1) return;
+    var n = ns[0], h = hs[0];
+    if (!valorAfirmativo(n.activo) || n.vigente === false) return;
+    if (valorAfirmativo(n.esReintegrado) || valorAfirmativo(n.oddPendiente)) return;
+    var orden = Number(n.orden);
+    if (!isFinite(orden) || orden > ordenCorte) return;
+    if (normalizarTextoIdentidad(h.estado) !== "habilitado") return;
+    candidatos.push({ personaId: id, nombre: String(d.nombrePresentacion || n.nombrePresentacion || "").trim(), orden: orden });
+  });
+
+  candidatos.sort(function(a, b) {
+    if (a.orden !== b.orden) return a.orden - b.orden;
+    return a.personaId < b.personaId ? -1 : a.personaId > b.personaId ? 1 : 0;
+  });
+  if (!candidatos.length) { base.motivo = "SIN_CANDIDATO_ELEGIBLE"; return base; }
+  base.obacId = candidatos[0].personaId;
+  base.nombrePresentacion = candidatos[0].nombre;
+  base.estado = "ASIGNADO_AUTOMATICO";
+  base.motivo = "MAYOR_ANTIGUEDAD_ELEGIBLE";
+  return base;
+}
+
+//══════════════════════════════════════════
+// ACTIVIDADES FORMATIVAS — postulantes
+// Separadas de guardias, roles, cupos y asistencia operativa.
+//══════════════════════════════════════════
+
+function evaluarSolicitudFormativa(personas, solicitud) {
+  solicitud = solicitud || {};
+  var email = normalizarTextoIdentidad(solicitud.email);
+  // Para postulantes existe una sola modalidad institucional: guardia formativa
+  // mensual. No es una citación ni un rol operativo.
+  var tipo = "GUARDIA_FORMATIVA";
+  var fechas = (solicitud.fechas || []).map(fechaStrCivil).filter(function(f) { return !!f; });
+  if (!fechas.length || fechas.length !== (solicitud.fechas || []).length || new Set(fechas).size !== fechas.length) {
+    return { ok: false, estado: "REQUIERE_VALIDACION", codigo: "FECHAS_INVALIDAS" };
+  }
+  var ps = (personas || []).filter(function(p) { return normalizarTextoIdentidad(p.email) === email; });
+  if (ps.length !== 1) return { ok: false, estado: "REQUIERE_VALIDACION", codigo: ps.length > 1 ? "IDENTIDAD_AMBIGUA" : "IDENTIDAD_NO_ENCONTRADA" };
+  var p = ps[0];
+  var condicion = normalizarTextoIdentidad(p.condicionInstitucional);
+  if (condicion !== "postulante") return { ok: false, estado: "REQUIERE_VALIDACION", codigo: "CONDICION_NO_POSTULANTE" };
+  if (normalizarTextoIdentidad(p.estado) !== "autorizado") return { ok: false, estado: "REQUIERE_VALIDACION", codigo: "PARTICIPACION_NO_AUTORIZADA" };
+  return {
+    ok: true,
+    estado: "PROGRAMADA",
+    codigo: "OK",
+    personaId: String(p.personaId || ""),
+    nombrePresentacion: String(p.nombrePresentacion || "").trim(),
+    tipoActividad: tipo,
+    fechas: fechas,
+    requiereSupervisor: p.requiereSupervisor !== false
+  };
 }
 
 //══════════════════════════════════════════
@@ -150,7 +411,7 @@ function resolverCantidadGuardias(valor, valorLegado, defecto) {
 
 function contarCupoDia(filas) {
   var r = { maquinistas: 0, operativos: 0 };
-  (filas || []).forEach(function(f) {
+  deduplicarGuardiasPorEmail(filas).forEach(function(f) {
     var cargo = String(f.cargo || "").trim().toLowerCase();
     if (cargo.indexOf("maquinista") !== -1) {
       // Conductor: cuenta SOLO como maquinista, sin importar su nivel.
@@ -456,6 +717,97 @@ function esDiaGuardiaEn(guardias, fechaStr) {
     if (f >= g.inicio && f <= g.fin) return true;
   }
   return false;
+}
+
+//────────────────────────────────────────────
+// AUTORIZACIÓN ADMIN — lógica PURA (testeable en Node).
+// La capa de sesión (Seguridad.gs) solo obtiene email/token y delega aquí.
+// Códigos diferenciados (fail-closed, sin fallback inseguro):
+//   OK · IDENTIDAD_NO_DISPONIBLE · ADMIN_NO_AUTORIZADO · TOKEN_INVALIDO
+//────────────────────────────────────────────
+
+// sesion: {via:"identidad", email:"x@y"} | {via:"token", email:"x@y", valido:bool} | null
+function evaluarAutorizacionAdmin(sesion, listaAdmins) {
+  var lista = (listaAdmins || []).map(function(x){ return String(x||"").trim().toLowerCase(); }).filter(Boolean);
+  if (!sesion) return { ok: false, codigo: "IDENTIDAD_NO_DISPONIBLE" };
+
+  if (sesion.via === "token") {
+    if (!sesion.valido || !sesion.email) return { ok: false, codigo: "TOKEN_INVALIDO" };
+    var et = String(sesion.email).trim().toLowerCase();
+    if (lista.indexOf(et) === -1) return { ok: false, codigo: "ADMIN_NO_AUTORIZADO", email: et };
+    return { ok: true, codigo: "OK", email: et, via: "token" };
+  }
+
+  var email = String(sesion.email || "").trim().toLowerCase();
+  if (!email) return { ok: false, codigo: "IDENTIDAD_NO_DISPONIBLE" };
+  if (lista.indexOf(email) === -1) return { ok: false, codigo: "ADMIN_NO_AUTORIZADO", email: email };
+  return { ok: true, codigo: "OK", email: email, via: "identidad" };
+}
+
+// Ancla del ciclo activo de 28 días. NO es guardias[0] a secas: si la tabla
+// acumula ciclos históricos, el ancla es la guardia ACTIVA que cubre hoy o,
+// si no hay ninguna, la próxima futura; solo como último recurso la primera
+// del listado (histórico puro). Devuelve "YYYY-MM-DD" o "".
+function anclaCicloActual(guardias, hoyKey) {
+  var hoy = fechaStrCivil(hoyKey || "");
+  var activas = (guardias || []).filter(function(g) { return g && g.activa && fechaStrCivil(g.inicio); });
+  if (!activas.length) return "";
+  if (!hoy) return activas[0].inicio;
+
+  // 1) la guardia que cubre hoy (inicio ≤ hoy ≤ fin)
+  for (var i = 0; i < activas.length; i++) {
+    if (hoy >= activas[i].inicio && hoy <= activas[i].fin) return activas[i].inicio;
+  }
+  // 2) la próxima futura
+  for (var j = 0; j < activas.length; j++) {
+    if (activas[j].inicio > hoy) return activas[j].inicio;
+  }
+  // 3) histórico puro: la última activa (la más reciente)
+  return activas[activas.length - 1].inicio;
+}
+
+// Diff declarativo entre dos tablas programadas (para el reporte del guardado).
+// Devuelve { altas:[{id,inicio}], bajas:[{id,inicio}], cambios:[{id,campo,de,a}] }.
+function diffGuardiasProgramadas(anteriores, nuevas) {
+  var idx = {};
+  (anteriores || []).forEach(function(g) {
+    if (g && fechaStrCivil(g.inicio)) idx[g.inicio] = { id: g.id, duracion: g.duracion, activa: !!g.activa };
+  });
+  var r = { altas: [], bajas: [], cambios: [] };
+  var vistosNuevos = {};
+  (nuevas || []).forEach(function(g) {
+    if (!g || !fechaStrCivil(g.inicio)) return;
+    vistosNuevos[g.inicio] = true;
+    var v = idx[g.inicio];
+    if (!v) { r.altas.push({ id: g.id, inicio: g.inicio }); return; }
+    var cambiaDur = Number(v.duracion) !== Number(g.duracion);
+    var cambiaAct = !!v.activa !== !!g.activa;
+    var cambiaId = String(v.id || "") !== String(g.id || "");
+    if (cambiaDur || cambiaAct || cambiaId) {
+      r.cambios.push({
+        id: g.id || v.id, inicio: g.inicio,
+        campos: [
+          cambiaId ? { campo: "id", de: v.id, a: g.id } : null,
+          cambiaDur ? { campo: "duracion", de: v.duracion, a: g.duracion } : null,
+          cambiaAct ? { campo: "activa", de: v.activa, a: !!g.activa } : null
+        ].filter(Boolean)
+      });
+    }
+  });
+  Object.keys(idx).forEach(function(ini) {
+    if (!vistosNuevos[ini]) r.bajas.push({ id: idx[ini].id, inicio: ini });
+  });
+  return r;
+}
+
+// Validación de parámetros de mes/año del calendario. Acepta enteros plausibles
+// (incluidos "07" u otros ceros a la izquierda); rechaza textos y fuera de rango.
+function mesAñoValidos(mes, año) {
+  var m = Number(mes), a = Number(año);
+  var mEnt = mes !== null && mes !== undefined && mes !== "" && isFinite(m) && Math.floor(m) === m;
+  var aEnt = año !== null && año !== undefined && año !== "" && isFinite(a) && Math.floor(a) === a;
+  if (!mEnt || !aEnt) return false;
+  return m >= 1 && m <= 12 && a >= 2000 && a <= 2100;
 }
 
 // Equivalencia del modelo ANTERIOR (Config C3 + C4) → guardias semanales

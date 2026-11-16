@@ -130,7 +130,9 @@ function esDiaDeGuardia(fechaStr) {
 // ADMIN — lectura/escritura de GuardiasProgramadas desde el menú / UI
 //--------------------------------------------------------------------------------
 
-function listarGuardiasAdmin() {
+function listarGuardiasAdmin(token) {
+  var auth = autorizarAdmin_(token);
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: descripcionErrorAdmin_(auth.codigo) };
   try {
     var filas = _leerFilasGuardiasProgramadas();
     var salida = filas.map(function(f) {
@@ -156,7 +158,9 @@ function listarGuardiasAdmin() {
 // datos (evita que obtenerGuardias() la repueble silenciosamente desde el
 // legado Config C3/C4). Para volver a la config, el admin usa
 // derivarGuardiasDesdeConfig().
-function guardarGuardiasAdmin(guardiasRaw) {
+function guardarGuardiasAdmin(token, guardiasRaw) {
+  var auth = autorizarAdmin_(token);
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: descripcionErrorAdmin_(auth.codigo) };
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
     return { ok: false, error: "El sistema está ocupado. Espera unos segundos." };
@@ -175,21 +179,38 @@ function guardarGuardiasAdmin(guardiasRaw) {
     }
     var sh = _asegurarHojaGuardiasProgramadas();
 
-    // Limpiar filas de datos actuales (mantener encabezado) y escribir las nuevas
+    // ── Respaldo previo (en memoria) del estado actual ──
     var ult = sh.getLastRow();
-    if (ult > 1) sh.getRange(2, 1, ult - 1, 4).clearContent();
+    var previas = ult > 1 ? sh.getRange(2, 1, ult - 1, 4).getValues() : [];
+    var modeloPrevio = previas.map(function(f) {
+      var g = guardiaDesdePartes(f[0], f[1], f[3], f[2]);
+      return g ? { id: g.id, inicio: g.inicio, duracion: g.duracion, activa: g.activa } : null;
+    }).filter(Boolean);
+    var diff = diffGuardiasProgramadas(modeloPrevio, normalizada.guardias);
 
-    if (normalizada.guardias.length) {
-      var filas = normalizada.guardias.map(function(g) {
-        return [g.id, g.inicio, g.duracion, g.activa ? "SI" : "NO"];
-      });
-      sh.getRange(2, 1, filas.length, 4).setValues(filas);
+    try {
+      // Limpiar filas de datos actuales (mantener encabezado) y escribir las nuevas
+      if (ult > 1) sh.getRange(2, 1, ult - 1, 4).clearContent();
+
+      if (normalizada.guardias.length) {
+        var filas = normalizada.guardias.map(function(g) {
+          return [g.id, g.inicio, g.duracion, g.activa ? "SI" : "NO"];
+        });
+        sh.getRange(2, 1, filas.length, 4).setValues(filas);
+      }
+    } catch (errEscritura) {
+      // ── Restauración ante fallo entre borrado y confirmación ──
+      Logger.log("guardarGuardiasAdmin: restaurando respaldo tras " + errEscritura);
+      if (ult > 1) sh.getRange(2, 1, ult - 1, 4).clearContent();
+      if (previas.length) sh.getRange(2, 1, previas.length, 4).setValues(previas);
+      return { ok: false, error: "La escritura falló y la tabla fue restaurada al estado anterior: " + errEscritura.message };
     }
 
     invalidarCacheGuardias();
     if (typeof invalidarCacheConfig === "function") invalidarCacheConfig();
+    if (typeof invalidarCacheCalendario === "function") invalidarCacheCalendario();
 
-    return { ok: true, avisos: normalizada.avisos, total: normalizada.guardias.length };
+    return { ok: true, avisos: normalizada.avisos, total: normalizada.guardias.length, diff: diff };
   } catch (e) {
     Logger.log("guardarGuardiasAdmin: " + e);
     return { ok: false, error: e.message };
@@ -200,15 +221,38 @@ function guardarGuardiasAdmin(guardiasRaw) {
 
 // Acción de migración manual: vuelca las guardias legadas (Config C3+C4) de
 // nuevo a la hoja (borrando lo actual). Útil para "restablecer desde Config".
-function derivarGuardiasDesdeConfig() {
+function derivarGuardiasDesdeConfig(token) {
+  var auth = autorizarAdmin_(token);
+  if (!auth.ok) return { ok: false, errorCode: auth.codigo, error: descripcionErrorAdmin_(auth.codigo) };
   try {
     var config = obtenerConfigGeneral();
     var legado = guardiasDesdeLegacy(config.inicio, config.semanas);
-    var res = guardarGuardiasAdmin(legado.guardias);
+    var res = _guardarGuardiasAdminAutorizado_(legado.guardias);
     res.origen = { inicio: fechaStrCivil(config.inicio) || "", semanas: config.semanas };
     return res;
   } catch (e) {
     Logger.log("derivarGuardiasDesdeConfig: " + e);
     return { ok: false, error: e.message };
   }
+}
+
+// Interna para reutilizar la escritura después de una autorización ya hecha.
+function _guardarGuardiasAdminAutorizado_(guardiasRaw) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return { ok: false, error: "El sistema está ocupado. Espera unos segundos." };
+  try {
+    var normalizada = normalizarGuardias((guardiasRaw || []).map(function(f) {
+      return { id: f.id, inicio: f.inicio, duracion: f.duracion, activa: f.activa };
+    }));
+    if (!normalizada.guardias.length) return { ok: false, error: "No se puede guardar una lista vacía o inválida." };
+    var sh = _asegurarHojaGuardiasProgramadas();
+    var ult = sh.getLastRow();
+    if (ult > 1) sh.getRange(2, 1, ult - 1, 4).clearContent();
+    var filas = normalizada.guardias.map(function(g) { return [g.id, g.inicio, g.duracion, g.activa ? "SI" : "NO"]; });
+    sh.getRange(2, 1, filas.length, 4).setValues(filas);
+    invalidarCacheGuardias();
+    if (typeof invalidarCacheConfig === "function") invalidarCacheConfig();
+    if (typeof invalidarCacheCalendario === "function") invalidarCacheCalendario();
+    return { ok: true, avisos: normalizada.avisos, total: normalizada.guardias.length };
+  } finally { try { lock.releaseLock(); } catch (e) {} }
 }

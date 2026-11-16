@@ -46,6 +46,7 @@ function construirMenuAdmin() {
     ]},
     { titulo: "⚙️ Configuración", items: [
       ["Cantidad de guardias…", "configurarCantidadGuardias"],
+      ["👨‍🔐 Administradores del sistema…", "configurarAdministradores"],
       ["Preparar / reparar hoja Config", "prepararConfiguracion"],
       ["Ver configuración actual", "verConfiguracionActual"]
     ]},
@@ -57,6 +58,7 @@ function construirMenuAdmin() {
     ]},
     { titulo: "👨‍🚒 Guardias", items: [
       ["🗓 Guardias programadas…", "gestionarGuardiasProgramadas"],
+      ["📄 Generar calendario de guardias (Sheet)", "generarCalendarioGuardiasMenu"],
       ["📊 Actualizar estadísticas", "actualizarEstadisticasMenu"],
       ["🔎 Diagnóstico de guardias", "diagnosticoGuardias"],
       ["📅 Diagnóstico de calendario", "diagnosticoCalendarioUI"]
@@ -613,11 +615,122 @@ function alternarHojasTecnicas() {
 
 // Panel de Guardias Programadas (fuente única de fechas).
 // Lectura/validación/escritura viven en Guardias.gs:
-//   listarGuardiasAdmin() · guardarGuardiasAdmin(rows) · derivarGuardiasDesdeConfig()
+//   listarGuardiasAdmin(token) · guardarGuardiasAdmin(token, rows) · derivarGuardiasDesdeConfig(token)
+//
+// CONTEXTO CONFIABLE (menú de la hoja): aquí el servidor SÍ puede validar la
+// identidad del administrador; al validarla emite un token de capacidad de
+// corta vida (2 h) que el modal usa para cada llamada. Fail-closed: si la
+// identidad no está disponible o la cuenta no está autorizada, no se abre.
 function gestionarGuardiasProgramadas() {
-  var html = HtmlService.createHtmlOutputFromFile("AdminGuardias")
-    .setWidth(760).setHeight(560);
+  asegurarAdminsSembrados_();
+  var id = _emailActivoSesion_();
+  if (!id.disponible) {
+    SpreadsheetApp.getUi().alert(
+      "🚫 No se pudo verificar tu identidad de Google.\n\n" +
+      "Este panel debe abrirse desde la hoja de cálculo, con tu cuenta de\n" +
+      "administrador iniciada en este navegador. Si acabas de autorizar el\n" +
+      "script, cierra y vuelve a abrir la hoja e inténtalo de nuevo.\n\n" +
+      "La aplicación web pública no puede abrir este panel por seguridad.");
+    return;
+  }
+  var auth = autorizarAdmin_();
+  if (!auth.ok) {
+    SpreadsheetApp.getUi().alert("🚫 " + descripcionErrorAdmin_(auth.codigo) +
+      (auth.email ? "\n\nCuenta detectada: " + auth.email : ""));
+    return;
+  }
+
+  var tpl = HtmlService.createTemplateFromFile("AdminGuardias");
+  tpl.tokenAdmin = emitirTokenAdmin_(auth.email);
+  tpl.correoAdmin = auth.email;
+  var html = tpl.evaluate().setWidth(760).setHeight(560);
   SpreadsheetApp.getUi().showModalDialog(html, "🗓 Guardias programadas — fuente única");
+}
+
+// Exportación del calendario de guardias (Google Sheet formateado) desde el
+// contexto confiable del menú. La web app pública NO puede hacerlo: la
+// operación es administrativa (falla cerrada en generarHojaGuardias).
+function generarCalendarioGuardiasMenu() {
+  asegurarAdminsSembrados_();
+  var auth = autorizarAdmin_();
+  if (!auth.ok) {
+    SpreadsheetApp.getUi().alert("🚫 " + descripcionErrorAdmin_(auth.codigo));
+    return;
+  }
+  SpreadsheetApp.getUi().alert("📄 Generando calendario de guardias…\nAl finalizar verás el enlace del documento.");
+  var res = _generarHojaGuardiasInterna_(null, true);
+  if (!res.ok) {
+    SpreadsheetApp.getUi().alert("No se pudo generar el calendario de guardias:\n" + (res.error || "error desconocido"));
+    return;
+  }
+  var ui = SpreadsheetApp.getUi();
+  var html = HtmlService.createHtmlOutput(
+      '<p style="font-family:Arial">Calendario de guardias listo:<br>' +
+      '<a href="' + res.url + '" target="_blank">' + res.url + "</a></p>")
+    .setWidth(480).setHeight(140);
+  ui.showModalDialog(html, "📄 Calendario de guardias");
+}
+
+//────────────────────────────────────────────
+// 👨‍🔐 ADMINISTRADORES — allowlist auditable (propiedad ADMIN_EMAILS)
+//────────────────────────────────────────────
+
+function configurarAdministradores() {
+  asegurarAdminsSembrados_();
+  var id = _emailActivoSesion_();
+  var ui = SpreadsheetApp.getUi();
+
+  if (!id.disponible) {
+    ui.alert("🚫 No se pudo verificar tu identidad de Google.\n" +
+      "Usa tu cuenta de administrador y abre la hoja de nuevo.");
+    return;
+  }
+
+  var actuales = _emailsAdminConfigurados_();
+  // Bootstrap: con la lista vacía, solo el propietario de la hoja puede sembrarla.
+  if (!actuales.length) {
+    var dueño = "";
+    try {
+      var o = SpreadsheetApp.getActive().getOwner();
+      dueño = String((o && o.getEmail && o.getEmail()) || "").trim().toLowerCase();
+    } catch (e) {}
+    if (dueño && id.email !== dueño) {
+      ui.alert("🚫 La lista de administradores está vacía y solo el propietario\n" +
+        "de la hoja puede inicializarla (" + dueño + ").");
+      return;
+    }
+  } else {
+    var auth = autorizarAdmin_();
+    if (!auth.ok) {
+      ui.alert("🚫 " + descripcionErrorAdmin_(auth.codigo));
+      return;
+    }
+  }
+
+  var resp = ui.prompt(
+    "👨‍🔐 Administradores del sistema",
+    "Correos autorizados, separados por coma.\nLa lista actual es:\n" +
+      (actuales.join(", ") || "(vacía)"),
+    ui.ButtonSet.OK_CANCEL);
+  if (resp.getSelectedButton() !== ui.ButtonSet.OK) return;
+
+  var nueva = String(resp.getResponseText() || "")
+    .split(",").map(function(x) { return x.trim().toLowerCase(); })
+    .filter(function(x) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x); });
+  if (!nueva.length) {
+    ui.alert("No se modificó la lista: la entrada no contenía correos válidos.");
+    return;
+  }
+  if (nueva.indexOf(id.email) === -1 && actuales.indexOf(id.email) !== -1) {
+    ui.alert("🚫 No puedes quitarte a ti mismo de la lista.\nOtro administrador debe hacerlo.");
+    return;
+  }
+
+  PropertiesService.getScriptProperties().setProperty("ADMIN_EMAILS", nueva.join(","));
+  Logger.log("[AUDIT] ADMIN_EMAILS actualizada por " + id.email + " → " +
+    nueva.map(function(x) { return _hashEmail(x); }).join(",") + " (" + nueva.length + " administradores)");
+  ui.alert("✔ Lista de administradores actualizada (" + nueva.length + ").\n" +
+    "Los cambios rigen de inmediato y revocan tokens activos.");
 }
 
 function actualizarEstadisticasMenu() {

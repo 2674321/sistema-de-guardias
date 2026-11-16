@@ -132,6 +132,13 @@ function pruebasPuras() {
     if (diaBloqueadoPara(c, "voluntario", false)) throw new Error("inicial no debe bloquearse");
     if (diaBloqueadoPara(c, "voluntario", true)) throw new Error("operativo no debe bloquearse aún (0 op.)");
   });
+  h.t("Maquinista repetido por correo cuenta una sola vez", function() {
+    var c = contarCupoDia([
+      { email: "maq@example.invalid", cargo: "maquinista", nivel: "INICIAL" },
+      { email: "MAQ@example.invalid", cargo: "maquinista", nivel: "INICIAL" }
+    ]);
+    h.eq([c.maquinistas, c.operativos], [1, 0]);
+  });
   h.t("Operativo: 2 existentes llenan cupo y bloquean O/P pero no inicial", function() {
     var c = contarCupoDia([
       { cargo: "voluntario", nivel: "OPERATIVO" },
@@ -212,6 +219,160 @@ function pruebasPuras() {
     h.eq(esEmailValido("sin-arroba"), false);
     h.eq(esEmailValido("a@b"), false);
     h.eq(esEmailValido("a b@c.cl"), false);
+  });
+
+  // ── AUTORIZACIÓN SERVER-SIDE DE IDENTIDAD / ROL ──
+  var PADRON_HABILITACIONES = [
+    { personaId: "p1", email: "inicial@example.invalid", activo: "Si", categoria: "Voluntario", cargo: "Voluntario", nivel: "INICIAL", maquinista: "No" },
+    { personaId: "p2", email: "operativo@example.invalid", activo: "Si", categoria: "Voluntario", cargo: "Voluntario", nivel: "OPERATIVO", maquinista: "No" },
+    { personaId: "p3", email: "maquinista@example.invalid", activo: "Si", categoria: "Voluntario", cargo: "Maquinista", nivel: "PROFESIONAL", maquinista: "Si" },
+    { personaId: "p4", email: "aspirante@example.invalid", activo: "Si", categoria: "Aspirante", cargo: "", nivel: "", maquinista: "No" },
+    { personaId: "p5", email: "inactivo@example.invalid", activo: "No", categoria: "Voluntario", cargo: "Voluntario", nivel: "PROFESIONAL", maquinista: "Si" }
+  ];
+  h.t("Habilitación: voluntario inicial activo puede registrarse", function() {
+    var r = evaluarHabilitacionRegistro(PADRON_HABILITACIONES,
+      { email: "INICIAL@example.invalid", cargo: "voluntario", nivel: "INICIAL" });
+    h.eq([r.ok, r.estado, r.personaId], [true, "HABILITADO", "p1"]);
+  });
+  h.t("T-A1: payload maquinista u operativo autodeclarado se rechaza", function() {
+    var maq = evaluarHabilitacionRegistro(PADRON_HABILITACIONES,
+      { email: "inicial@example.invalid", cargo: "maquinista", nivel: "INICIAL" });
+    var op = evaluarHabilitacionRegistro(PADRON_HABILITACIONES,
+      { email: "inicial@example.invalid", cargo: "voluntario", nivel: "OPERATIVO" });
+    h.eq([maq.ok, maq.codigo], [false, "MAQUINISTA_NO_HABILITADO"]);
+    h.eq([op.ok, op.codigo], [false, "NIVEL_NO_HABILITADO"]);
+  });
+  h.t("T-A2: Activo=Si + Aspirante no habilita rol operativo", function() {
+    var r = evaluarHabilitacionRegistro(PADRON_HABILITACIONES,
+      { email: "aspirante@example.invalid", cargo: "voluntario", nivel: "INICIAL" });
+    h.eq([r.ok, r.estado, r.codigo], [false, "REQUIERE_VALIDACION", "CONDICION_NO_OPERATIVA"]);
+  });
+  h.t("Habilitación: identidad ausente, duplicada o inactiva falla seguro", function() {
+    var ausente = evaluarHabilitacionRegistro(PADRON_HABILITACIONES,
+      { email: "nadie@example.invalid", cargo: "voluntario", nivel: "INICIAL" });
+    var duplicado = evaluarHabilitacionRegistro(PADRON_HABILITACIONES.concat([PADRON_HABILITACIONES[0]]),
+      { email: "inicial@example.invalid", cargo: "voluntario", nivel: "INICIAL" });
+    var inactivo = evaluarHabilitacionRegistro(PADRON_HABILITACIONES,
+      { email: "inactivo@example.invalid", cargo: "voluntario", nivel: "INICIAL" });
+    h.eq([ausente.codigo, duplicado.codigo, inactivo.codigo],
+      ["IDENTIDAD_NO_ENCONTRADA", "IDENTIDAD_AMBIGUA", "PERSONA_NO_ACTIVA"]);
+  });
+  h.t("Compatibilidad: historial usa el último rol por correo sin unir por nombre", function() {
+    var legado = construirPadronCompatibilidadGuardias([
+      { email: "persona@example.invalid", nombre: "Nombre anterior", cargo: "voluntario", nivel: "INICIAL" },
+      { email: "PERSONA@example.invalid", nombre: "Nombre oficial", cargo: "maquinista", nivel: "OPERATIVO" },
+      { email: "correo-invalido", nombre: "Ignorado", cargo: "voluntario", nivel: "INICIAL" }
+    ]);
+    h.eq(legado.length, 1);
+    h.eq([legado[0].nombre, legado[0].cargo, legado[0].maquinista, legado[0].fuente],
+      ["Nombre oficial", "maquinista", "Si", "HISTORICO_GUARDIAS"]);
+    var r = evaluarHabilitacionRegistro(legado,
+      { email: "persona@example.invalid", cargo: "maquinista", nivel: "INICIAL" });
+    h.eq([r.ok, r.nombre, r.fuente], [true, "Nombre oficial", "HISTORICO_GUARDIAS"]);
+  });
+
+  // ── OBAC ──
+  function entradaObac(cambios) {
+    var e = {
+      fecha: "2026-09-14",
+      anclaPersonaId: "emmanuel",
+      fuente: "PUENTE_QA",
+      fuenteTimestamp: "2026-11-14T12:00:00Z",
+      versionReglas: "obac-1",
+      dotacion: [
+        { personaId: "antiguo", nombrePresentacion: "Voluntario Antiguo", identidadEstado: "VERIFICADA", condicionInstitucional: "VOLUNTARIO_ACTIVO", rolGuardia: "VOLUNTARIO" },
+        { personaId: "emmanuel", nombrePresentacion: "Emmanuel Jopia", identidadEstado: "VERIFICADA", condicionInstitucional: "VOLUNTARIO_ACTIVO", rolGuardia: "VOLUNTARIO" },
+        { personaId: "nuevo", nombrePresentacion: "Voluntario Nuevo", identidadEstado: "VERIFICADA", condicionInstitucional: "VOLUNTARIO_ACTIVO", rolGuardia: "VOLUNTARIO" }
+      ],
+      nomina: [
+        { personaId: "antiguo", nombrePresentacion: "Voluntario Antiguo", orden: 10, activo: "Si", vigente: true },
+        { personaId: "emmanuel", nombrePresentacion: "Emmanuel Jopia", orden: 34, activo: "Si", vigente: true },
+        { personaId: "nuevo", nombrePresentacion: "Voluntario Nuevo", orden: 35, activo: "Si", vigente: true }
+      ],
+      habilitaciones: [
+        { personaId: "antiguo", estado: "HABILITADO", vigenteDesde: "2026-01-01" },
+        { personaId: "emmanuel", estado: "HABILITADO", vigenteDesde: "2026-01-01" },
+        { personaId: "nuevo", estado: "HABILITADO", vigenteDesde: "2026-01-01" }
+      ]
+    };
+    Object.keys(cambios || {}).forEach(function(k) { e[k] = cambios[k]; });
+    return e;
+  }
+  h.t("OBAC: elige mayor antigüedad elegible y corte incluye ancla", function() {
+    var e = entradaObac();
+    var r = resolverObacDia(e);
+    h.eq([r.estado, r.obacId, r.motivo], ["ASIGNADO_AUTOMATICO", "antiguo", "MAYOR_ANTIGUEDAD_ELEGIBLE"]);
+    e.dotacion = [e.dotacion[1]];
+    r = resolverObacDia(e);
+    h.eq([r.estado, r.obacId], ["ASIGNADO_AUTOMATICO", "emmanuel"]);
+  });
+  h.t("OBAC: posterior al corte, no inscrito y postulante quedan excluidos", function() {
+    var e = entradaObac();
+    e.dotacion = [e.dotacion[2], { personaId: "antiguo", nombrePresentacion: "X", identidadEstado: "VERIFICADA", condicionInstitucional: "POSTULANTE", rolGuardia: "NINGUNO" }];
+    var r = resolverObacDia(e);
+    h.eq([r.estado, r.motivo], ["OBAC_PENDIENTE", "SIN_CANDIDATO_ELEGIBLE"]);
+  });
+  h.t("OBAC: reintegro, ODD pendiente e inhabilitación explícita fallan seguro", function() {
+    var e = entradaObac();
+    e.dotacion = [e.dotacion[0]];
+    e.nomina[0].esReintegrado = "Si";
+    h.eq(resolverObacDia(e).estado, "OBAC_PENDIENTE");
+    e.nomina[0].esReintegrado = "No"; e.nomina[0].oddPendiente = "Si";
+    h.eq(resolverObacDia(e).estado, "OBAC_PENDIENTE");
+    e.nomina[0].oddPendiente = "No"; e.habilitaciones[0].estado = "NO_HABILITADO";
+    h.eq(resolverObacDia(e).estado, "OBAC_PENDIENTE");
+  });
+  h.t("OBAC: alias pendiente, maquinista y fuente incierta se excluyen", function() {
+    var e = entradaObac();
+    e.dotacion = [e.dotacion[0]];
+    e.dotacion[0].identidadEstado = "PENDIENTE";
+    h.eq(resolverObacDia(e).estado, "OBAC_PENDIENTE");
+    e.dotacion[0].identidadEstado = "VERIFICADA"; e.dotacion[0].rolGuardia = "MAQUINISTA";
+    h.eq(resolverObacDia(e).estado, "OBAC_PENDIENTE");
+    e.dotacion[0].rolGuardia = "VOLUNTARIO"; e.fuenteTimestamp = "";
+    h.eq(resolverObacDia(e).motivo, "FUENTE_SIN_TIMESTAMP");
+    e.fuenteTimestamp = "2026-11-01T00:00:00Z"; e.fuenteVigente = false;
+    h.eq(resolverObacDia(e).motivo, "FUENTE_DESACTUALIZADA");
+  });
+  h.t("OBAC: ancla ausente o habilitación contradictoria queda pendiente", function() {
+    var e = entradaObac({ anclaPersonaId: "no-existe" });
+    h.eq(resolverObacDia(e).motivo, "ANCLA_NO_ENCONTRADA");
+    e = entradaObac();
+    e.dotacion = [e.dotacion[0]];
+    e.habilitaciones.push({ personaId: "antiguo", estado: "NO_HABILITADO", vigenteDesde: "2026-01-01" });
+    h.eq(resolverObacDia(e).estado, "OBAC_PENDIENTE");
+  });
+
+  // ── POSTULANTES / ACTIVIDADES FORMATIVAS ──
+  var PADRON_FORMATIVO = [
+    { personaId: "post-1", email: "postulante@example.invalid", nombrePresentacion: "Postulante Preview", condicionInstitucional: "POSTULANTE", estado: "AUTORIZADO", requiereSupervisor: true },
+    { personaId: "asp-1", email: "aspirante@example.invalid", nombrePresentacion: "Aspirante Preview", condicionInstitucional: "ASPIRANTE", estado: "AUTORIZADO", requiereSupervisor: true }
+  ];
+  h.t("Postulante: programa guardia formativa sin rol ni nivel operativo", function() {
+    var r = evaluarSolicitudFormativa(PADRON_FORMATIVO, {
+      email: "postulante@example.invalid",
+      fechas: ["2026-09-14"]
+    });
+    h.eq([r.ok, r.estado, r.personaId, r.requiereSupervisor], [true, "PROGRAMADA", "post-1", true]);
+    h.eq(r.rolGuardia, undefined, "no crea rol operativo");
+  });
+  h.t("Postulante: correo ausente y fechas inválidas se rechazan", function() {
+    var sinId = evaluarSolicitudFormativa(PADRON_FORMATIVO, {
+      email: "no-autorizado@example.invalid",
+      fechas: ["2026-09-14"]
+    });
+    var dup = evaluarSolicitudFormativa(PADRON_FORMATIVO, {
+      email: "postulante@example.invalid",
+      fechas: ["2026-09-14", "2026-09-14"]
+    });
+    h.eq([sinId.codigo, dup.codigo], ["IDENTIDAD_NO_ENCONTRADA", "FECHAS_INVALIDAS"]);
+  });
+  h.t("Aspirante no se convierte automáticamente en postulante", function() {
+    var r = evaluarSolicitudFormativa(PADRON_FORMATIVO, {
+      email: "aspirante@example.invalid",
+      fechas: ["2026-09-14"]
+    });
+    h.eq([r.ok, r.codigo], [false, "CONDICION_NO_POSTULANTE"]);
   });
 
   // ── RESOLUTOR B9 / ASISTENCIA ──
@@ -465,6 +626,13 @@ function pruebasPuras() {
     h.eq(oct !== A, true, "meses distintos → claves distintas");
     h.eq(_periodoClave([]), "", "sin guardias → clave vacía");
   });
+  h.t("Calendario acumulativo: pestaña identifica el ciclo entre meses", function() {
+    var gs = normalizarGuardias([
+      { id: "g1", inicio: "2026-10-26", duracion: 7, activa: true },
+      { id: "g2", inicio: "2026-11-09", duracion: 7, activa: true }
+    ]).guardias;
+    h.eq(_nombrePestanaPeriodo_(gs), "oct-nov 2026");
+  });
 
   h.t("Actualización: misma clave y la hoja refleja los NUEVOS oficiales", function() {
     var bloques = _bloquesCalendario(HM_GUARDIAS_GEN);
@@ -514,6 +682,142 @@ function pruebasPuras() {
     h.eq(esDiaGuardiaEn(HM_GUARDIAS_GEN, "2026-09-15"), true, "15/09 dentro del período de guardia");
     h.eq(esDiaGuardiaEn(HM_GUARDIAS_GEN, "2026-09-21"), false, "21/09 receso");
     h.eq(esDiaGuardiaEn(HM_GUARDIAS_GEN, "2026-10-05"), false, "fuera del período");
+  });
+
+  h.t("Hoja: cada fecha muestra OBAC asignado o pendiente explícito", function() {
+    var obac = {
+      "2026-08-31": { estado: "ASIGNADO_AUTOMATICO", nombrePresentacion: "Voluntario Antiguo" },
+      "2026-09-14": { estado: "OBAC_PENDIENTE", motivo: "SIN_CANDIDATO_ELEGIBLE" }
+    };
+    var m = _modeloHojaGuardias(HM_GUARDIAS_GEN, {}, {}, {}, obac);
+    var i31 = m.indice["2026-08-31"], i14 = m.indice["2026-09-14"];
+    h.eq(m.valores[i31.obac - 1][1], "Voluntario Antiguo", "OBAC validado");
+    h.eq(m.valores[i14.obac - 1][1], "PENDIENTE DE ASIGNACIÓN", "pendiente visible");
+    h.eq(m.valores[m.indice["2026-09-01"].obac - 1][6], "PENDIENTE DE ASIGNACIÓN", "sin dato nunca queda vacío");
+  });
+
+  //────────────────────────────────────────
+  // AUDITORÍA P0 — autorización, ancla de ciclo, diff y parámetros (2026-11-16)
+  //────────────────────────────────────────
+
+  h.t("Autorización: identidad en allowlist → OK", function() {
+    var r = evaluarAutorizacionAdmin({ via: "identidad", email: "PVC.Devno@Gmail.Com " },
+      ["pvc.devno@gmail.com", "a2cl2674321@gmail.com"]);
+    h.eq(r.ok, true, "acceso concedido"); h.eq(r.via, "identidad");
+  });
+  h.t("Autorización: identidad fuera de allowlist → ADMIN_NO_AUTORIZADO (fail-closed)", function() {
+    var r = evaluarAutorizacionAdmin({ via: "identidad", email: "intruso@gmail.com" },
+      ["pvc.devno@gmail.com"]);
+    h.eq(r.ok, false, "denegado"); h.eq(r.codigo, "ADMIN_NO_AUTORIZADO");
+  });
+  h.t("Autorización: correo vacío → IDENTIDAD_NO_DISPONIBLE (web app pública)", function() {
+    var r = evaluarAutorizacionAdmin(null, ["pvc.devno@gmail.com"]);
+    h.eq(r.ok, false); h.eq(r.codigo, "IDENTIDAD_NO_DISPONIBLE");
+    var r2 = evaluarAutorizacionAdmin({ via: "identidad", email: "" }, ["pvc.devno@gmail.com"]);
+    h.eq(r2.ok, false); h.eq(r2.codigo, "IDENTIDAD_NO_DISPONIBLE");
+  });
+  h.t("Autorización: token válido de admin → OK; token válido de no admin → denegado", function() {
+    var ok = evaluarAutorizacionAdmin({ via: "token", email: "a2cl2674321@gmail.com", valido: true },
+      ["a2cl2674321@gmail.com"]);
+    h.eq(ok.ok, true); h.eq(ok.via, "token");
+    var no = evaluarAutorizacionAdmin({ via: "token", email: "otro@gmail.com", valido: true },
+      ["a2cl2674321@gmail.com"]);
+    h.eq(no.ok, false); h.eq(no.codigo, "ADMIN_NO_AUTORIZADO");
+  });
+  h.t("Autorización: token inválido/expirado → TOKEN_INVALIDO; nunca fallback inseguro", function() {
+    var r = evaluarAutorizacionAdmin({ via: "token", email: "", valido: false }, ["a2cl2674321@gmail.com"]);
+    h.eq(r.ok, false); h.eq(r.codigo, "TOKEN_INVALIDO");
+    var r2 = evaluarAutorizacionAdmin({ via: "identidad", email: "pvc.devno@gmail.com" }, []);
+    h.eq(r2.ok, false); h.eq(r2.codigo, "ADMIN_NO_AUTORIZADO", "allowlist vacía no concede");
+  });
+
+  h.t("Ancla de ciclo: hoy dentro de una guardia → esa guardia", function() {
+    var g = [
+      { id: "A", inicio: "2026-10-26", fin: "2026-11-01", activa: true },
+      { id: "B", inicio: "2026-11-09", fin: "2026-11-15", activa: true }
+    ];
+    h.eq(anclaCicloActual(g, "2026-10-27"), "2026-10-26", "hoy 27/10 cae en A");
+    h.eq(anclaCicloActual(g, "2026-11-10"), "2026-11-09", "hoy 10/11 cae en B");
+  });
+  h.t("Ancla de ciclo: entre guardias o antes → la próxima futura", function() {
+    var g = [
+      { id: "A", inicio: "2026-10-26", fin: "2026-11-01", activa: true },
+      { id: "B", inicio: "2026-11-23", fin: "2026-11-29", activa: true },
+      { id: "C", inicio: "2026-12-07", fin: "2026-12-13", activa: true }
+    ];
+    h.eq(anclaCicloActual(g, "2026-11-16"), "2026-11-23", "hoy 16/11 → ciclo nuevo 23/11 (NO 26/10)");
+    h.eq(anclaCicloActual(g, "2026-11-01"), "2026-10-26", "hoy 01/11 aún es fin de A → ciclo vigente");
+    h.eq(anclaCicloActual(g, "2026-11-02"), "2026-11-23", "hoy 02/11 (entre ciclos) → próxima futura");
+  });
+  h.t("Ancla de ciclo: histórico puro → la última; inactivas no anclan", function() {
+    var g = [
+      { id: "A", inicio: "2026-10-26", fin: "2026-11-01", activa: true },
+      { id: "F", inicio: "2026-12-21", fin: "2026-12-27", activa: false }
+    ];
+    h.eq(anclaCicloActual(g, "2026-11-16"), "2026-10-26", "solo queda la histórica");
+    h.eq(anclaCicloActual([], "2026-11-16"), "", "sin guardias → vacío");
+  });
+
+  h.t("Caso de prueba 23-11 → 20-12: ciclo de 28 días cubre ambas semanas (cruce nov→dic)", function() {
+    var ciclo = [
+      { id: "Guardia 1", inicio: "2026-11-23", fin: "2026-11-29", activa: true },
+      { id: "Guardia 2", inicio: "2026-12-07", fin: "2026-12-13", activa: true }
+    ];
+    h.eq(esDiaGuardiaEn(ciclo, "2026-11-23"), true, "inicio 23/11");
+    h.eq(esDiaGuardiaEn(ciclo, "2026-11-30"), false, "30/11 semana sin guardia");
+    h.eq(esDiaGuardiaEn(ciclo, "2026-12-01"), false, "01/12 cruzando mes");
+    h.eq(esDiaGuardiaEn(ciclo, "2026-12-07"), true, "07/12 segunda semana");
+    h.eq(esDiaGuardiaEn(ciclo, "2026-12-13"), true, "13/12 fin de guardia");
+    h.eq(esDiaGuardiaEn(ciclo, "2026-12-20"), false, "20/12 fin del ciclo, sin guardia");
+    var dias = diasDeCicloDesde("2026-11-23", 28);
+    h.eq(dias.length, 28, "28 días cívicos");
+    h.eq(dias[0], "2026-11-23", "ancla"); h.eq(dias[27], "2026-12-20", "último día del ciclo");
+  });
+  h.t("El ciclo 26/10 no reaparece como ancla tras guardar el ciclo nuevo", function() {
+    // Tabla acumulativa con históricos + ciclo nuevo programado:
+    var g = [
+      { id: "Guardia 1", inicio: "2026-10-26", fin: "2026-11-01", activa: true },
+      { id: "Guardia 3", inicio: "2026-11-09", fin: "2026-11-15", activa: true },
+      { id: "Guardia 1B", inicio: "2026-11-23", fin: "2026-11-29", activa: true },
+      { id: "Guardia 2B", inicio: "2026-12-07", fin: "2026-12-13", activa: true }
+    ];
+    h.eq(anclaCicloActual(g, "2026-11-16"), "2026-11-23", "ancla = ciclo activo, no guardias[0]");
+  });
+
+  h.t("Diff de guardado: altas, bajas y cambios declarados antes de escribir", function() {
+    var previas = [
+      { id: "Guardia 1", inicio: "2026-10-26", duracion: 7, activa: true },
+      { id: "Guardia 3", inicio: "2026-11-09", duracion: 7, activa: true }
+    ];
+    var nuevas = [
+      { id: "Guardia 1B", inicio: "2026-11-23", duracion: 7, activa: true },
+      { id: "Guardia 2B", inicio: "2026-12-07", duracion: 7, activa: true }
+    ];
+    var d = diffGuardiasProgramadas(previas, nuevas);
+    h.eq(d.bajas.map(function(x){ return x.inicio; }), ["2026-10-26", "2026-11-09"], "históricos salen del diff como bajas");
+    h.eq(d.altas.map(function(x){ return x.inicio; }), ["2026-11-23", "2026-12-07"], "ciclo nuevo son altas");
+    h.eq(d.cambios.length, 0);
+  });
+  h.t("Diff: detección de cambios de duración/activa/id", function() {
+    var previas = [{ id: "G1", inicio: "2026-11-23", duracion: 7, activa: true }];
+    var d = diffGuardiasProgramadas(previas, [
+      { id: "G1", inicio: "2026-11-23", duracion: 5, activa: true },
+      { id: "G9", inicio: "2026-12-07", duracion: 7, activa: false }
+    ]);
+    h.eq(d.cambios[0].campos[0].campo, "duracion");
+    h.eq(d.altas.length, 1); h.eq(d.altas[0].activa === false, false, "activa no se compara en altas");
+  });
+
+  h.t("Parámetros de calendario: mes/año válidos e inválidos", function() {
+    h.eq(mesAñoValidos(11, 2026), true, "número válido");
+    h.eq(mesAñoValidos("11", "2026"), true, "string numérico válido");
+    h.eq(mesAñoValidos("07", "2026"), true, "cero a la izquierda");
+    h.eq(mesAñoValidos(13, 2026), false, "mes 13 fuera de rango");
+    h.eq(mesAñoValidos(0, 2026), false, "mes 0");
+    h.eq(mesAñoValidos(11, 1999), false, "año antiguo");
+    h.eq(mesAñoValidos("noviembre", 2026), false, "texto de mes rechazado");
+    h.eq(mesAñoValidos(null, 2026), false, "null rechazado");
+    h.eq(mesAñoValidos(11, ""), false, "año vacío");
   });
 
   return h.resultados;

@@ -109,3 +109,35 @@ function serializarRespuestaCalendario() {
   Logger.log("[DIAG] serializarRespuestaCalendario: " + JSON.stringify(r));
   return r;
 }
+
+// ── Sonda auditoría P0 (2026-11-16): identidad + allowlist admin ──
+// Solo lectura. Enmascara correos: u***@dominio.tld
+function _mascaraEmail_(email) {
+  var s = String(email || "");
+  var at = s.indexOf("@");
+  if (at <= 0) return s ? "***" : "";
+  return s.charAt(0) + "***" + s.substring(at);
+}
+
+function diagAdminAuditoria() {
+  var r = _diagBase();
+  r.activo = "";
+  r.efectivo = "";
+  try { r.activo = _mascaraEmail_(Session.getActiveUser().getEmail()); } catch (e) { r.activoErr = String(e.message || e); }
+  try { r.efectivo = _mascaraEmail_(Session.getEffectiveUser().getEmail()); } catch (e) { r.efectivoErr = String(e.message || e); }
+
+  var props = PropertiesService.getScriptProperties();
+  var bruta = String(props.getProperty("ADMIN_EMAILS") || "");
+  r.adminEmailsDefinida = bruta.trim() !== "";
+  r.adminEmails = bruta.split(",").map(function (x) { return _mascaraEmail_(x.trim()); }).filter(Boolean);
+  r.sheetIdDefinido = !!String(props.getProperty("SHEET_ID") || "");
+  r.ambiente = props.getProperty("ENVIRONMENT") || "UNCONFIGURED";
+  r.webAppUrlDefinida = !!String(props.getProperty("WEB_APP_URL") || "");
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    r.hojaOk = !!ss;
+    r.hojaNombre = ss.getName();
+    r.hojaPropietario = _mascaraEmail_((ss.getOwner() && ss.getOwner().getEmail()) || "");
+  } catch (e) { r.hojaErr = String(e.message || e); }
+  return r;
+}
