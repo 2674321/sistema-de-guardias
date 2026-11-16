@@ -625,24 +625,26 @@ function gestionarGuardiasProgramadas() {
   SpreadsheetApp.getUi().showModalDialog(html, "🗓 Guardias programadas — fuente única");
 }
 
-// Exportación del calendario de guardias (Google Sheet formateado) desde el menú.
+// La operación real se ejecuta desde el diálogo HTML con google.script.run.
+// No bloquear la acción del menú con una exportación larga: el usuario debe
+// recibir un resultado y un error técnico aun si el generador falla.
 function generarCalendarioGuardiasMenu() {
-  SpreadsheetApp.getUi().alert("📄 Generando calendario de guardias…\nAl finalizar verás el enlace del documento.");
-  var res = _generarHojaGuardiasInterna_(null, true);
-  if (!res.ok) {
-    SpreadsheetApp.getUi().alert("No se pudo generar el calendario de guardias:\n" +
-      (res.error || "error desconocido") +
-      "\n\nEtapa: " + (res.etapa || "no informada") +
-      "\nDetalle técnico: " + (res.detalle || "revisar Ejecuciones de Apps Script"));
-
-    return;
+  try {
+    var html = HtmlService.createHtmlOutputFromFile("AdminGenerarCalendario")
+      .setWidth(600).setHeight(420);
+    SpreadsheetApp.getUi().showModalDialog(html, "📄 Calendario acumulativo de guardias");
+  } catch (e) {
+    Logger.log("generarCalendarioGuardiasMenu: " + (e && e.stack ? e.stack : e));
+    try {
+      SpreadsheetApp.getUi().alert(
+        "No se pudo abrir el generador del calendario.\n\n" +
+        "Comprueba que AdminGenerarCalendario.html esté cargado en Apps Script.\n\n" +
+        "Detalle: " + (e && e.message ? e.message : e)
+      );
+    } catch (errorUi) {
+      Logger.log("generarCalendarioGuardiasMenu/UI: " + errorUi);
+    }
   }
-  var ui = SpreadsheetApp.getUi();
-  var html = HtmlService.createHtmlOutput(
-      '<p style="font-family:Arial">Calendario de guardias listo:<br>' +
-      '<a href="' + res.url + '" target="_blank">' + res.url + "</a></p>")
-    .setWidth(480).setHeight(140);
-  ui.showModalDialog(html, "📄 Calendario de guardias");
 }
 
 function actualizarEstadisticasMenu() {
