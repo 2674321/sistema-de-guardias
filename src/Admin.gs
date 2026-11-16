@@ -630,7 +630,11 @@ function generarCalendarioGuardiasMenu() {
   SpreadsheetApp.getUi().alert("📄 Generando calendario de guardias…\nAl finalizar verás el enlace del documento.");
   var res = _generarHojaGuardiasInterna_(null, true);
   if (!res.ok) {
-    SpreadsheetApp.getUi().alert("No se pudo generar el calendario de guardias:\n" + (res.error || "error desconocido"));
+    SpreadsheetApp.getUi().alert("No se pudo generar el calendario de guardias:\n" +
+      (res.error || "error desconocido") +
+      "\n\nEtapa: " + (res.etapa || "no informada") +
+      "\nDetalle técnico: " + (res.detalle || "revisar Ejecuciones de Apps Script"));
+
     return;
   }
   var ui = SpreadsheetApp.getUi();
