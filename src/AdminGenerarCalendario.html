@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    :root { color-scheme: light; }
+    body { margin:0; padding:20px; font-family:Arial,sans-serif; color:#202124; background:#fbfaf8; font-size:13px; }
+    h2 { margin:0 0 8px; font-size:18px; }
+    p { margin:0 0 13px; line-height:1.5; }
+    .estado { padding:12px; border-radius:8px; background:#eef3ff; border:1px solid #c9d9fd; line-height:1.5; margin-bottom:12px; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .estado.error { background:#fff0f0; border-color:#e4b4b4; color:#902020; }
+    .estado.ok { background:#e8f5ec; border-color:#a9cbb3; color:#246037; }
+    .fila { display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:16px; }
+    button { padding:10px 15px; border-radius:7px; cursor:pointer; background:#9b1a1a; color:#fff; font-weight:700; border:0; }
+    button.sec { background:#eae8e5; color:#333; }
+    button:disabled { opacity:.5; cursor:wait; }
+    a { color:#9b1a1a; word-break:break-all; }
+    .nota { color:#666; font-size:11px; }
+  </style>
+</head>
+<body>
+  <h2>📄 Calendario de guardias acumulativo</h2>
+  <p>El sistema genera o actualiza la pestaña del ciclo actual en el documento acumulativo. Las guardias históricas y el resto de las pestañas no se modifican.</p>
+  <div id="estado" class="estado" role="status" aria-live="polite">Listo para generar el calendario.</div>
+  <div id="enlace"></div>
+  <div class="nota">Si se produce un error, se mostrará su etapa y el detalle devuelto por Apps Script. Las inscripciones de la hoja oficial no se modifican aquí.</div>
+  <div class="fila">
+    <button class="sec" onclick="google.script.host.close()">Cerrar</button>
+    <button id="generar" onclick="generar()">Generar o actualizar</button>
+  </div>
+  <script>
+    (function(){
+      var activo = false;
+      var boton = document.getElementById("generar");
+      var estado = document.getElementById("estado");
+      var enlace = document.getElementById("enlace");
+      function mostrar(texto, tipo) {
+        estado.className = "estado" + (tipo ? " " + tipo : "");
+        estado.textContent = texto;
+      }
+      window.generar = function() {
+        if (activo) return;
+        activo = true;
+        boton.disabled = true;
+        enlace.textContent = "";
+        mostrar("Generando calendario… El proceso puede requerir varias operaciones de Google Sheets.", "");
+        google.script.run
+          .withSuccessHandler(function(r){
+            activo = false;
+            boton.disabled = false;
+            if (!r || !r.ok) {
+              var causa = r && (r.error || r.message) || "La función no devolvió un resultado válido.";
+              var etapa = r && r.etapa || "no disponible";
+              var detalle = r && r.detalle || "Consultar Ejecuciones en el editor de Apps Script.";
+              mostrar("No se pudo generar el calendario.\nEtapa: " + etapa + "\nMotivo: " + causa + "\nDetalle: " + detalle, "error");
+              return;
+            }
+            mostrar("Calendario " + (r.estado === "actualizado" ? "actualizado" : "generado") + " correctamente.\nCiclo: " + (r.clave || "actual"), "ok");
+            if (typeof r.url === "string" && /^https:\/\/docs\.google\.com\/spreadsheets\/d\//.test(r.url)) {
+              var a = document.createElement("a");
+              a.href = r.url;
+              a.target = "_blank";
+              a.rel = "noopener noreferrer";
+              a.textContent = "Abrir calendario acumulativo";
+              enlace.appendChild(a);
+            }
+          })
+          .withFailureHandler(function(error){
+            activo = false;
+            boton.disabled = false;
+            mostrar("La ejecución falló antes de devolver un resultado.\nDetalle de Apps Script: " +
+              (error && error.message ? error.message : String(error)) +
+              "\nRevisar también el historial de Ejecuciones del proyecto.", "error");
+          })
+          .generarHojaGuardias({}, null);
+      };
+    })();
+  </script>
+</body>
+</html>
