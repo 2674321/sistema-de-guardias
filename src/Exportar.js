@@ -29,7 +29,6 @@
 var _CARPETA_CALENDARIOS = "Calendario de Guardias";
 var _HOJA_NOMBRE = "Calendario Guardia";
 var _HOJA_META = "__calendario_meta__";
-var _PROP_PREFIJO = "CAL_GUARDIA_ARCHIVO_";
 var _PROP_ARCHIVO_ACUMULATIVO = "CAL_GUARDIA_ARCHIVO_ACUMULATIVO";
 var _NOMBRE_ARCHIVO_ACUMULATIVO = "Calendario de Guardias - Acumulativo";
 
@@ -379,6 +378,7 @@ function generarHojaGuardias(oficialesSemana, token) {
 }
 
 function _generarHojaGuardiasInterna_(oficialesSemana, crearSiFalta) {
+  var etapa = "leer_datos";
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var guardias = _ordenarGuardiasPorInicio(obtenerGuardias().guardias);
@@ -442,26 +442,32 @@ function _generarHojaGuardiasInterna_(oficialesSemana, crearSiFalta) {
     // Adapter privado: si el puente mínimo autorizado no está disponible,
     // resolverObacParaCalendario devuelve pendiente para cada fecha.
     var obacPorDia = resolverObacParaCalendario(personas);
+    etapa = "construir_modelo";
     var modelo = _modeloHojaGuardias(guardias, personas, asisEstado, oficiales, obacPorDia);
     if (!modelo.ok) return { ok: false, error: modelo.error };
 
     var clave = _periodoClave(guardias);
+    etapa = "localizar_archivo_acumulativo";
     var archivo = _buscarCalendarioAcumulativo_();
 
     var estado;
     if (archivo) {
       // Un único documento conserva todos los períodos; solo se reconstruye
       // la pestaña del ciclo activo y las anteriores permanecen disponibles.
+      etapa = "actualizar_pestana_acumulativa";
       _actualizarPestanaAcumulativa_(archivo, clave, guardias, modelo);
       try { DriveApp.getFileById(archivo.getId()).setName(_NOMBRE_ARCHIVO_ACUMULATIVO); } catch (eNombre) {}
       estado = "actualizado";
     } else {
       if (!crearSiFalta) return { ok: false, errorCode: "CALENDARIO_NO_CONFIGURADO" };
+      etapa = "crear_archivo_acumulativo";
       archivo = SpreadsheetApp.create(_NOMBRE_ARCHIVO_ACUMULATIVO);
       var sheet = archivo.getSheets()[0];
       try {
         sheet.setName(_nombrePestanaPeriodo_(guardias));
+        etapa = "construir_hoja_inicial";
         _prepararHojaModelo_(sheet, modelo);
+        etapa = "registrar_metadatos";
         _metaGuardarAcumulativo_(archivo, clave, sheet.getName());
         PropertiesService.getScriptProperties().setProperty(_PROP_ARCHIVO_ACUMULATIVO, archivo.getId());
       } catch (eCreate) {
@@ -483,8 +489,9 @@ function _generarHojaGuardiasInterna_(oficialesSemana, crearSiFalta) {
 
     return { ok: true, url: archivo.getUrl(), nombre: _NOMBRE_ARCHIVO_ACUMULATIVO, titulo: modelo.titulo, ubicacion: ubicacion, notaOficial: modelo.notaOficial, clave: clave, estado: estado };
   } catch (e) {
-    Logger.log("generarHojaGuardias: " + e);
-    return { ok: false, error: "No se pudo generar el calendario de guardias.", detalle: String(e) };
+    Logger.log("generarHojaGuardias [" + etapa + "]: " + (e && e.stack ? e.stack : e));
+    return { ok: false, errorCode: "CALENDARIO_GENERACION_FALLIDA", etapa: etapa,
+      error: "No se pudo generar el calendario de guardias.", detalle: String(e && e.message ? e.message : e) };
   }
 }
 
@@ -573,7 +580,6 @@ function _aplicarModelo(sheet, m) {
   Object.keys(m.altoFilas).forEach(function(r) { sheet.setRowHeight(parseInt(r, 10), m.altoFilas[r]); });
   try { sheet.setFrozenRows(m.freezeRows); } catch (e) { Logger.log("freeze filas: " + e); }
   try { sheet.setFrozenColumns(m.freezeCols); } catch (e) { Logger.log("freeze columnas: " + e); }
-  _configurarImpresion(sheet);
 }
 
 function _moverACarpetaCalendarios(archivo) {
@@ -589,32 +595,7 @@ function _moverACarpetaCalendarios(archivo) {
 // CONTROL DEL DOCUMENTO GENERADO (una hoja por período)
 //────────────────────────────────────────────
 
-// Escribe la clave del período dentro del propio documento (hoja oculta).
-function _metaGuardar(ss, clave) {
-  try {
-    var sh = ss.getSheetByName(_HOJA_META);
-    if (!sh) sh = ss.insertSheet(_HOJA_META, ss.getSheets().length);
-    sh.hideSheet();
-    sh.getRange("A1").setValue(clave);
-    sh.getRange("B1").setValue(String(new Date().toISOString()));
-  } catch (e) { Logger.log("meta guardar: " + e); }
-}
-
-function _metaLeer(ss) {
-  try {
-    var sh = ss.getSheetByName(_HOJA_META);
-    if (!sh) return "";
-    return String(sh.getRange("A1").getValue() || "").trim();
-  } catch (e) { return ""; }
-}
-
-function _propGuardar(clave, id) {
-  try { PropertiesService.getScriptProperties().setProperty(_PROP_PREFIJO + clave, id); } catch (e) {}
-}
-function _propLeer(clave) {
-  try { return PropertiesService.getScriptProperties().getProperty(_PROP_PREFIJO + clave) || ""; } catch (e) { return ""; }
-}
-
+// Gestión exclusiva del documento acumulativo.
 function _buscarCalendarioAcumulativo_() {
   var id = "";
   try { id = PropertiesService.getScriptProperties().getProperty(_PROP_ARCHIVO_ACUMULATIVO) || ""; } catch (e) {}
@@ -649,81 +630,51 @@ function _prepararHojaModelo_(sheet, modelo) {
 }
 
 function _metaGuardarAcumulativo_(ss, clave, nombreHoja) {
-  try {
-    var sh = ss.getSheetByName(_HOJA_META);
-    if (!sh) sh = ss.insertSheet(_HOJA_META, ss.getSheets().length);
-    if (sh.getLastRow() === 0) sh.getRange(1, 1, 1, 3).setValues([["periodo", "hoja", "actualizado_en"]]);
-    var data = sh.getDataRange().getValues();
-    var fila = 0;
-    for (var i = 1; i < data.length; i++) if (String(data[i][0]) === clave) { fila = i + 1; break; }
-    var valores = [[clave, nombreHoja, new Date()]];
-    if (fila) sh.getRange(fila, 1, 1, 3).setValues(valores);
-    else sh.getRange(sh.getLastRow() + 1, 1, 1, 3).setValues(valores);
-    sh.hideSheet();
-  } catch (e) { Logger.log("meta acumulativa: " + e); }
+  var sh = ss.getSheetByName(_HOJA_META);
+  if (!sh) sh = ss.insertSheet(_HOJA_META, ss.getSheets().length);
+  if (sh.getLastRow() === 0) sh.getRange(1, 1, 1, 3).setValues([["periodo", "hoja", "actualizado_en"]]);
+  var data = sh.getDataRange().getValues();
+  var fila = 0;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === clave) { fila = i + 1; break; }
+  }
+  var valores = [[clave, nombreHoja, new Date()]];
+  if (fila) sh.getRange(fila, 1, 1, 3).setValues(valores);
+  else sh.getRange(sh.getLastRow() + 1, 1, 1, 3).setValues(valores);
+  if (!sh.isSheetHidden()) sh.hideSheet();
 }
 
+// Generación recuperable: el calendario anterior se conserva hasta finalizar la nueva hoja.
 function _actualizarPestanaAcumulativa_(ss, clave, guardias, modelo) {
   var nombre = _nombrePestanaPeriodo_(guardias);
-  var objetivo = ss.getSheetByName(nombre);
-  if (!objetivo) objetivo = ss.insertSheet(nombre, Math.max(0, ss.getSheets().length - 1));
-  _prepararHojaModelo_(objetivo, modelo);
-  _metaGuardarAcumulativo_(ss, clave, nombre);
-}
-
-// Busca el archivo del período: primero por referencia guardada, luego en la
-// carpeta Drive (por nombre exacto + metadato interno). Devuelve null si no existe.
-function _buscarCalendario(clave, nombre) {
-  var id = _propLeer(clave);
-  if (id) {
-    try {
-      var ss = SpreadsheetApp.openById(id);
-      if (_metaLeer(ss) === clave) return ss;
-    } catch (e) { Logger.log("buscar: referencia inválida, se ignora"); }
-  }
+  var anterior = ss.getSheetByName(nombre);
+  var sufijo = Utilities.getUuid().replace(/-/g, "").substring(0, 10);
+  var nombreTemporal = "__tmp_cal_" + sufijo;
+  var nombreRespaldo = "__prev_cal_" + sufijo;
+  var temporal = ss.insertSheet(nombreTemporal);
+  var anteriorRenombrada = false;
+  var temporalRenombrada = false;
   try {
-    var it = DriveApp.getFoldersByName(_CARPETA_CALENDARIOS);
-    if (!it.hasNext()) return null;
-    var carpeta = it.next();
-    var archivos = carpeta.getFilesByName(nombre);
-    while (archivos.hasNext()) {
-      var f = archivos.next();
-      try {
-        var ss2 = SpreadsheetApp.openById(f.getId());
-        var meta = _metaLeer(ss2);
-        // Metadato coincide, o archivo nuestro aún sin metadato (versión previa a meta).
-        if (meta === clave || (meta === "" && f.getName() === nombre)) {
-          _propGuardar(clave, f.getId());
-          return ss2;
-        }
-      } catch (e2) { continue; }
+    _prepararHojaModelo_(temporal, modelo);
+    if (String(temporal.getRange(1, 1).getDisplayValue()) !== String(modelo.titulo)) {
+      throw new Error("La hoja temporal no coincide con el calendario calculado");
     }
-  } catch (e) { Logger.log("buscar: carpeta no disponible"); }
-  return null;
-}
-
-// Actualiza el archivo existente para que represente exactamente la última
-// generación (sin datos/merges/estilos viejos ni filas sobrantes).
-function _reconstruirCalendario(ss, nombre, modelo) {
-  var objetivo = null;
-  ss.getSheets().forEach(function(h) {
-    if (h.getSheetName() === _HOJA_META) return;
-    if (!objetivo) { objetivo = h; } else { try { ss.deleteSheet(h); } catch (e2) { Logger.log("hoja sobrante: " + e2); } }
-  });
-  if (!objetivo) objetivo = ss.insertSheet(_HOJA_NOMBRE, 0);
-  objetivo.activate();
-  objetivo.clear();
-  try { objetivo.setFrozenRows(0); objetivo.setFrozenColumns(0); } catch (e3) {}
-  objetivo.setName(_HOJA_NOMBRE);
-  _aplicarModelo(objetivo, modelo);
-}
-
-function _configurarImpresion(sheet) {
-  // Configuración razonable si luego se imprime la hoja (sin generar PDF).
-  try {
-    var ps = sheet.getPageSetup();
-    try { ps.setOrientation(SpreadsheetApp.PageOrientation.LANDSCAPE); } catch (e2) {}
-    try { ps.setFitToWidth(1); ps.setFitToHeight(0); } catch (e3) {}
-    try { ps.setMarginTop(0.3); ps.setMarginBottom(0.3); ps.setMarginLeft(0.3); ps.setMarginRight(0.3); } catch (e4) {}
-  } catch (e) { Logger.log("configurarImpresion: " + e); }
+    if (anterior) {
+      anterior.setName(nombreRespaldo);
+      anteriorRenombrada = true;
+    }
+    temporal.setName(nombre);
+    temporalRenombrada = true;
+    _metaGuardarAcumulativo_(ss, clave, nombre);
+    if (anterior) ss.deleteSheet(anterior);
+  } catch (e) {
+    if (temporalRenombrada) {
+      try { temporal.setName(nombreTemporal); } catch (err1) { Logger.log("rollback temporal: " + err1); }
+    }
+    if (anteriorRenombrada) {
+      try { anterior.setName(nombre); } catch (err2) { Logger.log("rollback anterior: " + err2); }
+    }
+    try { ss.deleteSheet(temporal); } catch (err3) { Logger.log("rollback eliminación temporal: " + err3); }
+    throw e;
+  }
 }
