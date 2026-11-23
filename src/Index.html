@@ -1704,7 +1704,7 @@
       </span>
 
       <div id="op-banner" class="op-banner">
-        <span class="op-banner-text">Referencia: 1 maquinista · 2 operativos</span>
+        <span class="op-banner-text">Referencia: sin límite de cupo</span>
       </div>
 
       <div class="cal-scroll" id="cal-scroll">
@@ -1911,7 +1911,7 @@ const DIAS = [
 ];
 
 // Requisitos de despacho reflejados en la UI (misma regla que Reglas.gs)
-const REGLAS_UI = { cupoOp: 2, cupoMaq: 1 };
+const REGLAS_UI = { cupoOp: 9999, cupoMaq: 9999 };
 
 
 //══════════════════════════════════════
@@ -2656,8 +2656,8 @@ function _pintarNivel(){
   var nota = document.getElementById("nivel-nota");
   if(nota){
     nota.textContent = activo === "INICIAL" ? "Sin restricciones de cupo"
-      : activo === "OPERATIVO" ? "Cupo: máx 2 operativos por día"
-      : "Cupo: cuenta dentro de los 2 operativos por día";
+      : activo === "OPERATIVO" ? "Cupo: ilimitado"
+      : "Cupo: ilimitado";
   }
   var badge = document.getElementById("cargo-status-badge");
   if(badge){
@@ -2694,7 +2694,7 @@ function toggleFecha(fecha){
     if(bloqueado){
       var ms = [];
       if(cargo === "maquinista" && (data.maquinistas || 0) >= 1) ms.push("maquinista");
-      if(esOp && (data.operativos || 0) >= 2) ms.push("2 operativos");
+      if(esOp && (data.operativos || 0) >= 9999) ms.push("límite desactivado");
       mostrarError("Este día ya tiene " + ms.join(" y ") + ".");
       return;
     }

@@ -4,8 +4,8 @@
 //══════════════════════════════════════════
 
 var REGLAS = {
-  cupoOperativoPorDia: 2,       // Operativos + Profesionales por día
-  cupoMaquinistaPorDia: 1,      // Maquinistas por día
+  cupoOperativoPorDia: 9999,       // Operativos + Profesionales por día
+  cupoMaquinistaPorDia: 9999,      // Maquinistas por día
   nivelesCupoOperativo: ["OPERATIVO", "PROFESIONAL"],
   guardiasMaxHistoricoMes: 4    // Compatibilidad con registros antiguos de 4 fechas
 };
