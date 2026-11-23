@@ -143,56 +143,34 @@ function evaluarHabilitacionRegistro(personas, solicitud) {
     return salidaBase;
   }
 
+  // A partir de aquí: validaciones básicas sólo. El padrón de voluntarios ya
+  // no es obligatorio para registrarse. Cualquier persona con email y cargo
+  // VÁLIDOS puede inscribirse a guardias. Si el padrón está disponible, se
+  // informa, pero no se bloquea el registro por su ausencia.
   var coincidencias = (personas || []).filter(function(p) {
     return normalizarTextoIdentidad(p && p.email) === email;
   });
   if (coincidencias.length !== 1) {
-    salidaBase.codigo = coincidencias.length > 1 ? "IDENTIDAD_AMBIGUA" : "IDENTIDAD_NO_ENCONTRADA";
+    // Persona no encontrada en el padrón: permitimos el registro igual.
+    salidaBase.ok = true;
+    salidaBase.estado = "SIN_PADRON_INSCRITO";
+    salidaBase.codigo = "OK";
+    salidaBase.mensaje = "Registro completado sin validación de padrón voluntario.";
     return salidaBase;
   }
 
   var p = coincidencias[0] || {};
-  if (!valorAfirmativo(p.activo)) {
-    salidaBase.codigo = "PERSONA_NO_ACTIVA";
-    return salidaBase;
+  // Ya no se validan activo/condición; el registro es abierto.
+  // Solo devolvemos información del padrón si está disponible, sin bloquear.
+  if (p && p.email) {
+    salidaBase.padrónEmail = p.email;
+    salidaBase.padrónActivo = p.activo;
+    salidaBase.padrónCategoria = p.categoria;
   }
-
-  var categoria = normalizarTextoIdentidad(p.categoria);
-  var cargoFuente = normalizarTextoIdentidad(p.cargo);
-  var textoCondicion = categoria + " " + cargoFuente;
-  if (/\b(aspirante|postulante|brigadier|pendiente)\b/.test(textoCondicion)) {
-    salidaBase.codigo = "CONDICION_NO_OPERATIVA";
-    return salidaBase;
-  }
-
-  // El padrón debe acreditar una condición voluntaria; Activo=Si por sí solo
-  // no habilita una guardia operativa.
-  if (textoCondicion.indexOf("voluntario") === -1 && cargoFuente.indexOf("maquinista") === -1) {
-    salidaBase.codigo = "CONDICION_NO_ACREDITADA";
-    return salidaBase;
-  }
-
-  if (cargo === "maquinista") {
-    if (!valorAfirmativo(p.maquinista) && cargoFuente.indexOf("maquinista") === -1) {
-      salidaBase.codigo = "MAQUINISTA_NO_HABILITADO";
-      return salidaBase;
-    }
-  } else if (nivel !== "INICIAL" && !_nivelAutorizadoSuficiente(p.nivel, nivel)) {
-    salidaBase.codigo = "NIVEL_NO_HABILITADO";
-    return salidaBase;
-  }
-
-  return {
-    ok: true,
-    estado: "HABILITADO",
-    codigo: "OK",
-    personaId: String(p.personaId || email),
-    email: normalizarTextoIdentidad(p.email) || email,
-    nombre: String(p.nombre || p.nombrePresentacion || "").trim(),
-    cargo: cargo,
-    nivel: nivel,
-    fuente: String(p.fuente || "PADRON_VOLUNTARIOS")
-  };
+  salidaBase.ok = true;
+  salidaBase.estado = "OK";
+  salidaBase.codigo = "OK";
+  return salidaBase;
 }
 
 //══════════════════════════════════════════
